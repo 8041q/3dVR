@@ -36,6 +36,9 @@ function useTextureSafe(url) {
         if (!mounted) return
         t.wrapS = THREE.RepeatWrapping
         t.wrapT = THREE.RepeatWrapping
+        // Flip horizontally for inside-facing sphere UVs (fixes mirrored panoramas)
+        t.repeat.x *= -1
+        t.needsUpdate = true
         setTex(t)
       },
       undefined,
@@ -104,11 +107,11 @@ export default function Viewer({ sceneId, onNavigate, scenes }) {
 
   return (
     <div className="viewer">
-      <Canvas camera={{ fov: 75, position: [0, 0, 0.1] }}>
+        <Canvas camera={{ fov: 75, position: [0, 0, 0.1] }}>
         <Suspense fallback={null}>
           <Scene scene={current} onHotspotClick={(id) => onNavigate(id)} />
         </Suspense>
-        <OrbitControls enableZoom={false} enablePan={false} />
+          <OrbitControls enableZoom={false} enablePan={false} rotateSpeed={-1} />
       </Canvas>
     </div>
   )
