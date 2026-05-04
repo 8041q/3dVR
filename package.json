@@ -2,20 +2,33 @@
   "name": "3dvr-viewer",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "concurrently -n vite,server -c cyan,yellow \"vite\" \"nodemon --experimental-vm-modules server/index.js\"",
+    "server": "nodemon --experimental-vm-modules server/index.js",
     "build": "vite build",
     "preview": "vite preview"
   },
   "dependencies": {
+    "@react-three/drei": "^9.0.0",
+    "@react-three/fiber": "^8.0.0",
+    "@react-three/xr": "^6.6.29",
+    "bcryptjs": "^3.0.3",
+    "concurrently": "^9.2.1",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.4.1",
+    "gsap": "^3.12.0",
+    "jsonwebtoken": "^9.0.3",
+    "multer": "^2.1.1",
+    "nodemon": "^3.1.14",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "three": "^0.160.0",
-    "@react-three/fiber": "^8.0.0",
-    "@react-three/drei": "^9.0.0",
-    "gsap": "^3.12.0"
+    "three": "^0.160.0"
   },
   "devDependencies": {
+    "selfsigned": "^2.4.1",
     "vite": "^5.0.0"
   }
 }

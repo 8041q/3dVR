@@ -10,7 +10,7 @@
   {
     "id": "hall",
     "title": "Hall",
-    "src": "/360view.png",
+    "src": "/wide.jpg",
     "hotspots": [
       { "id": "h2", "label": "Back to Lobby", "position": { "yaw": 180, "pitch": 0 }, "target": "lobby" }
     ]

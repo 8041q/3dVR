@@ -1,6 +1,7 @@
 # 3D VR Viewer (React + R3F)
 
 This small project renders equirectangular panoramas and supports clickable hotspots that navigate between scenes.
+It now includes PC mode, phone motion mode, and headset VR mode.
 
 Quick start
 
@@ -18,6 +19,14 @@ npm install
 npm run dev
 ```
 
+4. Restart the dev server after config changes, then open the HTTPS URL shown by Vite on your phone, for example:
+
+```bash
+https://192.168.x.x:5173/
+```
+
+5. Accept the certificate warning, switch to Phone Mode, tap Enable Motion, and move the phone.
+
 Files of interest
 
 - `src/components/Viewer.jsx` — main viewer using `@react-three/fiber`.
@@ -29,6 +38,15 @@ Next steps
 - Replace placeholder panorama files with your 4K PNGs named `pano1.png`, `pano2.png`, or update `scenes.json`.
 - Add crossfade transitions and preloading for smoother navigation.
 - Add mobile/touch tuning and optional WebXR support.
+
+Phone testing notes
+
+- Phone Mode uses `deviceorientation` on the normal canvas. It does not require a headset.
+- Headset VR still uses WebXR and only works on browsers/devices with `immersive-vr` support.
+- Phone sensors require a secure context. Opening the PC's LAN IP over plain HTTP will usually fail.
+- The included Vite HTTPS setup generates a self-signed certificate that covers localhost and your current LAN IPv4 addresses.
+- If your Wi-Fi IP changes, restart the dev server so the certificate is regenerated for the new address.
+- If forward feels wrong after enabling motion, use the Recenter button in the Phone Mode panel.
 
 Adding more panoramas and hotspots
 
