@@ -1,0 +1,6 @@
+# Replace vr.example.com with the real DNS name that points to this server.
+# Caddy will obtain and renew a trusted TLS certificate automatically.
+vr.example.com {
+  encode zstd gzip
+  reverse_proxy 127.0.0.1:3001
+}

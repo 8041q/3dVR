@@ -1,0 +1,7 @@
+import * as THREE from 'three'
+const B = {
+  front:{f:new THREE.Vector3(0,0,-1),r:new THREE.Vector3(1,0,0),u:new THREE.Vector3(0,1,0)}, right:{f:new THREE.Vector3(1,0,0),r:new THREE.Vector3(0,0,1),u:new THREE.Vector3(0,1,0)}, back:{f:new THREE.Vector3(0,0,1),r:new THREE.Vector3(-1,0,0),u:new THREE.Vector3(0,1,0)}, left:{f:new THREE.Vector3(-1,0,0),r:new THREE.Vector3(0,0,-1),u:new THREE.Vector3(0,1,0)}, up:{f:new THREE.Vector3(0,1,0),r:new THREE.Vector3(1,0,0),u:new THREE.Vector3(0,0,1)}, down:{f:new THREE.Vector3(0,-1,0),r:new THREE.Vector3(1,0,0),u:new THREE.Vector3(0,0,-1)}
+}
+export function tileDirection(face,col,row,n) { const b=B[face]; const x=((col+.5)/n)*2-1; const y=1-((row+.5)/n)*2; return b.f.clone().addScaledVector(b.r,x).addScaledVector(b.u,y).normalize() }
+export function tileTransform(face,col,row,n,radius=50,inset=.02) { const b=B[face]; const size=radius*2/n; const x=-radius+(col+.5)*size; const y=radius-(row+.5)*size; const position=b.f.clone().multiplyScalar(radius-inset).addScaledVector(b.r,x).addScaledVector(b.u,y); const matrix=new THREE.Matrix4().makeBasis(b.r,b.u,b.f); const q=new THREE.Quaternion().setFromRotationMatrix(matrix); return { position:position.toArray(), quaternion:q.toArray(), scale:[size,size,1] } }
+export function fillTileUrl(template,{face,level,row,col}) { return template.replace('{face}',face).replace('{level}',String(level)).replace('{row}',String(row)).replace('{col}',String(col)) }

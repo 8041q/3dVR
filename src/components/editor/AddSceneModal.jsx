@@ -27,7 +27,7 @@ export default function AddSceneModal({ onClose, onAdd, uploadImage }) {
       const newScene = {
         id: generateId('scene'),
         title: title.trim(),
-        src: url,
+        image: url,
         hotspots: [],
       }
       onAdd(newScene)
@@ -57,7 +57,7 @@ export default function AddSceneModal({ onClose, onAdd, uploadImage }) {
           </label>
 
           <label className="modal__label">
-            360° Panorama Image (JPEG, PNG or WebP, up to 50 MB)
+            360 panorama image (JPEG, PNG or WebP)
             <input className="modal__input" type="file" accept="image/jpeg,image/png,image/webp" onChange={handleFile} />
           </label>
 
@@ -72,7 +72,7 @@ export default function AddSceneModal({ onClose, onAdd, uploadImage }) {
           <div className="modal__actions">
             <button type="button" className="btn btn--ghost" onClick={onClose} disabled={uploading}>Cancel</button>
             <button type="submit" className="btn btn--primary" disabled={uploading}>
-              {uploading ? 'Uploading…' : 'Add Scene'}
+              {uploading ? 'Uploading...' : 'Add Scene'}
             </button>
           </div>
         </form>

@@ -11,10 +11,10 @@ export default function EditorToolbar({ placingHotspot, onTogglePlacing, saving,
         onClick={onTogglePlacing}
         title={placingHotspot ? 'Click the panorama to place a hotspot' : 'Enable hotspot placement mode'}
       >
-        {placingHotspot ? '📍 Click to Place…' : '+ Add Hotspot'}
+        {placingHotspot ? 'Click to place' : '+ Add Hotspot'}
       </button>
 
-      {saving && <span className="editor-toolbar__status">Saving…</span>}
+      {saving && <span className="editor-toolbar__status">Saving...</span>}
       {saveError && <span className="editor-toolbar__status editor-toolbar__status--error">{saveError}</span>}
 
       <button

@@ -1,0 +1,36 @@
+services:
+  web:
+    build: .
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+    command: ["node", "server/index.js"]
+    ports:
+      - "3001:3001"
+    volumes:
+      - panorama_storage:/app/storage
+      - project_data:/app/server/data
+      - uploaded_assets:/app/public/uploads
+
+  worker:
+    build: .
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+    command: ["node", "server/panoramaWorker.js"]
+    depends_on:
+      - web
+    volumes:
+      - panorama_storage:/app/storage
+      - project_data:/app/server/data
+      - uploaded_assets:/app/public/uploads
+
+volumes:
+  panorama_storage:
+  project_data:
+  uploaded_assets:

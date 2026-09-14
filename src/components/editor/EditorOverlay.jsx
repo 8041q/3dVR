@@ -1,15 +1,11 @@
-import React, { useCallback, useRef } from 'react'
-import SceneList from './SceneList'
-import HotspotPanel from './HotspotPanel'
-import EditorToolbar from './EditorToolbar'
-import { generateId } from '../../utils/coords'
+import React, { useState } from 'react'
+import HotspotActionEditor from './HotspotActionEditor'
 
 export default function EditorOverlay({
   scenes,
   currentSceneId,
   onNavigate,
   onScenesChange,
-  uploadImage,
   placingHotspot,
   onTogglePlacing,
   saving,
@@ -17,90 +13,180 @@ export default function EditorOverlay({
   onSave,
   selectedHotspotId,
   onSelectHotspot,
+  uploadAsset,
 }) {
-  const currentScene = scenes.find((s) => s.id === currentSceneId)
-  const selectedHotspot = currentScene?.hotspots?.find((h) => h.id === selectedHotspotId) ?? null
+  const scene = scenes.find((item) => item.id === currentSceneId)
+  const hotspot = scene?.hotspots?.find((item) => item.id === selectedHotspotId)
+  const [newTitle, setNewTitle] = useState('New scene')
 
-  function updateHotspot(updatedHotspot) {
-    const updated = scenes.map((scene) => {
-      if (scene.id !== currentSceneId) return scene
-      return {
-        ...scene,
-        hotspots: scene.hotspots.map((h) => h.id === updatedHotspot.id ? updatedHotspot : h),
-      }
-    })
-    onScenesChange(updated)
+  function patchScene(patch) {
+    onScenesChange(scenes.map((item) => (
+      item.id === currentSceneId ? { ...item, ...patch } : item
+    )))
   }
 
-  function deleteHotspot(hotspotId) {
-    const updated = scenes.map((scene) => {
-      if (scene.id !== currentSceneId) return scene
-      return { ...scene, hotspots: scene.hotspots.filter((h) => h.id !== hotspotId) }
+  function patchHotspot(nextHotspot) {
+    if (!hotspot) return
+    patchScene({
+      hotspots: (scene.hotspots || []).map((item) => (
+        item.id === hotspot.id ? nextHotspot : item
+      )),
     })
-    onScenesChange(updated)
-    onSelectHotspot(null)
   }
 
-  // Called from Viewer when user clicks the panorama in placing mode
-  const handlePlaceHotspot = useCallback(({ yaw, pitch }) => {
-    const newHotspot = {
-      id: generateId('h'),
-      label: 'New Hotspot',
-      position: { yaw, pitch },
-      target: '',
-      shape: 'sphere',
-      size: 1,
-    }
-    const updated = scenes.map((scene) => {
-      if (scene.id !== currentSceneId) return scene
-      return { ...scene, hotspots: [...(scene.hotspots || []), newHotspot] }
-    })
-    onScenesChange(updated)
-    onSelectHotspot(newHotspot.id)
-    onTogglePlacing() // turn off placing mode after drop
-  }, [scenes, currentSceneId, onScenesChange, onTogglePlacing])
+  function addScene() {
+    const id = `scene-${Date.now()}`
+    onScenesChange([
+      ...scenes,
+      {
+        id,
+        title: newTitle.trim() || 'New scene',
+        image: '/demo/lobby.jpg',
+        hotspots: [],
+      },
+    ])
+    onNavigate(id)
+  }
+
+  function removeScene() {
+    if (scenes.length <= 1) return
+
+    const nextScenes = scenes
+      .filter((item) => item.id !== currentSceneId)
+      .map((item) => ({
+        ...item,
+        hotspots: (item.hotspots || []).filter((itemHotspot) => (
+          itemHotspot.targetSceneId !== currentSceneId &&
+          !(itemHotspot.actions || []).some((action) => (
+            action.type === 'navigate-scene' && action.sceneId === currentSceneId
+          ))
+        )),
+      }))
+
+    onScenesChange(nextScenes)
+    onNavigate(nextScenes[0].id)
+  }
 
   return (
-    <>
-      <SceneList
-        scenes={scenes}
-        currentSceneId={currentSceneId}
-        onNavigate={onNavigate}
-        onScenesChange={onScenesChange}
-        uploadImage={uploadImage}
-      />
+    <aside className="editor-panel">
+      <header>
+        <strong>3DVR Editor</strong>
+        <button onClick={onSave} disabled={saving}>
+          {saving ? 'Saving...' : 'Save'}
+        </button>
+      </header>
 
-      <EditorToolbar
-        placingHotspot={placingHotspot}
-        onTogglePlacing={onTogglePlacing}
-        saving={saving}
-        saveError={saveError}
-        onSave={onSave}
-      />
+      {saveError && <div className="error-text">{saveError}</div>}
 
-      {selectedHotspot && (
-        <HotspotPanel
-          hotspot={selectedHotspot}
-          scenes={scenes}
-          currentSceneId={currentSceneId}
-          onUpdate={updateHotspot}
-          onDelete={deleteHotspot}
-          onClose={() => onSelectHotspot(null)}
-        />
+      <section>
+        <h3>Scenes</h3>
+        <div className="scene-list">
+          {scenes.map((item) => (
+            <button
+              key={item.id}
+              className={item.id === currentSceneId ? 'active' : ''}
+              onClick={() => onNavigate(item.id)}
+            >
+              {item.title || item.id}
+            </button>
+          ))}
+        </div>
+        <div className="inline-form">
+          <input value={newTitle} onChange={(event) => setNewTitle(event.target.value)} />
+          <button onClick={addScene}>Add</button>
+        </div>
+        <button className="danger" onClick={removeScene} disabled={scenes.length <= 1}>
+          Delete scene
+        </button>
+      </section>
+
+      {scene && (
+        <section>
+          <h3>Current scene</h3>
+          <label>
+            Title
+            <input
+              value={scene.title || ''}
+              onChange={(event) => patchScene({ title: event.target.value })}
+            />
+          </label>
+          <label>
+            Legacy panorama URL
+            <input
+              value={scene.image || ''}
+              onChange={(event) => patchScene({ image: event.target.value })}
+            />
+          </label>
+          <div className="muted">
+            Processed panorama: {scene.panorama?.manifestUrl || 'none'}
+          </div>
+        </section>
       )}
 
-      {/* Expose the place handler so Viewer can call it via prop threading */}
-      <PlacingProxy onPlace={handlePlaceHotspot} />
-    </>
-  )
-}
+      <section>
+        <h3>Hotspots</h3>
+        <button className={placingHotspot ? 'active' : ''} onClick={onTogglePlacing}>
+          {placingHotspot ? 'Click the panorama to place' : 'Place hotspot'}
+        </button>
 
-// Tiny helper to make the place callback accessible via a DOM custom event (avoids prop-drilling into Canvas)
-function PlacingProxy({ onPlace }) {
-  React.useEffect(() => {
-    function handler(e) { onPlace(e.detail) }
-    window.addEventListener('vr:placeHotspot', handler)
-    return () => window.removeEventListener('vr:placeHotspot', handler)
-  }, [onPlace])
-  return null
+        <div className="hotspot-list">
+          {(scene?.hotspots || []).map((item) => (
+            <button
+              key={item.id}
+              className={item.id === selectedHotspotId ? 'active list-button' : 'list-button'}
+              onClick={() => onSelectHotspot(item.id)}
+            >
+              {item.label || item.id}
+            </button>
+          ))}
+        </div>
+
+        {hotspot && (
+          <div className="inspector">
+            <label>
+              Label
+              <input
+                value={hotspot.label || ''}
+                onChange={(event) => patchHotspot({ ...hotspot, label: event.target.value })}
+              />
+            </label>
+            <label>
+              Size
+              <input
+                type="number"
+                min="0.4"
+                max="4"
+                step="0.1"
+                value={hotspot.size || 1}
+                onChange={(event) => patchHotspot({
+                  ...hotspot,
+                  size: Number(event.target.value),
+                })}
+              />
+            </label>
+
+            <HotspotActionEditor
+              hotspot={hotspot}
+              scenes={scenes}
+              currentSceneId={currentSceneId}
+              uploadAsset={uploadAsset}
+              onUpdate={patchHotspot}
+            />
+
+            <button
+              className="danger"
+              onClick={() => {
+                patchScene({
+                  hotspots: (scene.hotspots || []).filter((item) => item.id !== hotspot.id),
+                })
+                onSelectHotspot(null)
+              }}
+            >
+              Delete hotspot
+            </button>
+          </div>
+        )}
+      </section>
+    </aside>
+  )
 }

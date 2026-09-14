@@ -46,7 +46,7 @@ export default function SceneList({ scenes, currentSceneId, onNavigate, onScenes
             >
               <div
                 className="scene-list__thumb"
-                style={{ backgroundImage: scene.src ? `url(${scene.src})` : undefined }}
+                style={{ backgroundImage: scene.image ? `url(${scene.image})` : undefined }}
               />
               <div className="scene-list__info">
                 {renamingId === scene.id ? (
@@ -71,13 +71,13 @@ export default function SceneList({ scenes, currentSceneId, onNavigate, onScenes
                   className="icon-btn"
                   title="Rename"
                   onClick={() => startRename(scene)}
-                >✏️</button>
+                >Rename</button>
                 <button
                   className="icon-btn icon-btn--danger"
                   title="Delete scene"
                   onClick={() => handleDelete(scene)}
                   disabled={scenes.length <= 1}
-                >🗑️</button>
+                >Delete</button>
               </div>
             </li>
           ))}

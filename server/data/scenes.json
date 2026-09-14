@@ -2,25 +2,55 @@
   {
     "id": "lobby",
     "title": "Lobby",
-    "src": "/360view.png",
+    "image": "/demo/lobby.jpg",
     "hotspots": [
       {
-        "id": "h_oygonj8",
-        "label": "New Hotspot",
+        "id": "to-room",
+        "label": "Room",
+        "targetSceneId": "room",
+        "size": 1.2,
         "position": {
-          "yaw": -95.7586714827251,
-          "pitch": -27.10682361073686
-        },
-        "target": "",
-        "shape": "oval",
-        "size": 2.2
+          "yaw": 30,
+          "pitch": 0
+        }
       }
     ]
   },
   {
-    "id": "hall",
-    "title": "Hall",
-    "src": "/wide.jpg",
-    "hotspots": []
+    "id": "room",
+    "title": "Room",
+    "image": "/demo/room.png",
+    "hotspots": [
+      {
+        "id": "to-lobby",
+        "label": "Lobby",
+        "targetSceneId": "lobby",
+        "size": 1.2,
+        "position": {
+          "yaw": -35,
+          "pitch": -2
+        }
+      },
+      {
+        "id": "inspect-demo-product",
+        "label": "Inspect demo product",
+        "size": 1.15,
+        "position": {
+          "yaw": 25,
+          "pitch": -10
+        },
+        "actions": [
+          {
+            "id": "inspect-demo-action",
+            "type": "inspect-model",
+            "title": "Demo product",
+            "modelUrl": "/demo/product-demo.glb",
+            "modelScale": 1,
+            "rotationY": 0,
+            "exposeAnimations": true
+          }
+        ]
+      }
+    ]
   }
 ]

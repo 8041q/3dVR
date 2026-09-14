@@ -1,55 +1,30 @@
-import React, { createContext, useCallback, useContext, useEffect, useState } from 'react'
+import React, { createContext, useContext, useEffect, useMemo, useState } from 'react'
 
 const AuthContext = createContext(null)
+const KEY = '3dvr-editor-token'
 
 export function AuthProvider({ children }) {
-  const [isEditor, setIsEditor] = useState(false)
-  const [checking, setChecking] = useState(true)
+  const [token, setToken] = useState(() => localStorage.getItem(KEY) || '')
+  const [checking, setChecking] = useState(Boolean(token))
 
   useEffect(() => {
-    const token = localStorage.getItem('vr_editor_token')
     if (!token) { setChecking(false); return }
-
-    fetch('/api/auth/verify', { headers: { Authorization: `Bearer ${token}` } })
-      .then((r) => { if (r.ok) setIsEditor(true) })
+    fetch('/api/auth/session', { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => r.json())
+      .then((body) => { if (!body.authenticated) { localStorage.removeItem(KEY); setToken('') } })
       .catch(() => {})
       .finally(() => setChecking(false))
-  }, [])
+  }, [token])
 
-  const login = useCallback(async (password) => {
-    const res = await fetch('/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password }),
-    })
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}))
-      throw new Error(body.error || 'Login failed')
-    }
-    const { token } = await res.json()
-    localStorage.setItem('vr_editor_token', token)
-    setIsEditor(true)
-  }, [])
-
-  const logout = useCallback(() => {
-    localStorage.removeItem('vr_editor_token')
-    setIsEditor(false)
-  }, [])
-
-  return (
-    <AuthContext.Provider value={{ isEditor, checking, login, logout }}>
-      {children}
-    </AuthContext.Provider>
-  )
+  async function login(password) {
+    const r = await fetch('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password }) })
+    const body = await r.json().catch(() => ({}))
+    if (!r.ok) throw new Error(body.error || 'Login failed')
+    localStorage.setItem(KEY, body.token); setToken(body.token); return true
+  }
+  function logout() { localStorage.removeItem(KEY); setToken('') }
+  const value = useMemo(() => ({ token, isEditor: Boolean(token), checking, login, logout }), [token, checking])
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
-export function useAuth() {
-  const ctx = useContext(AuthContext)
-  if (!ctx) throw new Error('useAuth must be inside AuthProvider')
-  return ctx
-}
-
-export function getAuthHeaders() {
-  const token = localStorage.getItem('vr_editor_token')
-  return token ? { Authorization: `Bearer ${token}` } : {}
-}
+export function useAuth() { return useContext(AuthContext) }
