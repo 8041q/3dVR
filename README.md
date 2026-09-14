@@ -2,6 +2,10 @@
 
 Self-hosted 360 panorama, WebXR, guided-tour and product-inspection platform intended for company presentations and exhibitions.
 
+## User guide
+
+For normal editor use, start with [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md). It covers projects, scenes, panoramas, hotspots, 3D models, guides, publishing and offline exhibition use without requiring programming knowledge.
+
 ## Current capabilities
 
 - One URL viewer for desktop, normal phone, phone-in-plastic-headset and WebXR headsets.

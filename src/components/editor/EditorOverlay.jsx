@@ -1,17 +1,30 @@
 import React, { useState } from 'react'
+import { ACTION_TYPES, createAction, normalizeHotspotActions } from '../../actions/actionTypes'
 import HotspotActionEditor from './HotspotActionEditor'
 import GuideEditor from './GuideEditor'
+import ProjectManager from './ProjectManager'
+import AssetLibrary from './AssetLibrary'
 
 export default function EditorOverlay({
+  projectId,
+  projectTitle,
+  projectMeta,
+  projectDirty,
+  projectSaving,
+  projectPublishing,
+  authToken,
+  onProjectTitleChange,
+  onSaveProject,
+  onPublishProject,
   scenes,
   currentSceneId,
+  startSceneId,
+  onStartSceneChange,
   onNavigate,
   onScenesChange,
   placingHotspot,
   onTogglePlacing,
-  saving,
   saveError,
-  onSave,
   selectedHotspotId,
   onSelectHotspot,
   uploadAsset,
@@ -61,7 +74,7 @@ export default function EditorOverlay({
         hotspots: (item.hotspots || []).filter((itemHotspot) => (
           itemHotspot.targetSceneId !== currentSceneId &&
           !(itemHotspot.actions || []).some((action) => (
-            action.type === 'navigate-scene' && action.sceneId === currentSceneId
+            action.type === ACTION_TYPES.NAVIGATE_SCENE && action.sceneId === currentSceneId
           ))
         )),
       }))
@@ -71,17 +84,42 @@ export default function EditorOverlay({
       ...guide,
       steps: (guide.steps || []).filter((step) => step.sceneId !== currentSceneId),
     })))
+
+    if (startSceneId === currentSceneId) onStartSceneChange(nextScenes[0].id)
     onNavigate(nextScenes[0].id)
+  }
+
+  function useImageAsset(asset) {
+    patchScene({ image: asset.url, panorama: null })
+  }
+
+  function useModelAsset(asset) {
+    if (!hotspot) return
+    const actions = normalizeHotspotActions(hotspot)
+    const inspection = createAction(ACTION_TYPES.INSPECT_MODEL)
+    inspection.title = asset.name.replace(/\.[^.]+$/, '') || 'Product'
+    inspection.modelUrl = asset.url
+    patchHotspot({ ...hotspot, actions: [...actions, inspection] })
   }
 
   return (
     <aside className="editor-panel">
-      <header>
+      <header className="editor-panel__header">
         <strong>3DVR Editor</strong>
-        <button onClick={onSave} disabled={saving}>
-          {saving ? 'Saving...' : 'Save'}
-        </button>
       </header>
+
+      <ProjectManager
+        projectId={projectId}
+        title={projectTitle}
+        meta={projectMeta}
+        dirty={projectDirty}
+        saving={projectSaving}
+        publishing={projectPublishing}
+        token={authToken}
+        onTitleChange={onProjectTitleChange}
+        onSave={onSaveProject}
+        onPublish={onPublishProject}
+      />
 
       {saveError && <div className="error-text">{saveError}</div>}
 
@@ -94,7 +132,8 @@ export default function EditorOverlay({
               className={item.id === currentSceneId ? 'active' : ''}
               onClick={() => onNavigate(item.id)}
             >
-              {item.title || item.id}
+              <span>{item.title || item.id}</span>
+              {item.id === startSceneId && <small>Start</small>}
             </button>
           ))}
         </div>
@@ -127,6 +166,12 @@ export default function EditorOverlay({
           <div className="muted">
             Processed panorama: {scene.panorama?.manifestUrl || 'none'}
           </div>
+          <button
+            onClick={() => onStartSceneChange(currentSceneId)}
+            disabled={startSceneId === currentSceneId}
+          >
+            {startSceneId === currentSceneId ? 'Start scene' : 'Set as start scene'}
+          </button>
         </section>
       )}
 
@@ -218,6 +263,12 @@ export default function EditorOverlay({
         />
       </section>
 
+      <AssetLibrary
+        uploadAsset={uploadAsset}
+        selectedHotspot={hotspot}
+        onUseImage={useImageAsset}
+        onUseModel={useModelAsset}
+      />
     </aside>
   )
 }

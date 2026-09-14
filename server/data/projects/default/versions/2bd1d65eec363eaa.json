@@ -1,0 +1,160 @@
+{
+  "schemaVersion": 3,
+  "id": "default",
+  "title": "3DVR Project",
+  "startSceneId": "lobby",
+  "scenes": [
+    {
+      "id": "lobby",
+      "title": "Lobby",
+      "image": "/demo/lobby.jpg",
+      "hotspots": [
+        {
+          "id": "to-room",
+          "label": "Room",
+          "targetSceneId": "room",
+          "size": 1.2,
+          "position": {
+            "yaw": 30,
+            "pitch": 0
+          }
+        },
+        {
+          "id": "start-demo-guide",
+          "label": "Start guided tour",
+          "size": 1.1,
+          "position": {
+            "yaw": -28,
+            "pitch": -4
+          },
+          "actions": [
+            {
+              "id": "start-demo-guide-action",
+              "type": "start-guide",
+              "guideId": "demo-guide"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "room",
+      "title": "Room",
+      "image": "/demo/room.png",
+      "hotspots": [
+        {
+          "id": "to-lobby",
+          "label": "Lobby",
+          "targetSceneId": "lobby",
+          "size": 1.2,
+          "position": {
+            "yaw": -35,
+            "pitch": -2
+          }
+        },
+        {
+          "id": "inspect-demo-product",
+          "label": "Inspect demo product",
+          "size": 1.15,
+          "position": {
+            "yaw": 25,
+            "pitch": -10
+          },
+          "actions": [
+            {
+              "id": "inspect-demo-action",
+              "type": "inspect-model",
+              "title": "Demo product",
+              "modelUrl": "/demo/product-demo.glb",
+              "modelScale": 1,
+              "rotationY": 0,
+              "exposeAnimations": true,
+              "animationControls": [
+                {
+                  "id": "demo-open-storage",
+                  "label": "Open storage",
+                  "clip": "Open drawer"
+                }
+              ],
+              "materialVariants": [
+                {
+                  "id": "demo-light-finish",
+                  "label": "Light finish",
+                  "materialName": "*",
+                  "color": "#d8d1c4"
+                },
+                {
+                  "id": "demo-dark-finish",
+                  "label": "Dark finish",
+                  "materialName": "*",
+                  "color": "#4f5663"
+                }
+              ],
+              "annotations": [
+                {
+                  "id": "demo-drawer-detail",
+                  "label": "Drawer detail",
+                  "body": "Select this detail to explain the moving storage component during a presentation.",
+                  "position": [
+                    0,
+                    0.65,
+                    0.55
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "guides": [
+    {
+      "id": "demo-guide",
+      "title": "Room product tour",
+      "description": "A short guided example that moves from the lobby to the product inspection.",
+      "steps": [
+        {
+          "id": "guide-step-lobby",
+          "title": "Enter the room",
+          "sceneId": "lobby",
+          "instruction": "Look at the Room hotspot to continue into the product scene.",
+          "focus": {
+            "yaw": 30,
+            "pitch": 0
+          },
+          "highlightHotspotId": "to-room",
+          "advanceOnHotspotId": "to-room"
+        },
+        {
+          "id": "guide-step-product",
+          "title": "Inspect the product",
+          "sceneId": "room",
+          "instruction": "Open the product inspection. The guide will continue after you select it.",
+          "focus": {
+            "yaw": 25,
+            "pitch": -10
+          },
+          "highlightHotspotId": "inspect-demo-product",
+          "advanceOnHotspotId": "inspect-demo-product"
+        },
+        {
+          "id": "guide-step-animation",
+          "title": "Moving parts",
+          "sceneId": "room",
+          "instruction": "The drawer animation demonstrates how guides can control moving product parts.",
+          "inspectionCommand": {
+            "animationClip": "Open drawer"
+          }
+        }
+      ]
+    }
+  ],
+  "revision": "2bd1d65eec363eaa",
+  "publishedAt": "2026-09-14T16:29:59.301Z",
+  "assets": [
+    "/demo/lobby.jpg",
+    "/demo/room.png",
+    "/demo/product-demo.glb"
+  ]
+}

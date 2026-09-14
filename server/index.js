@@ -9,6 +9,7 @@ import { createScenesRouter } from './scenes.js'
 import { createUploadRouter } from './upload.js'
 import { createProjectsRouter } from './projects.js'
 import { createGuidesRouter } from './guides.js'
+import { createAssetsRouter } from './assets.js'
 import { createPanoramaUploadsRouter } from './panoramaUploads.js'
 import { createPanoramaJobsRouter } from './panoramaJobs.js'
 import { PANORAMA_ROOT } from './storagePaths.js'
@@ -37,6 +38,7 @@ app.use('/media/panoramas', express.static(PANORAMA_ROOT, {
 app.use('/api/auth', createAuthRouter(express))
 app.use('/api/scenes', createScenesRouter(express))
 app.use('/api/upload', createUploadRouter(express))
+app.use('/api/assets', createAssetsRouter(express))
 app.use('/api/projects', createProjectsRouter(express))
 app.use('/api/guides', createGuidesRouter(express))
 app.use('/api/panorama-uploads', createPanoramaUploadsRouter(express))

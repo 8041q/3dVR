@@ -1,6 +1,6 @@
 {
   "name": "3dvr-self-hosted",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -16,10 +16,11 @@
     "test:phase3": "node scripts/phase3-smoke.mjs",
     "test:phase4": "node scripts/phase4-static-check.mjs",
     "test:phase5": "node scripts/phase5-check.mjs",
-    "test": "npm run test:phase3 && npm run test:phase4 && npm run test:phase5 && npm run test:phase6 && npm run test:model && npm run test:offline-media",
+    "test": "npm run test:phase3 && npm run test:phase4 && npm run test:phase5 && npm run test:phase6 && npm run test:phase7 && npm run test:model && npm run test:offline-media",
     "test:model": "node scripts/product-model-smoke.mjs",
     "test:phase6": "node scripts/phase6-check.mjs",
-    "test:offline-media": "node scripts/offline-media-smoke.mjs"
+    "test:offline-media": "node scripts/offline-media-smoke.mjs",
+    "test:phase7": "node scripts/phase7-check.mjs"
   },
   "dependencies": {
     "@react-three/fiber": "^9.3.0",

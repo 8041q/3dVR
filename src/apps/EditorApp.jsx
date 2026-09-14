@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
-import { useScenes } from '../hooks/useScenes'
-import { useGuides } from '../hooks/useGuides'
+import { useProjectDraft } from '../hooks/useProjectDraft'
 import Viewer from '../components/Viewer'
 import LoginModal from '../components/LoginModal'
 import EditorOverlay from '../components/editor/EditorOverlay'
@@ -9,31 +8,38 @@ import PanoramaMasterUpload from '../components/editor/PanoramaMasterUpload'
 
 export default function EditorApp({ projectId = 'default' }) {
   const auth = useAuth()
+  const draft = useProjectDraft(projectId)
   const {
-    guides,
-    loading: guidesLoading,
-    error: guidesError,
-    updateGuides,
-    saveGuides,
-  } = useGuides()
-  const {
+    project,
     scenes,
+    guides,
+    meta,
     loading,
     error,
+    dirty,
+    saving,
+    publishing,
     updateScenes,
-    saveScenes,
+    updateGuides,
+    updateTitle,
+    updateStartScene,
+    saveDraft,
+    publish,
     uploadAsset,
-  } = useScenes()
+  } = draft
+
   const [sceneId, setSceneId] = useState(null)
   const [selected, setSelected] = useState(null)
   const [placing, setPlacing] = useState(false)
   const [showLogin, setShowLogin] = useState(false)
-  const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
 
   useEffect(() => {
-    if (scenes.length && !sceneId) setSceneId(scenes[0].id)
-  }, [scenes, sceneId])
+    if (!scenes.length) return
+    if (!sceneId || !scenes.some((scene) => scene.id === sceneId)) {
+      setSceneId(project?.startSceneId || scenes[0].id)
+    }
+  }, [project?.startSceneId, sceneId, scenes])
 
   const navigate = useCallback((id) => {
     setSceneId(id)
@@ -65,25 +71,33 @@ export default function EditorApp({ projectId = 'default' }) {
 
   const usePanorama = useCallback((panorama) => {
     updateScenes((previous) => previous.map((scene) => (
-      scene.id === sceneId ? { ...scene, panorama } : scene
+      scene.id === sceneId
+        ? { ...scene, panorama, image: scene.image || '' }
+        : scene
     )))
   }, [sceneId, updateScenes])
 
-  async function save() {
-    setSaving(true)
+  async function handleSave() {
     setSaveError('')
     try {
-      await Promise.all([saveScenes(scenes), saveGuides(guides)])
+      await saveDraft()
     } catch (saveFailure) {
       setSaveError(saveFailure.message)
-    } finally {
-      setSaving(false)
     }
   }
 
-  if (loading || guidesLoading) return <div className="app-loading">Loading {projectId}...</div>
-  if (error || guidesError) return <div className="app-loading error-text">{error || guidesError}</div>
-  if (!sceneId) return null
+  async function handlePublish() {
+    setSaveError('')
+    try {
+      await publish()
+    } catch (publishFailure) {
+      setSaveError(publishFailure.message)
+    }
+  }
+
+  if (loading) return <div className="app-loading">Loading {projectId}...</div>
+  if (error) return <div className="app-loading error-text">{error}</div>
+  if (!sceneId || !project) return null
 
   return (
     <div className="app">
@@ -108,15 +122,25 @@ export default function EditorApp({ projectId = 'default' }) {
       {auth.isEditor && (
         <>
           <EditorOverlay
+            projectId={projectId}
+            projectTitle={project.title}
+            projectMeta={meta}
+            projectDirty={dirty}
+            projectSaving={saving}
+            projectPublishing={publishing}
+            authToken={auth.token}
+            onProjectTitleChange={updateTitle}
+            onSaveProject={handleSave}
+            onPublishProject={handlePublish}
             scenes={scenes}
             currentSceneId={sceneId}
+            startSceneId={project.startSceneId}
+            onStartSceneChange={updateStartScene}
             onNavigate={navigate}
             onScenesChange={updateScenes}
             placingHotspot={placing}
             onTogglePlacing={() => setPlacing((value) => !value)}
-            saving={saving}
             saveError={saveError}
-            onSave={save}
             selectedHotspotId={selected}
             onSelectHotspot={setSelected}
             uploadAsset={uploadAsset}
