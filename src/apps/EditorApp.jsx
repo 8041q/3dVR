@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { useScenes } from '../hooks/useScenes'
+import { useGuides } from '../hooks/useGuides'
 import Viewer from '../components/Viewer'
 import LoginModal from '../components/LoginModal'
 import EditorOverlay from '../components/editor/EditorOverlay'
@@ -8,6 +9,13 @@ import PanoramaMasterUpload from '../components/editor/PanoramaMasterUpload'
 
 export default function EditorApp({ projectId = 'default' }) {
   const auth = useAuth()
+  const {
+    guides,
+    loading: guidesLoading,
+    error: guidesError,
+    updateGuides,
+    saveGuides,
+  } = useGuides()
   const {
     scenes,
     loading,
@@ -65,7 +73,7 @@ export default function EditorApp({ projectId = 'default' }) {
     setSaving(true)
     setSaveError('')
     try {
-      await saveScenes(scenes)
+      await Promise.all([saveScenes(scenes), saveGuides(guides)])
     } catch (saveFailure) {
       setSaveError(saveFailure.message)
     } finally {
@@ -73,8 +81,8 @@ export default function EditorApp({ projectId = 'default' }) {
     }
   }
 
-  if (loading) return <div className="app-loading">Loading {projectId}...</div>
-  if (error) return <div className="app-loading error-text">{error}</div>
+  if (loading || guidesLoading) return <div className="app-loading">Loading {projectId}...</div>
+  if (error || guidesError) return <div className="app-loading error-text">{error || guidesError}</div>
   if (!sceneId) return null
 
   return (
@@ -83,6 +91,7 @@ export default function EditorApp({ projectId = 'default' }) {
         sceneId={sceneId}
         onNavigate={navigate}
         scenes={scenes}
+        guides={guides}
         editMode={auth.isEditor}
         placingHotspot={auth.isEditor && placing}
         selectedHotspotId={selected}
@@ -111,6 +120,8 @@ export default function EditorApp({ projectId = 'default' }) {
             selectedHotspotId={selected}
             onSelectHotspot={setSelected}
             uploadAsset={uploadAsset}
+            guides={guides}
+            onGuidesChange={updateGuides}
           />
           <PanoramaMasterUpload onUseProcessed={usePanorama} />
         </>

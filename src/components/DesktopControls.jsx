@@ -4,9 +4,23 @@ import { useFrame, useThree } from '@react-three/fiber'
 
 // Dragging is intentionally inverted on both axes: moving the pointer right/down
 // rotates the view right/down instead of dragging the panorama under the pointer.
-export default function DesktopControls({ enabled = true, invertX = true, invertY = true }) {
+export default function DesktopControls({
+  enabled = true,
+  invertX = true,
+  invertY = true,
+  focusRequest = null,
+}) {
   const { camera, gl } = useThree()
-  const state = useRef({ yaw: 0, pitch: 0, dragging: false, x: 0, y: 0 })
+  const state = useRef({
+    yaw: 0,
+    pitch: 0,
+    dragging: false,
+    x: 0,
+    y: 0,
+    focusId: null,
+    targetYaw: null,
+    targetPitch: null,
+  })
 
   useEffect(() => {
     if (!enabled) return undefined
@@ -15,6 +29,8 @@ export default function DesktopControls({ enabled = true, invertX = true, invert
 
     const onPointerDown = (event) => {
       state.current.dragging = true
+      state.current.targetYaw = null
+      state.current.targetPitch = null
       state.current.x = event.clientX
       state.current.y = event.clientY
       element.setPointerCapture?.(event.pointerId)
@@ -61,8 +77,36 @@ export default function DesktopControls({ enabled = true, invertX = true, invert
     }
   }, [enabled, gl, camera, invertX, invertY])
 
-  useFrame(() => {
+  useEffect(() => {
+    if (!enabled || !focusRequest?.id || state.current.focusId === focusRequest.id) return
+    state.current.focusId = focusRequest.id
+    state.current.targetYaw = THREE.MathUtils.degToRad(Number(focusRequest.yaw) || 0)
+    state.current.targetPitch = THREE.MathUtils.clamp(
+      THREE.MathUtils.degToRad(Number(focusRequest.pitch) || 0),
+      -Math.PI / 2 + 0.03,
+      Math.PI / 2 - 0.03,
+    )
+  }, [enabled, focusRequest])
+
+  useFrame((_, delta) => {
     if (!enabled) return
+
+    if (state.current.targetYaw != null && state.current.targetPitch != null) {
+      const alpha = 1 - Math.exp(-7 * Math.min(delta, 0.1))
+      state.current.yaw = THREE.MathUtils.lerp(state.current.yaw, state.current.targetYaw, alpha)
+      state.current.pitch = THREE.MathUtils.lerp(state.current.pitch, state.current.targetPitch, alpha)
+
+      if (
+        Math.abs(state.current.yaw - state.current.targetYaw) < 0.002 &&
+        Math.abs(state.current.pitch - state.current.targetPitch) < 0.002
+      ) {
+        state.current.yaw = state.current.targetYaw
+        state.current.pitch = state.current.targetPitch
+        state.current.targetYaw = null
+        state.current.targetPitch = null
+      }
+    }
+
     camera.rotation.set(state.current.pitch, state.current.yaw, 0, 'YXZ')
   })
 

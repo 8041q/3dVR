@@ -52,6 +52,7 @@ export default function WorldButton({ label, position, width = 1.35, onActivate 
         interactionId: `product:${label}`,
         activate: () => onActivate?.(),
       }}
+      onPointerDown={(event) => event.stopPropagation()}
       onClick={(event) => {
         event.stopPropagation()
         interaction.activateObject(event.object, 'pointer')

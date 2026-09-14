@@ -1,0 +1,42 @@
+[
+  {
+    "id": "demo-guide",
+    "title": "Room product tour",
+    "description": "A short guided example that moves from the lobby to the product inspection.",
+    "steps": [
+      {
+        "id": "guide-step-lobby",
+        "title": "Enter the room",
+        "sceneId": "lobby",
+        "instruction": "Look at the Room hotspot to continue into the product scene.",
+        "focus": {
+          "yaw": 30,
+          "pitch": 0
+        },
+        "highlightHotspotId": "to-room",
+        "advanceOnHotspotId": "to-room"
+      },
+      {
+        "id": "guide-step-product",
+        "title": "Inspect the product",
+        "sceneId": "room",
+        "instruction": "Open the product inspection. The guide will continue after you select it.",
+        "focus": {
+          "yaw": 25,
+          "pitch": -10
+        },
+        "highlightHotspotId": "inspect-demo-product",
+        "advanceOnHotspotId": "inspect-demo-product"
+      },
+      {
+        "id": "guide-step-animation",
+        "title": "Moving parts",
+        "sceneId": "room",
+        "instruction": "The drawer animation demonstrates how guides can control moving product parts.",
+        "inspectionCommand": {
+          "animationClip": "Open drawer"
+        }
+      }
+    ]
+  }
+]

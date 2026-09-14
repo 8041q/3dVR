@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import HotspotActionEditor from './HotspotActionEditor'
+import GuideEditor from './GuideEditor'
 
 export default function EditorOverlay({
   scenes,
@@ -14,6 +15,8 @@ export default function EditorOverlay({
   selectedHotspotId,
   onSelectHotspot,
   uploadAsset,
+  guides = [],
+  onGuidesChange,
 }) {
   const scene = scenes.find((item) => item.id === currentSceneId)
   const hotspot = scene?.hotspots?.find((item) => item.id === selectedHotspotId)
@@ -64,6 +67,10 @@ export default function EditorOverlay({
       }))
 
     onScenesChange(nextScenes)
+    onGuidesChange?.(guides.map((guide) => ({
+      ...guide,
+      steps: (guide.steps || []).filter((step) => step.sceneId !== currentSceneId),
+    })))
     onNavigate(nextScenes[0].id)
   }
 
@@ -168,6 +175,7 @@ export default function EditorOverlay({
             <HotspotActionEditor
               hotspot={hotspot}
               scenes={scenes}
+              guides={guides}
               currentSceneId={currentSceneId}
               uploadAsset={uploadAsset}
               onUpdate={patchHotspot}
@@ -179,6 +187,19 @@ export default function EditorOverlay({
                 patchScene({
                   hotspots: (scene.hotspots || []).filter((item) => item.id !== hotspot.id),
                 })
+                onGuidesChange?.(guides.map((guide) => ({
+                  ...guide,
+                  steps: (guide.steps || []).map((step) => (
+                    step.sceneId === currentSceneId
+                      ? {
+                          ...step,
+                          highlightHotspotId: step.highlightHotspotId === hotspot.id ? '' : step.highlightHotspotId,
+                          advanceOnHotspotId: step.advanceOnHotspotId === hotspot.id ? '' : step.advanceOnHotspotId,
+                          autoActivateHotspotId: step.autoActivateHotspotId === hotspot.id ? '' : step.autoActivateHotspotId,
+                        }
+                      : step
+                  )),
+                })))
                 onSelectHotspot(null)
               }}
             >
@@ -187,6 +208,16 @@ export default function EditorOverlay({
           </div>
         )}
       </section>
+
+      <section>
+        <GuideEditor
+          guides={guides}
+          scenes={scenes}
+          onGuidesChange={onGuidesChange}
+          uploadAsset={uploadAsset}
+        />
+      </section>
+
     </aside>
   )
 }

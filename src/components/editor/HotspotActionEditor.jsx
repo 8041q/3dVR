@@ -1,11 +1,13 @@
-import React, { useState } from 'react'
+import React from 'react'
 import { ACTION_TYPES, createAction, normalizeHotspotActions } from '../../actions/actionTypes'
+import ModelAuthoringEditor from './ModelAuthoringEditor'
 
 const ACTION_LABELS = {
   [ACTION_TYPES.NAVIGATE_SCENE]: 'Navigate to scene',
   [ACTION_TYPES.INSPECT_MODEL]: 'Inspect 3D model',
   [ACTION_TYPES.SHOW_INFO]: 'Show information',
   [ACTION_TYPES.OPEN_URL]: 'Open link',
+  [ACTION_TYPES.START_GUIDE]: 'Start guide',
 }
 
 function replaceAction(actions, index, nextAction) {
@@ -15,36 +17,24 @@ function replaceAction(actions, index, nextAction) {
 export default function HotspotActionEditor({
   hotspot,
   scenes,
+  guides = [],
   currentSceneId,
   uploadAsset,
   onUpdate,
 }) {
   const actions = normalizeHotspotActions(hotspot)
-  const [uploadError, setUploadError] = useState('')
 
   function updateActions(nextActions) {
     const navigation = nextActions.find((action) => action.type === ACTION_TYPES.NAVIGATE_SCENE)
     onUpdate({
       ...hotspot,
       actions: nextActions,
-      // Keep old readers compatible while we migrate the schema.
       targetSceneId: navigation?.sceneId || '',
     })
   }
 
   function patchAction(index, patch) {
     updateActions(replaceAction(actions, index, { ...actions[index], ...patch }))
-  }
-
-  async function uploadModel(index, file) {
-    if (!file) return
-    setUploadError('')
-    try {
-      const result = await uploadAsset(file)
-      patchAction(index, { modelUrl: result.url })
-    } catch (error) {
-      setUploadError(error.message || 'Model upload failed')
-    }
   }
 
   return (
@@ -58,8 +48,6 @@ export default function HotspotActionEditor({
           Add action
         </button>
       </div>
-
-      {uploadError && <div className="error-text">{uploadError}</div>}
 
       {actions.length === 0 && (
         <div className="muted">This hotspot has no action yet.</div>
@@ -112,62 +100,11 @@ export default function HotspotActionEditor({
           )}
 
           {action.type === ACTION_TYPES.INSPECT_MODEL && (
-            <>
-              <label>
-                Product title
-                <input
-                  value={action.title || ''}
-                  onChange={(event) => patchAction(index, { title: event.target.value })}
-                  placeholder="Bed model"
-                />
-              </label>
-              <label>
-                GLB model URL
-                <input
-                  value={action.modelUrl || ''}
-                  onChange={(event) => patchAction(index, { modelUrl: event.target.value })}
-                  placeholder="/uploads/model.glb"
-                />
-              </label>
-              <label className="file-field">
-                Upload GLB
-                <input
-                  type="file"
-                  accept="model/gltf-binary,.glb"
-                  onChange={(event) => uploadModel(index, event.target.files?.[0])}
-                />
-              </label>
-              <div className="action-card__grid">
-                <label>
-                  Model scale
-                  <input
-                    type="number"
-                    min="0.05"
-                    max="20"
-                    step="0.05"
-                    value={action.modelScale ?? 1}
-                    onChange={(event) => patchAction(index, { modelScale: Number(event.target.value) })}
-                  />
-                </label>
-                <label>
-                  Y rotation
-                  <input
-                    type="number"
-                    step="5"
-                    value={action.rotationY ?? 0}
-                    onChange={(event) => patchAction(index, { rotationY: Number(event.target.value) })}
-                  />
-                </label>
-              </div>
-              <label className="checkbox-field">
-                <input
-                  type="checkbox"
-                  checked={action.exposeAnimations !== false}
-                  onChange={(event) => patchAction(index, { exposeAnimations: event.target.checked })}
-                />
-                Show animation clips as inspection actions
-              </label>
-            </>
+            <ModelAuthoringEditor
+              action={action}
+              uploadAsset={uploadAsset}
+              patchAction={(patch) => patchAction(index, patch)}
+            />
           )}
 
           {action.type === ACTION_TYPES.SHOW_INFO && (
@@ -210,6 +147,21 @@ export default function HotspotActionEditor({
                 Open in a new tab
               </label>
             </>
+          )}
+
+          {action.type === ACTION_TYPES.START_GUIDE && (
+            <label>
+              Guide
+              <select
+                value={action.guideId || ''}
+                onChange={(event) => patchAction(index, { guideId: event.target.value })}
+              >
+                <option value="">Choose a guide</option>
+                {guides.map((guide) => (
+                  <option key={guide.id} value={guide.id}>{guide.title || guide.id}</option>
+                ))}
+              </select>
+            </label>
           )}
         </div>
       ))}

@@ -13,6 +13,22 @@
           "yaw": 30,
           "pitch": 0
         }
+      },
+      {
+        "id": "start-demo-guide",
+        "label": "Start guided tour",
+        "size": 1.1,
+        "position": {
+          "yaw": -28,
+          "pitch": -4
+        },
+        "actions": [
+          {
+            "id": "start-demo-guide-action",
+            "type": "start-guide",
+            "guideId": "demo-guide"
+          }
+        ]
       }
     ]
   },
@@ -47,7 +63,40 @@
             "modelUrl": "/demo/product-demo.glb",
             "modelScale": 1,
             "rotationY": 0,
-            "exposeAnimations": true
+            "exposeAnimations": true,
+            "animationControls": [
+              {
+                "id": "demo-open-storage",
+                "label": "Open storage",
+                "clip": "Open drawer"
+              }
+            ],
+            "materialVariants": [
+              {
+                "id": "demo-light-finish",
+                "label": "Light finish",
+                "materialName": "*",
+                "color": "#d8d1c4"
+              },
+              {
+                "id": "demo-dark-finish",
+                "label": "Dark finish",
+                "materialName": "*",
+                "color": "#4f5663"
+              }
+            ],
+            "annotations": [
+              {
+                "id": "demo-drawer-detail",
+                "label": "Drawer detail",
+                "body": "Select this detail to explain the moving storage component during a presentation.",
+                "position": [
+                  0,
+                  0.65,
+                  0.55
+                ]
+              }
+            ]
           }
         ]
       }
