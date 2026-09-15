@@ -32,10 +32,10 @@ The add-on file is:
 tools/blender/3dvr_exporter.py
 ```
 
-In recent Blender versions:
+In Blender:
 
 1. Open **Edit → Preferences**.
-2. Open **Add-ons / Extensions**.
+2. Open **Add-ons**.
 3. Choose **Install from Disk**.
 4. Select `3dvr_exporter.py`.
 5. Enable **3DVR Spatial Scene Exporter**.

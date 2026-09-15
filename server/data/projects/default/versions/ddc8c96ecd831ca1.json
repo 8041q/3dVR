@@ -2,7 +2,7 @@
   "schemaVersion": 3,
   "id": "default",
   "title": "3DVR Project",
-  "startSceneId": "scene-1789481576000",
+  "startSceneId": "room",
   "scenes": [
     {
       "id": "lobby",
@@ -194,5 +194,13 @@
         }
       ]
     }
+  ],
+  "revision": "ddc8c96ecd831ca1",
+  "publishedAt": "2026-09-15T14:13:14.301Z",
+  "assets": [
+    "/demo/lobby.jpg",
+    "/demo/room.png",
+    "/demo/product-demo.glb",
+    "/uploads/0c085634-292e-497e-90ca-856b08e47c72.glb"
   ]
 }
