@@ -1,6 +1,7 @@
 export const ACTION_TYPES = Object.freeze({
   NAVIGATE_SCENE: 'navigate-scene',
   INSPECT_MODEL: 'inspect-model',
+  PLAY_ROOM_ANIMATION: 'play-room-animation',
   SHOW_INFO: 'show-info',
   OPEN_URL: 'open-url',
   START_GUIDE: 'start-guide',
@@ -37,6 +38,10 @@ export function createModelAnnotation() {
     label: 'Detail',
     body: '',
     position: [0, 0.8, 0],
+    normal: [0, 0, 1],
+    anchorNode: '',
+    anchorPosition: null,
+    anchorNormal: null,
   }
 }
 
@@ -56,6 +61,28 @@ export function createAction(type = ACTION_TYPES.NAVIGATE_SCENE) {
         animationControls: [],
         materialVariants: [],
         annotations: [],
+        viewer: {
+          distance: 2.35,
+          minZoom: 0.65,
+          maxZoom: 3,
+          backdropOpacity: 0.10,
+          autoRotate: false,
+          autoRotateSpeed: 0.65,
+          exposure: 1,
+          environmentIntensity: 1,
+          showGround: true,
+          shadowIntensity: 0.24,
+          animationSpeed: 1,
+        },
+      }
+    case ACTION_TYPES.PLAY_ROOM_ANIMATION:
+      return {
+        id,
+        type,
+        clip: '',
+        behavior: 'toggle',
+        loop: 'once',
+        speed: 1,
       }
     case ACTION_TYPES.SHOW_INFO:
       return { id, type, title: 'Information', body: '' }

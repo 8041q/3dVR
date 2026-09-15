@@ -2,7 +2,7 @@
   "schemaVersion": 3,
   "id": "default",
   "title": "3DVR Project",
-  "startSceneId": "lobby",
+  "startSceneId": "room",
   "scenes": [
     {
       "id": "lobby",

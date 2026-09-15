@@ -4,15 +4,18 @@ Self-hosted 360 panorama, WebXR, guided-tour and product-inspection platform int
 
 ## User guide
 
-For normal editor use, start with [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md). It covers projects, scenes, panoramas, hotspots, 3D models, guides, publishing and offline exhibition use without requiring programming knowledge.
+For normal editor use, start with [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md). For preparing tracked-VR rooms from your existing Blender 360 scenes, use [`docs/BLENDER_SPATIAL_SCENES.md`](docs/BLENDER_SPATIAL_SCENES.md).
 
 ## Current capabilities
 
-- One URL viewer for desktop, normal phone, phone-in-plastic-headset and WebXR headsets.
+- One URL viewer with capability-specific rendering for desktop, phone, phone-in-plastic-headset and WebXR headsets.
+- Blender spatial-room rendering for position-tracked WebXR: real leaning/crouching/small-step parallax with no panorama loaded for the tracked scene.
+- Panorama fallback for desktop, phone and rotation-only/emulated-position VR.
+- Shared Blender-authored hotspots with panorama yaw/pitch + spatial 3D positions.
 - Separate editor route sharing the same runtime.
 - PC / Phone / VR Preview controls.
 - Inverted horizontal and vertical desktop look controls.
-- Mouse/touch, phone orientation, gaze, XR controllers, keyboard and future remote input through one interaction layer.
+- Desktop mouse plus phone/headset gaze, XR controllers, keyboard and future remote input through one interaction layer. Phone selection uses a 2-second center-crosshair dwell.
 - Large 2:1 equirectangular panorama upload using resumable chunks.
 - FFmpeg multiresolution cubemap processing.
 - Bounded panorama GPU texture cache.
@@ -123,6 +126,8 @@ npm run test:phase7
 npm run test:phase8
 npm run test:phase9
 npm run test:phase10
+npm run test:phase11
+npm run test:phase12
 npm run test:model
 ```
 
@@ -183,4 +188,8 @@ A later infrastructure phase can move these snapshots and asset metadata to Post
 
 The editor uses the task-focused Scenes / Interactions / Guides / Library / Project tool rail. Scenes can be grouped and inspected in a visual navigation map. Hotspot actions are authored as an ordered sequence. Use **Preview** to test the current draft without publishing. After **Publish**, the share dialog provides the public URL and a locally generated QR code. See `docs/USER_GUIDE.md` for the operator workflow.
 
-See `PHASE10.md` for the latest editor/product-authoring changes.
+See `PHASE10.md` for the scene/action/finish-authoring changes and `PHASE12.md` for the current product-inspection architecture.
+
+## Phase 12 highlights
+
+Product inspection now stays inside the current panorama on every device instead of replacing desktop/mobile with a fullscreen model workspace. Pointer/touch users can drag and zoom directly; gaze-only headsets, phone headsets and controller VR use the same in-world Motion / Finishes / Details / View controls. Recenter places the inspection back in front of the visitor without leaving the scene. Phase 11 lighting, loading, animation, compressed-GLB and animated-annotation improvements are retained in the in-scene renderer.

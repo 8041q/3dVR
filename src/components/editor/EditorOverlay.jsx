@@ -39,7 +39,7 @@ const TOOLS = {
 
 function projectStatus(dirty, meta) {
   if (dirty) return { label: 'Unsaved changes', tone: 'warning' }
-  if (meta?.hasUnpublishedChanges) return { label: 'Draft saved - not published', tone: 'warning' }
+  if (meta?.hasUnpublishedChanges) return { label: 'Draft saved — not published', tone: 'warning' }
   if (meta?.isPublished) return { label: 'Published', tone: 'success' }
   return { label: 'Not published yet', tone: 'muted' }
 }
@@ -312,6 +312,7 @@ export default function EditorOverlay({
                   onRemoveScene={removeScene}
                   onStartSceneChange={onStartSceneChange}
                   patchScene={patchScene}
+                  uploadAsset={uploadAsset}
                 />
               )}
 

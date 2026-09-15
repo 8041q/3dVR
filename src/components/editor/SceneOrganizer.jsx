@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react'
 import SceneMapDialog from './SceneMapDialog'
+import SpatialSceneImporter from './SpatialSceneImporter'
 
 function moveItem(items, fromIndex, toIndex) {
   if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0) return items
@@ -23,6 +24,7 @@ export default function SceneOrganizer({
   onRemoveScene,
   onStartSceneChange,
   patchScene,
+  uploadAsset,
 }) {
   const [newTitle, setNewTitle] = useState('New scene')
   const [query, setQuery] = useState('')
@@ -170,6 +172,28 @@ export default function SceneOrganizer({
           <div className="muted">
             High-resolution panorama: {currentScene.panorama?.manifestUrl ? 'configured' : 'not configured'}
           </div>
+          <SpatialSceneImporter
+            uploadAsset={uploadAsset}
+            configured={Boolean(currentScene.spatial?.roomUrl)}
+            onApply={({ spatial, hotspots }) => {
+              const existing = new Map((currentScene.hotspots || []).map((item) => [item.id, item]))
+              const merged = [...(currentScene.hotspots || [])]
+              for (const imported of hotspots) {
+                const previous = existing.get(imported.id)
+                if (previous) {
+                  const index = merged.findIndex((item) => item.id === imported.id)
+                  merged[index] = {
+                    ...previous,
+                    ...imported,
+                    actions: imported.actions?.length ? imported.actions : (previous.actions || []),
+                  }
+                } else {
+                  merged.push(imported)
+                }
+              }
+              patchScene({ spatial, hotspots: merged })
+            }}
+          />
           <div className="button-row">
             <button
               type="button"

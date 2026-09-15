@@ -9,9 +9,14 @@ const ACTION_CHOICES = [
     description: 'Move the visitor into another 360 scene.',
   },
   {
+    type: ACTION_TYPES.PLAY_ROOM_ANIMATION,
+    label: 'Play room movement',
+    description: 'Run an animation already contained in the Blender spatial room.',
+  },
+  {
     type: ACTION_TYPES.INSPECT_MODEL,
-    label: 'Inspect product',
-    description: 'Open an interactive GLB model with animations and finishes.',
+    label: 'Inspect product (separate GLB)',
+    description: 'Legacy/fallback action for a standalone GLB outside the spatial room.',
   },
   {
     type: ACTION_TYPES.SHOW_INFO,
@@ -42,8 +47,12 @@ function summaryForAction(action, scenes, guides) {
     return scene?.title || 'Choose destination'
   }
 
+  if (action.type === ACTION_TYPES.PLAY_ROOM_ANIMATION) {
+    return action.clip || 'Choose room animation'
+  }
+
   if (action.type === ACTION_TYPES.INSPECT_MODEL) {
-    return action.title || (action.modelUrl ? '3D product' : 'Choose a GLB model')
+    return action.title || (action.modelUrl ? 'Separate 3D model' : 'Choose a GLB model')
   }
 
   if (action.type === ACTION_TYPES.SHOW_INFO) {
@@ -83,6 +92,8 @@ export default function HotspotActionEditor({
   onUpdate,
 }) {
   const actions = normalizeHotspotActions(hotspot)
+  const currentScene = scenes.find((scene) => scene.id === currentSceneId)
+  const roomAnimations = Array.isArray(currentScene?.spatial?.animations) ? currentScene.spatial.animations : []
   const [selectedActionId, setSelectedActionId] = useState(actions[0]?.id || '')
   const [showAddPicker, setShowAddPicker] = useState(false)
 
@@ -241,6 +252,69 @@ export default function HotspotActionEditor({
                   ))}
               </select>
             </label>
+          )}
+
+          {selectedAction.type === ACTION_TYPES.PLAY_ROOM_ANIMATION && (
+            <>
+              {!currentScene?.spatial?.roomUrl && (
+                <div className="editor-warning">This action only runs when the Blender spatial room is active.</div>
+              )}
+              <label>
+                Room animation
+                {roomAnimations.length > 0 ? (
+                  <select
+                    value={selectedAction.clip || ''}
+                    onChange={(event) => patchAction(selectedIndex, { clip: event.target.value })}
+                  >
+                    <option value="">Choose an animation</option>
+                    {roomAnimations.map((clip) => <option key={clip} value={clip}>{clip}</option>)}
+                  </select>
+                ) : (
+                  <input
+                    value={selectedAction.clip || ''}
+                    onChange={(event) => patchAction(selectedIndex, { clip: event.target.value })}
+                    placeholder="Animation clip name from Blender"
+                  />
+                )}
+              </label>
+              <label>
+                When selected
+                <select
+                  value={selectedAction.behavior || 'toggle'}
+                  onChange={(event) => patchAction(selectedIndex, { behavior: event.target.value })}
+                >
+                  <option value="toggle">Toggle play / pause</option>
+                  <option value="restart">Restart from beginning</option>
+                  <option value="play">Play / resume</option>
+                </select>
+              </label>
+              <div className="editor-grid-2">
+                <label>
+                  Loop
+                  <select
+                    value={selectedAction.loop || 'once'}
+                    onChange={(event) => patchAction(selectedIndex, { loop: event.target.value })}
+                  >
+                    <option value="once">Once</option>
+                    <option value="repeat">Repeat</option>
+                  </select>
+                </label>
+                <label>
+                  Speed
+                  <input
+                    type="number"
+                    min="0.1"
+                    max="4"
+                    step="0.1"
+                    value={selectedAction.speed ?? 1}
+                    onChange={(event) => patchAction(selectedIndex, { speed: Number(event.target.value) || 1 })}
+                  />
+                </label>
+              </div>
+              {roomAnimations.length === 0 && currentScene?.spatial?.roomUrl && (
+                <div className="muted">Re-export the Blender room with Phase 14 to expose its animation names automatically.</div>
+              )}
+            </>
           )}
 
           {selectedAction.type === ACTION_TYPES.INSPECT_MODEL && (

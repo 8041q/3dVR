@@ -1,8 +1,9 @@
-import React, { useMemo, useRef } from 'react'
+import React, { useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
-import { useFrame } from '@react-three/fiber'
+import { useFrame, useThree } from '@react-three/fiber'
 import { useInteraction } from '../contexts/InteractionContext'
 import { normalizeHotspotStyle } from '../hotspots/hotspotStyles'
+import { INTERACTION_LAYER } from '../input/interactionLayers'
 
 function positionFromAngles(yaw = 0, pitch = 0, radius = 8) {
   const y = THREE.MathUtils.degToRad(yaw)
@@ -163,8 +164,11 @@ export default function Hotspot({
   guideHighlight = false,
   editMode = false,
   onSelect,
+  spatial = false,
+  pointerEnabled = true,
 }) {
   const interaction = useInteraction()
+  const { camera, gl } = useThree()
   const root = useRef()
   const halo = useRef()
   const haloMaterial = useRef()
@@ -172,15 +176,35 @@ export default function Hotspot({
   const style = normalizeHotspotStyle(hotspot)
 
   const position = useMemo(
-    () => positionFromAngles(hotspot.position?.yaw || 0, hotspot.position?.pitch || 0, 8),
-    [hotspot.position?.yaw, hotspot.position?.pitch],
+    () => spatial && Array.isArray(hotspot.spatialPosition)
+      ? new THREE.Vector3(...hotspot.spatialPosition)
+      : positionFromAngles(hotspot.position?.yaw || 0, hotspot.position?.pitch || 0, 8),
+    [hotspot.position?.yaw, hotspot.position?.pitch, hotspot.spatialPosition, spatial],
   )
-  const quaternion = useMemo(() => inwardQuaternion(position), [position])
+  const quaternion = useMemo(
+    () => spatial ? new THREE.Quaternion() : inwardQuaternion(position),
+    [position, spatial],
+  )
   const haloScale = HALO_SCALE[style.preset] || HALO_SCALE.navigation
   const activate = () => onActivate?.(hotspot)
 
+  useEffect(() => {
+    root.current?.traverse?.((object) => object.layers.enable(INTERACTION_LAYER))
+  }, [])
+
   useFrame(({ clock }) => {
     if (!root.current) return
+
+    if (spatial) {
+      if (style.preset === 'floor') {
+        root.current.rotation.set(-Math.PI / 2, 0, 0)
+      } else {
+        const viewCamera = gl.xr.isPresenting ? gl.xr.getCamera(camera) : camera
+        const cameraWorld = viewCamera.getWorldQuaternion(new THREE.Quaternion())
+        const parentWorld = root.current.parent?.getWorldQuaternion(new THREE.Quaternion()) || new THREE.Quaternion()
+        root.current.quaternion.copy(parentWorld.invert().multiply(cameraWorld))
+      }
+    }
 
     const guidePulse = guideHighlight ? 1 + Math.sin(clock.elapsedTime * 6) * 0.08 : 1
     root.current.scale.setScalar(baseScale * guidePulse)
@@ -216,7 +240,7 @@ export default function Hotspot({
       onClick={(event) => {
         event.stopPropagation()
         if (editMode) onSelect?.(hotspot.id)
-        else interaction.activateObject(event.object, 'pointer')
+        else if (pointerEnabled) interaction.activateObject(event.object, 'pointer')
       }}
     >
       <HotspotGeometry

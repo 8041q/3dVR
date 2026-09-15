@@ -25,6 +25,7 @@ const ASSET_KEYS = new Set([
   'thumbnail',
   'textureUrl',
   'manifestUrl',
+  'roomUrl',
 ])
 
 function nowIso() {

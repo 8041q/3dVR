@@ -4,6 +4,8 @@ import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js'
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js'
+import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
+import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js'
 
 const MODEL_TARGET_SIZE = 1.45
 
@@ -29,15 +31,27 @@ function normalizeModel(object, requestedScale = 1) {
   return object
 }
 
-function AnnotationModel({ modelUrl, modelScale, initialPosition, onPick, onStatus }) {
+function findNamedAnchor(object, stopAt) {
+  let current = object
+  while (current && current !== stopAt) {
+    if (current.name) return current
+    current = current.parent
+  }
+  return object
+}
+
+function AnnotationModel({ modelUrl, modelScale, initialPosition, initialNormal, onPick, onStatus }) {
+  const { gl } = useThree()
   const rootRef = useRef(null)
   const dragRef = useRef({ active: false, pointerId: null, x: 0, distance: 0 })
   const [model, setModel] = useState(null)
   const [marker, setMarker] = useState(initialPosition || null)
+  const [markerNormal, setMarkerNormal] = useState(initialNormal || [0, 0, 1])
 
   useEffect(() => {
     setMarker(initialPosition || null)
-  }, [initialPosition])
+    setMarkerNormal(initialNormal || [0, 0, 1])
+  }, [initialNormal, initialPosition])
 
   useEffect(() => {
     let disposed = false
@@ -53,6 +67,13 @@ function AnnotationModel({ modelUrl, modelScale, initialPosition, onPick, onStat
 
     const loader = new GLTFLoader()
     loader.setMeshoptDecoder(MeshoptDecoder)
+    const dracoLoader = new DRACOLoader()
+    dracoLoader.setDecoderPath('/vendor/draco/')
+    loader.setDRACOLoader(dracoLoader)
+    const ktx2Loader = new KTX2Loader()
+    ktx2Loader.setTranscoderPath('/vendor/basis/')
+    ktx2Loader.detectSupport(gl)
+    loader.setKTX2Loader(ktx2Loader)
 
     loader.load(
       modelUrl,
@@ -82,8 +103,10 @@ function AnnotationModel({ modelUrl, modelScale, initialPosition, onPick, onStat
         if (!child.isMesh) return
         child.geometry?.dispose?.()
       })
+      dracoLoader.dispose()
+      ktx2Loader.dispose()
     }
-  }, [modelScale, modelUrl, onStatus])
+  }, [gl, modelScale, modelUrl, onStatus])
 
   function beginDrag(event) {
     event.stopPropagation()
@@ -114,8 +137,35 @@ function AnnotationModel({ modelUrl, modelScale, initialPosition, onPick, onStat
 
     const local = rootRef.current.worldToLocal(event.point.clone())
     const next = [local.x, local.y, local.z].map((value) => Number(value.toFixed(4)))
+
+    let normal = [0, 0, 1]
+    let worldNormal = null
+    if (event.face?.normal && event.object?.matrixWorld) {
+      const normalMatrix = new THREE.Matrix3().getNormalMatrix(event.object.matrixWorld)
+      worldNormal = event.face.normal.clone().applyMatrix3(normalMatrix).normalize()
+      const rootQuaternion = rootRef.current.getWorldQuaternion(new THREE.Quaternion()).invert()
+      const localNormal = worldNormal.clone().applyQuaternion(rootQuaternion).normalize()
+      normal = [localNormal.x, localNormal.y, localNormal.z].map((value) => Number(value.toFixed(4)))
+    }
+
+    const anchor = findNamedAnchor(event.object, rootRef.current)
+    let anchorNode = ''
+    let anchorPosition = null
+    let anchorNormal = null
+    if (anchor?.name) {
+      anchorNode = anchor.name
+      const nodePoint = anchor.worldToLocal(event.point.clone())
+      anchorPosition = [nodePoint.x, nodePoint.y, nodePoint.z].map((value) => Number(value.toFixed(4)))
+      if (worldNormal) {
+        const anchorQuaternion = anchor.getWorldQuaternion(new THREE.Quaternion()).invert()
+        const nodeNormal = worldNormal.clone().applyQuaternion(anchorQuaternion).normalize()
+        anchorNormal = [nodeNormal.x, nodeNormal.y, nodeNormal.z].map((value) => Number(value.toFixed(4)))
+      }
+    }
+
     setMarker(next)
-    onPick?.(next)
+    setMarkerNormal(normal)
+    onPick?.({ position: next, normal, anchorNode, anchorPosition, anchorNormal })
   }
 
   return (
@@ -133,10 +183,15 @@ function AnnotationModel({ modelUrl, modelScale, initialPosition, onPick, onStat
       >
         {model && <primitive object={model} />}
         {marker && (
-          <mesh position={marker} renderOrder={20}>
-            <sphereGeometry args={[0.035, 20, 14]} />
-            <meshBasicMaterial color="#ffffff" depthTest={false} />
-          </mesh>
+          <group position={marker} renderOrder={20}>
+            <mesh>
+              <sphereGeometry args={[0.035, 20, 14]} />
+              <meshBasicMaterial color="#ffffff" depthTest={false} />
+            </mesh>
+            <arrowHelper
+              args={[new THREE.Vector3(...markerNormal).normalize(), new THREE.Vector3(0, 0, 0), 0.18, 0xa9c5ff, 0.055, 0.025]}
+            />
+          </group>
         )}
       </group>
     </>
@@ -164,9 +219,14 @@ export default function ModelAnnotationPlacementDialog({
   onConfirm,
   onClose,
 }) {
-  const [position, setPosition] = useState(
-    Array.isArray(annotation?.position) ? annotation.position : null,
-  )
+  const [point, setPoint] = useState({
+    position: Array.isArray(annotation?.position) ? annotation.position : null,
+    normal: Array.isArray(annotation?.normal) ? annotation.normal : [0, 0, 1],
+    anchorNode: annotation?.anchorNode || '',
+    anchorPosition: Array.isArray(annotation?.anchorPosition) ? annotation.anchorPosition : null,
+    anchorNormal: Array.isArray(annotation?.anchorNormal) ? annotation.anchorNormal : null,
+  })
+  const position = point.position
   const [status, setStatus] = useState({ state: 'idle', error: '' })
   const positionLabel = useMemo(() => (
     position ? position.map((value) => Number(value).toFixed(3)).join(', ') : 'No point selected'
@@ -195,7 +255,8 @@ export default function ModelAnnotationPlacementDialog({
               modelUrl={modelUrl}
               modelScale={modelScale}
               initialPosition={position}
-              onPick={setPosition}
+              initialNormal={point.normal}
+              onPick={setPoint}
               onStatus={setStatus}
             />
           </Canvas>
@@ -217,7 +278,7 @@ export default function ModelAnnotationPlacementDialog({
               type="button"
               className="primary"
               disabled={!position}
-              onClick={() => onConfirm?.(position)}
+              onClick={() => onConfirm?.(point)}
             >
               Use this point
             </button>

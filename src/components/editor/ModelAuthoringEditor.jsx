@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js'
+import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
 import {
   createAnimationControl,
   createMaterialVariant,
@@ -17,6 +18,9 @@ async function detectModelMetadata(url) {
 
   const loader = new GLTFLoader()
   loader.setMeshoptDecoder(MeshoptDecoder)
+  const dracoLoader = new DRACOLoader()
+  dracoLoader.setDecoderPath('/vendor/draco/')
+  loader.setDRACOLoader(dracoLoader)
 
   return new Promise((resolve, reject) => {
     loader.load(
@@ -30,13 +34,17 @@ async function detectModelMetadata(url) {
             if (material?.name) materials.add(material.name)
           }
         })
+        dracoLoader.dispose()
         resolve({
           clips: (gltf.animations || []).map((clip) => clip.name).filter(Boolean),
           materials: [...materials].sort(),
         })
       },
       undefined,
-      (error) => reject(error instanceof Error ? error : new Error('Could not inspect the GLB.')),
+      (error) => {
+        dracoLoader.dispose()
+        reject(error instanceof Error ? error : new Error('Could not inspect the GLB.'))
+      },
     )
   })
 }
@@ -158,6 +166,162 @@ export default function ModelAuthoringEditor({ action, patchAction, uploadAsset 
             onChange={(event) => patchAction({ rotationY: Number(event.target.value) })}
           />
         </label>
+      </div>
+
+      <div className="subsection-card">
+        <div className="subsection-card__heading">
+          <div>
+            <strong>In-scene presentation</strong>
+            <div className="muted">Keep the panorama visible while the product appears in front of the visitor.</div>
+          </div>
+        </div>
+
+        <div className="action-card__grid">
+          <label>
+            Distance from visitor
+            <input
+              type="number"
+              min="1.5"
+              max="4"
+              step="0.1"
+              value={action.viewer?.distance ?? 2.35}
+              onChange={(event) => patchAction({
+                viewer: { ...(action.viewer || {}), distance: Number(event.target.value) },
+              })}
+            />
+          </label>
+          <label>
+            Backdrop strength
+            <input
+              type="number"
+              min="0"
+              max="0.45"
+              step="0.02"
+              value={action.viewer?.backdropOpacity ?? 0.10}
+              onChange={(event) => patchAction({
+                viewer: { ...(action.viewer || {}), backdropOpacity: Number(event.target.value) },
+              })}
+            />
+          </label>
+          <label>
+            Closest size
+            <input
+              type="number"
+              min="1"
+              max="4"
+              step="0.1"
+              value={action.viewer?.maxZoom ?? 3}
+              onChange={(event) => patchAction({
+                viewer: { ...(action.viewer || {}), maxZoom: Number(event.target.value) },
+              })}
+            />
+          </label>
+          <label>
+            Furthest size
+            <input
+              type="number"
+              min="0.3"
+              max="1.5"
+              step="0.05"
+              value={action.viewer?.minZoom ?? 0.65}
+              onChange={(event) => patchAction({
+                viewer: { ...(action.viewer || {}), minZoom: Number(event.target.value) },
+              })}
+            />
+          </label>
+        </div>
+
+        <label className="checkbox-field">
+          <input
+            type="checkbox"
+            checked={Boolean(action.viewer?.autoRotate)}
+            onChange={(event) => patchAction({
+              viewer: { ...(action.viewer || {}), autoRotate: event.target.checked },
+            })}
+          />
+          Auto rotate when inspection opens
+        </label>
+
+        <details className="advanced-details">
+          <summary>Lighting and motion</summary>
+          <div className="action-card__grid">
+            <label>
+              Exposure
+              <input
+                type="number"
+                min="0.1"
+                max="3"
+                step="0.1"
+                value={action.viewer?.exposure ?? 1}
+                onChange={(event) => patchAction({
+                  viewer: { ...(action.viewer || {}), exposure: Number(event.target.value) },
+                })}
+              />
+            </label>
+            <label>
+              Environment light
+              <input
+                type="number"
+                min="0"
+                max="4"
+                step="0.1"
+                value={action.viewer?.environmentIntensity ?? 1}
+                onChange={(event) => patchAction({
+                  viewer: { ...(action.viewer || {}), environmentIntensity: Number(event.target.value) },
+                })}
+              />
+            </label>
+            <label>
+              Animation speed
+              <input
+                type="number"
+                min="0.1"
+                max="3"
+                step="0.1"
+                value={action.viewer?.animationSpeed ?? 1}
+                onChange={(event) => patchAction({
+                  viewer: { ...(action.viewer || {}), animationSpeed: Number(event.target.value) },
+                })}
+              />
+            </label>
+            <label>
+              Shadow strength
+              <input
+                type="number"
+                min="0"
+                max="0.8"
+                step="0.05"
+                value={action.viewer?.shadowIntensity ?? 0.24}
+                onChange={(event) => patchAction({
+                  viewer: { ...(action.viewer || {}), shadowIntensity: Number(event.target.value) },
+                })}
+              />
+            </label>
+            <label>
+              Auto-rotate speed
+              <input
+                type="number"
+                min="0.1"
+                max="3"
+                step="0.1"
+                value={action.viewer?.autoRotateSpeed ?? 0.65}
+                onChange={(event) => patchAction({
+                  viewer: { ...(action.viewer || {}), autoRotateSpeed: Number(event.target.value) },
+                })}
+              />
+            </label>
+          </div>
+          <label className="checkbox-field">
+            <input
+              type="checkbox"
+              checked={action.viewer?.showGround !== false}
+              onChange={(event) => patchAction({
+                viewer: { ...(action.viewer || {}), showGround: event.target.checked },
+              })}
+            />
+            Show soft grounding shadow under the product
+          </label>
+        </details>
       </div>
 
       <div className="subsection-card">
@@ -500,9 +664,15 @@ export default function ModelAuthoringEditor({ action, patchAction, uploadAsset 
           modelScale={action.modelScale ?? 1}
           annotation={annotations[placingAnnotationIndex]}
           onClose={() => setPlacingAnnotationIndex(null)}
-          onConfirm={(position) => {
+          onConfirm={(point) => {
             patchAction({
-              annotations: updateAt(annotations, placingAnnotationIndex, { position }),
+              annotations: updateAt(annotations, placingAnnotationIndex, {
+                position: point.position,
+                normal: point.normal,
+                anchorNode: point.anchorNode || '',
+                anchorPosition: point.anchorPosition || null,
+                anchorNormal: point.anchorNormal || null,
+              }),
             })
             setPlacingAnnotationIndex(null)
           }}

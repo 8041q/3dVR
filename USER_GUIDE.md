@@ -1,4 +1,4 @@
-# 3DVR Editor - Quick User Guide
+# 3DVR Editor — Quick User Guide
 
 This guide is for the person building and publishing a presentation. It focuses on the normal workflow, not server internals.
 
@@ -22,11 +22,11 @@ Use your editor password when asked. In development the default is `admin` unles
 
 The left side of the editor has a compact **Tool rail**. It is grouped by the job you are doing:
 
-- **Scenes** - build the rooms/locations in the presentation.
-- **Interactions** - place hotspots and decide how they look and what they do.
-- **Guides** - build the visitor journey step by step.
-- **Library** - upload/reuse panoramas, models, audio and video.
-- **Project** - project name, create/switch/duplicate projects and project-level settings.
+- **Scenes** — build the rooms/locations in the presentation.
+- **Interactions** — place hotspots and decide how they look and what they do.
+- **Guides** — build the visitor journey step by step.
+- **Library** — upload/reuse panoramas, models, audio and video.
+- **Project** — project name, create/switch/duplicate projects and project-level settings.
 
 Only one tool opens at a time. Each tool also shows a short explanation at the top, so you can tell what it is for before changing anything.
 
@@ -36,13 +36,13 @@ Use **Hide** at the bottom of the rail when you want more space to inspect the p
 
 Every project has two states:
 
-- **Draft** - what you are currently editing.
-- **Published** - what visitors see at `/v/project-name`.
+- **Draft** — what you are currently editing.
+- **Published** — what visitors see at `/v/project-name`.
 
 The top of the editor can show:
 
 - **Unsaved changes**
-- **Draft saved - not published**
+- **Draft saved — not published**
 - **Published**
 
 ### Save
@@ -56,7 +56,7 @@ Use **Preview** to test the exact draft you currently have open, including unsav
 Preview opens in a new tab and is clearly marked:
 
 ```text
-Draft preview - Not published
+Draft preview — Not published
 ```
 
 This is for testing, not for sending to customers. It does not replace the published version.
@@ -164,12 +164,12 @@ Hotspot appearance does not change what the hotspot does.
 
 Available styles are:
 
-- **Navigation** - general movement marker.
-- **Floor** - wide oval, useful on the floor.
-- **Doorway** - tall marker for doors/passages.
-- **Window** - framed marker for windows/openings.
-- **Product** - distinctive marker for inspectable products.
-- **Information** - compact detail/information marker.
+- **Navigation** — general movement marker.
+- **Floor** — wide oval, useful on the floor.
+- **Doorway** — tall marker for doors/passages.
+- **Window** — framed marker for windows/openings.
+- **Product** — distinctive marker for inspectable products.
+- **Information** — compact detail/information marker.
 
 You can also change marker colour, opacity and size.
 
@@ -223,9 +223,9 @@ You can filter by:
 
 Useful actions include:
 
-- **Use in scene** - use an image for the current scene.
-- **Add to hotspot** - add a GLB product inspection to the selected hotspot.
-- **Copy URL** - reuse the asset in narration or another field.
+- **Use in scene** — use an image for the current scene.
+- **Add to hotspot** — add a GLB product inspection to the selected hotspot.
+- **Copy URL** — reuse the asset in narration or another field.
 
 ## 12. Product animations
 
@@ -360,4 +360,159 @@ Duplicate last project
 -> share/scan the QR code
 -> download published project to headset
 -> turn Wi-Fi off and test again
+```
+
+## Inspecting 3D products
+
+When a hotspot uses **Inspect 3D model**, the product appears **inside the current panorama**. The room stays visible behind it so the visitor does not feel like they left the exhibition scene.
+
+A light transparent backdrop can be used to separate the model from a busy panorama, but it should remain subtle.
+
+### PC use
+
+- **Drag the product** to rotate it horizontally/vertically.
+- Use the **mouse wheel** to make it closer/larger or further/smaller.
+- Select **View** for explicit Rotate left/right, Closer/Further, Reset and Recenter controls.
+- **Recenter** moves the inspection in front of the visitor again without changing the scene.
+
+### Phone use
+
+Phone uses gaze rather than touch for the presentation controls. Point the center crosshair at an in-scene control and hold it there for a **2-second gaze** selection. The same rule applies when the phone is placed inside a plastic VR headset.
+
+### VR headset with controllers
+
+The product remains in the panorama as a world object. Point the controller ray at an in-scene control and select it.
+
+Use the **View** controls when you want precise rotation/zoom without grabbing the model. The physical **Back** input also exits product inspection.
+
+### VR headset without controllers / phone in a plastic headset
+
+Every important product operation is available as an in-world button. Look directly at a button and keep the crosshair on it until the dwell selection completes.
+
+This includes:
+
+- Rotate left / right
+- Closer / Further
+- Reset view
+- Recenter
+- animations
+- finishes
+- details/annotations
+- Back
+
+Direct dragging is therefore optional; a visitor never needs a controller to complete an inspection.
+
+### Product control tabs
+
+The in-scene controls are grouped so they do not surround the product with dozens of buttons:
+
+- **Motion** — animations plus pause/replay/speed.
+- **Finishes** — material/texture finish presets and Original.
+- **Details** — product annotations.
+- **View** — rotate, zoom, reset, recenter and auto-rotation.
+
+When there are many choices, use **Previous** / **Next** to move through pages.
+
+### Movement / animations
+
+For customer-facing presentations, rename technical GLB clip names in the editor. For example, use **Open storage** instead of `Bed_Storage_Open_v04`.
+
+After an animation starts, the Motion controls allow pause/resume, replay and playback-speed changes. Slower playback is useful for showing mechanisms.
+
+### Finishes
+
+Choose a finish to apply it, or choose **Original** to restore the material stored in the GLB. Finish textures remain part of the published/offline project assets.
+
+### Details / annotations
+
+Annotations remain attached to their product point. When an annotation was visually placed on a named animated GLB node, it follows that part while it moves. This is useful for drawers, doors and adjustable mechanisms.
+
+For the best result, give important moving objects meaningful names in the source 3D file before exporting the GLB.
+
+### In-scene presentation settings
+
+In **Interactions → Inspect 3D model → In-scene presentation**, you can set:
+
+- distance from the visitor;
+- closest and furthest product size;
+- transparent backdrop strength;
+- automatic rotation;
+- exposure and environment-light strength;
+- grounding-shadow strength;
+- default animation speed.
+
+Keep the backdrop fairly low so the original panorama remains part of the experience. Use **Draft Preview** to test the product on PC, then test the same published/draft experience in the actual headset before an exhibition.
+
+### Compressed models and offline use
+
+3DVR supports Meshopt, Draco and KTX2/Basis model assets. The Draco and Basis decoder files are self-hosted and included in the offline application shell, so downloaded exhibition projects do not need an external decoder service when Wi-Fi is unavailable.
+
+
+## Tracked VR spatial rooms
+
+A scene can now have two representations:
+
+- the rendered panorama for desktop and phone;
+- an actual Blender room GLB for a position-tracked WebXR headset.
+
+When a tracked headset enters a scene that has a Blender room configured, 3DVR uses the room GLB instead of loading/rendering the panorama. This allows real leaning, crouching and small physical movement.
+
+If the headset reports rotation-only / emulated positional tracking, the viewer falls back to the panorama.
+
+### Phone input
+
+Phone and phone-headset modes use the same input method:
+
+1. look at an interactive target with the center crosshair;
+2. keep the crosshair on it for **2 seconds**;
+3. it activates like a click.
+
+Touch is not required for hotspot selection. The phone-headset option changes the visual presentation for a plastic headset, not the selection method.
+
+
+### If Phone mode does not rotate
+
+Phone and phone-headset modes require browser orientation-sensor data. In Phone mode the top controls now report the actual state instead of only saying that motion is unavailable.
+
+- **Motion active** — orientation data is arriving.
+- **HTTPS required** — open the project through HTTPS. Mobile browsers may block orientation sensors on a normal LAN `http://` address.
+- **Motion permission denied** — use **Enable motion** and accept the browser permission prompt.
+- **Waiting for phone motion** — the browser has not delivered a usable orientation event yet.
+
+Use **Recenter view** whenever you want the phone's current heading to become the center of the panorama. This is especially useful immediately after putting the phone into a plastic headset.
+
+### Importing a Blender room
+
+In **Scenes**, select the matching scene and find **Tracked VR room**.
+
+Choose **Import Blender room** and select both files produced by the 3DVR Blender exporter:
+
+```text
+<scene>-room.glb
+<scene>.3dvr.json
+```
+
+The importer attaches the tracked room and imports Blender-authored hotspot positions.
+
+
+### Moving objects inside a tracked Blender room
+
+For tracked VR, do not create a duplicate standalone GLB just to inspect furniture that is already part of the room. Animate the real Blender object and export that animation with the room.
+
+In the web editor:
+
+1. select/create the Blender-authored hotspot near the object;
+2. open **Actions**;
+3. add **Play room movement**;
+4. choose the exported Blender animation clip;
+5. choose whether selection toggles, restarts, or plays/resumes the clip.
+
+The object remains at its real Blender position and physical size while it moves. The visitor can lean/crouch around the same object during and after the animation.
+
+Because desktop/phone use a rendered panorama, the room movement itself is tracked-VR-only. If the hotspot also needs to be useful in panorama modes, add another action after it such as **Show information**, **Start guide**, or **Go to scene**.
+
+For the complete Blender preparation/export walkthrough, read:
+
+```text
+docs/BLENDER_SPATIAL_SCENES.md
 ```

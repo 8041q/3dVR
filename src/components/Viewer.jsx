@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import PanoramaTransition from './PanoramaTransition'
+import SpatialScene from './SpatialScene'
+import XRTrackingProbe from './XRTrackingProbe'
 import Hotspot from './Hotspot'
 import GazeCursor from './GazeCursor'
 import XRControllerInput from './XRControllerInput'
@@ -11,7 +13,6 @@ import PhoneStereoRenderer from './PhoneStereoRenderer'
 import PanoramaClickSurface from './PanoramaClickSurface'
 import ViewerModeBar from './ViewerModeBar'
 import ProductInspector3D from './product/ProductInspector3D'
-import ProductInspectorHUD from './product/ProductInspectorHUD'
 import InfoOverlay from './InfoOverlay'
 import WorldInfoPanel from './product/WorldInfoPanel'
 import GuideOverlay from './guides/GuideOverlay'
@@ -45,7 +46,12 @@ function SceneContent({
   onSelectHotspot,
   mode,
   phoneHeadset,
-  onMotionActiveChange,
+  phoneMotionPermission,
+  onPhoneMotionStatus,
+  phoneOrientationRef,
+  spatialSceneRef,
+  spatialRoomFailed,
+  onSpatialStatus,
   onRendererReady,
   inspection,
   info,
@@ -61,9 +67,17 @@ function SceneContent({
   onGuideNext,
   onGuideExit,
   onGuidePlayNarration,
+  xrTracking,
+  onXRTrackingChange,
 }) {
   const modalOpen = Boolean(inspection || info)
   const immersiveOverlay = mode === 'vr' || (mode === 'phone' && phoneHeadset)
+  const hasSpatialRoom = Boolean(scene?.spatial?.roomUrl)
+  // A spatial-configured VR scene waits for WebXR tracking classification, then
+  // loads exactly one representation: room for real position tracking, panorama
+  // for emulated/rotation-only tracking.
+  const useSpatialRoom = mode === 'vr' && hasSpatialRoom && xrTracking === 'tracked' && !spatialRoomFailed
+  const waitingForTracking = mode === 'vr' && hasSpatialRoom && xrTracking === 'unknown'
   const focusRequest = !immersiveOverlay && guideStep?.focus
     ? {
         id: `${guide?.id || 'guide'}:${guideStep.id}`,
@@ -75,41 +89,69 @@ function SceneContent({
   return (
     <>
       <RendererBridge onReady={onRendererReady} />
-      <PanoramaTransition scene={scene} />
+      <XRTrackingProbe enabled={mode === 'vr'} onTrackingChange={onXRTrackingChange} />
+
+      {useSpatialRoom ? (
+        <SpatialScene ref={spatialSceneRef} scene={scene} onStatusChange={onSpatialStatus}>
+          {!modalOpen && (scene?.hotspots || []).filter((hotspot) => Array.isArray(hotspot.spatialPosition)).map((hotspot) => (
+            <Hotspot
+              key={hotspot.id}
+              hotspot={hotspot}
+              spatial
+              pointerEnabled={false}
+              selected={hotspot.id === selectedHotspotId}
+              guideHighlight={hotspot.id === guideStep?.highlightHotspotId}
+              editMode={false}
+              onSelect={onSelectHotspot}
+              onActivate={onHotspotActivate}
+            />
+          ))}
+        </SpatialScene>
+      ) : !waitingForTracking ? (
+        <>
+          <PanoramaTransition scene={scene} />
+          {!modalOpen && (scene?.hotspots || []).map((hotspot) => (
+            <Hotspot
+              key={hotspot.id}
+              hotspot={hotspot}
+              pointerEnabled={mode === 'pc' || editMode}
+              selected={hotspot.id === selectedHotspotId}
+              guideHighlight={hotspot.id === guideStep?.highlightHotspotId}
+              editMode={editMode}
+              onSelect={onSelectHotspot}
+              onActivate={onHotspotActivate}
+            />
+          ))}
+        </>
+      ) : null}
+
       <DesktopControls
-        enabled={!modalOpen && (mode === 'pc' || (mode === 'phone' && !phoneHeadset))}
+        enabled={!modalOpen && mode === 'pc'}
         focusRequest={focusRequest}
       />
       <PhoneOrientationControls
+        ref={phoneOrientationRef}
         enabled={mode === 'phone'}
-        onActiveChange={onMotionActiveChange}
+        permissionState={phoneMotionPermission}
+        onStatusChange={onPhoneMotionStatus}
       />
       <PhoneStereoRenderer enabled={mode === 'phone' && phoneHeadset} />
       <XRControllerInput enabled={mode === 'vr'} />
-      <GazeCursor enabled={mode === 'vr' || (mode === 'phone' && phoneHeadset)} />
+      {mode === 'phone' && <GazeCursor enabled dwellMs={2000} alwaysVisible />}
+      {mode === 'vr' && <GazeCursor enabled dwellMs={1200} />}
       <PanoramaClickSurface
-        enabled={!modalOpen && editMode && placingHotspot}
+        enabled={!modalOpen && editMode && placingHotspot && !useSpatialRoom}
         onPick={onPlaceHotspot}
       />
 
-      {!modalOpen && (scene?.hotspots || []).map((hotspot) => (
-        <Hotspot
-          key={hotspot.id}
-          hotspot={hotspot}
-          selected={hotspot.id === selectedHotspotId}
-          guideHighlight={hotspot.id === guideStep?.highlightHotspotId}
-          editMode={editMode}
-          onSelect={onSelectHotspot}
-          onActivate={onHotspotActivate}
-        />
-      ))}
-
-      {guideStep?.focus && <GuideFocusMarker focus={guideStep.focus} />}
+      {guideStep?.focus && !useSpatialRoom && <GuideFocusMarker focus={guideStep.focus} />}
 
       {inspection && (
         <ProductInspector3D
           ref={inspectorRef}
           inspection={inspection}
+          immersive={immersiveOverlay}
+          directManipulation={mode === 'pc'}
           onClose={onInspectorClose}
           onAnimationsChange={onInspectorAnimations}
           onStatusChange={onInspectorStatus}
@@ -149,7 +191,10 @@ export default function Viewer({
 }) {
   const [mode, setMode] = useState('pc')
   const [phoneHeadset, setPhoneHeadset] = useState(false)
-  const [motionActive, setMotionActive] = useState(false)
+  const [phoneMotionPermission, setPhoneMotionPermission] = useState('unknown')
+  const [phoneMotionStatus, setPhoneMotionStatus] = useState({ status: 'inactive', detail: '' })
+  const [xrTracking, setXRTracking] = useState('inactive')
+  const [spatialRoomFailed, setSpatialRoomFailed] = useState(false)
   const [inspection, setInspection] = useState(null)
   const [inspectorAnimations, setInspectorAnimations] = useState([])
   const [inspectorStatus, setInspectorStatus] = useState({ state: 'idle', error: '' })
@@ -158,6 +203,8 @@ export default function Viewer({
   const rendererRef = useRef(null)
   const sessionRef = useRef(null)
   const inspectorRef = useRef(null)
+  const phoneOrientationRef = useRef(null)
+  const spatialSceneRef = useRef(null)
   const guideAudioRef = useRef(null)
   const guideAutoActivatedRef = useRef('')
   const guideCommandAppliedRef = useRef('')
@@ -172,6 +219,17 @@ export default function Viewer({
   const guideStepIndex = guideState?.stepIndex ?? -1
   const guideStep = activeGuide?.steps?.[guideStepIndex] || null
   const immersiveOverlay = mode === 'vr' || (mode === 'phone' && phoneHeadset)
+
+  useEffect(() => {
+    setSpatialRoomFailed(false)
+  }, [scene?.id, scene?.spatial?.roomUrl])
+
+  const handleSpatialStatus = useCallback((status) => {
+    if (status?.state === 'error') {
+      console.warn('[viewer] spatial room failed; falling back to panorama', status.error)
+      setSpatialRoomFailed(true)
+    }
+  }, [])
 
   const closeInspection = useCallback(() => {
     setInspection(null)
@@ -252,6 +310,21 @@ export default function Viewer({
           id: `${action.id || 'inspection'}-${Date.now()}`,
         })
         return true
+
+      case ACTION_TYPES.PLAY_ROOM_ANIMATION:
+        if (!action.clip) {
+          console.warn('[viewer] play-room-animation action is missing clip')
+          return false
+        }
+        if (!spatialSceneRef.current?.playAnimation) {
+          console.warn('[viewer] room animation requested while spatial room is not active', action.clip)
+          return false
+        }
+        return spatialSceneRef.current.playAnimation(action.clip, {
+          behavior: action.behavior || 'toggle',
+          loop: action.loop || 'once',
+          speed: Number(action.speed) || 1,
+        })
 
       case ACTION_TYPES.SHOW_INFO:
         closeInspection()
@@ -391,15 +464,24 @@ export default function Viewer({
     if (applied) guideCommandAppliedRef.current = key
   }, [guideState?.instanceId, guideStep, inspection?.id, inspectorStatus.state])
 
+  const enablePhoneMotion = useCallback(async () => {
+    const result = await requestPhoneMotionPermission()
+    setPhoneMotionPermission(result.granted ? 'granted' : result.code || 'denied')
+    if (!result.granted) {
+      setPhoneMotionStatus({ status: result.code || 'denied', detail: result.reason || 'Motion is unavailable.' })
+    }
+    return result.granted
+  }, [])
+
   const choosePhone = useCallback(async () => {
     setMode('phone')
-    try {
-      const granted = await requestPhoneMotionPermission()
-      if (!granted) setMotionActive(false)
-    } catch {
-      setMotionActive(false)
-    }
+    await enablePhoneMotion()
+  }, [enablePhoneMotion])
+
+  const recenterPhone = useCallback(() => {
+    phoneOrientationRef.current?.recenter?.()
   }, [])
+
 
   const startVR = useCallback(async () => {
     if (!capabilities.immersiveVRSupported) {
@@ -415,20 +497,31 @@ export default function Viewer({
 
     try {
       renderer.xr.enabled = true
-      renderer.xr.setReferenceSpaceType('local-floor')
       const session = await navigator.xr.requestSession('immersive-vr', {
         optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking'],
       })
+
+      let referenceSpaceType = 'local-floor'
+      try {
+        await session.requestReferenceSpace('local-floor')
+      } catch {
+        referenceSpaceType = 'local'
+      }
+      renderer.xr.setReferenceSpaceType(referenceSpaceType)
+
       sessionRef.current = session
+      setXRTracking('unknown')
       setMode('vr')
       session.addEventListener('end', () => {
         sessionRef.current = null
+        setXRTracking('inactive')
         setMode('pc')
       }, { once: true })
       await renderer.xr.setSession(session)
     } catch (error) {
       console.error('[viewer] could not enter VR', error)
       window.alert(error?.message || 'Could not start immersive VR.')
+      setXRTracking('inactive')
       setMode('pc')
     }
   }, [capabilities])
@@ -442,6 +535,8 @@ export default function Viewer({
       }
     }
     setPhoneHeadset(false)
+    setPhoneMotionStatus({ status: 'inactive', detail: '' })
+    setXRTracking('inactive')
     setMode('pc')
   }, [])
 
@@ -490,7 +585,11 @@ export default function Viewer({
           vrReason={capabilities.immersiveVRReason}
           phoneHeadset={phoneHeadset}
           onTogglePhoneHeadset={togglePhoneHeadset}
-          motionActive={motionActive}
+          phoneMotionStatus={phoneMotionStatus}
+          onEnablePhoneMotion={enablePhoneMotion}
+          onRecenterPhone={recenterPhone}
+          xrTracking={xrTracking}
+          spatialAvailable={Boolean(scene?.spatial?.roomUrl)}
         />
       )}
 
@@ -498,7 +597,7 @@ export default function Viewer({
         className="viewer-canvas"
         camera={{ position: [0, 0, 0.01], fov: 75, near: 0.01, far: 200 }}
         gl={{ antialias: true, powerPreference: 'high-performance' }}
-        dpr={[1, 2]}
+        dpr={mode === 'phone' ? [1, phoneHeadset ? 1.25 : 1.5] : [1, 2]}
       >
         <SceneContent
           scene={scene}
@@ -510,7 +609,12 @@ export default function Viewer({
           onSelectHotspot={onSelectHotspot}
           mode={mode}
           phoneHeadset={phoneHeadset}
-          onMotionActiveChange={setMotionActive}
+          phoneMotionPermission={phoneMotionPermission}
+          onPhoneMotionStatus={setPhoneMotionStatus}
+          phoneOrientationRef={phoneOrientationRef}
+          spatialSceneRef={spatialSceneRef}
+          spatialRoomFailed={spatialRoomFailed}
+          onSpatialStatus={handleSpatialStatus}
           onRendererReady={(renderer) => { rendererRef.current = renderer }}
           inspection={inspection}
           info={info}
@@ -526,6 +630,8 @@ export default function Viewer({
           onGuideNext={guideNext}
           onGuideExit={exitGuide}
           onGuidePlayNarration={playGuideNarration}
+          xrTracking={xrTracking}
+          onXRTrackingChange={setXRTracking}
         />
       </Canvas>
 
@@ -546,18 +652,6 @@ export default function Viewer({
           onPlayNarration={playGuideNarration}
         />
       )}
-
-      <ProductInspectorHUD
-        inspection={immersiveOverlay ? null : inspection}
-        animations={inspectorAnimations}
-        status={inspectorStatus}
-        onPlayAnimation={(name) => inspectorRef.current?.playAnimation(name)}
-        onApplyVariant={(variantId) => inspectorRef.current?.applyVariant(variantId)}
-        onOpenAnnotation={(annotationId) => inspectorRef.current?.showAnnotation(annotationId)}
-        onResetRotation={() => inspectorRef.current?.resetRotation()}
-        onResetMaterials={() => inspectorRef.current?.resetMaterials()}
-        onClose={closeInspection}
-      />
 
       <InfoOverlay
         info={immersiveOverlay ? null : info}
