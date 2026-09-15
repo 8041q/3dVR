@@ -24,6 +24,10 @@ export function createMaterialVariant() {
     label: 'Variant',
     materialName: '*',
     color: '#ffffff',
+    textureUrl: '',
+    textureRepeat: [1, 1],
+    roughness: null,
+    metalness: null,
   }
 }
 

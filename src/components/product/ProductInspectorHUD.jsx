@@ -53,11 +53,11 @@ export default function ProductInspectorHUD({
 
       {variants.length > 0 && (
         <div className="product-inspector-hud__section">
-          <span>Variants</span>
+          <span>Finishes</span>
           <div className="product-inspector-hud__actions">
             {variants.map((variant) => (
               <button key={variant.id} type="button" onClick={() => onApplyVariant(variant.id)}>
-                {variant.label || 'Variant'}
+                {variant.label || 'Finish'}
               </button>
             ))}
             <button type="button" onClick={onResetMaterials}>Original</button>

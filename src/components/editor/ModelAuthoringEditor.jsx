@@ -6,6 +6,7 @@ import {
   createMaterialVariant,
   createModelAnnotation,
 } from '../../actions/actionTypes'
+import ModelAnnotationPlacementDialog from './ModelAnnotationPlacementDialog'
 
 function updateAt(items, index, patch) {
   return items.map((item, itemIndex) => itemIndex === index ? { ...item, ...patch } : item)
@@ -46,6 +47,7 @@ export default function ModelAuthoringEditor({ action, patchAction, uploadAsset 
   const [detectedClips, setDetectedClips] = useState([])
   const [detectedMaterials, setDetectedMaterials] = useState([])
   const [scanning, setScanning] = useState(false)
+  const [placingAnnotationIndex, setPlacingAnnotationIndex] = useState(null)
 
   const animationControls = Array.isArray(action.animationControls) ? action.animationControls : []
   const materialVariants = Array.isArray(action.materialVariants) ? action.materialVariants : []
@@ -62,6 +64,20 @@ export default function ModelAuthoringEditor({ action, patchAction, uploadAsset 
       setDetectedMaterials([])
     } catch (error) {
       setUploadError(error.message || 'Model upload failed')
+    }
+  }
+
+  async function uploadVariantTexture(index, file) {
+    if (!file) return
+    setUploadError('')
+
+    try {
+      const result = await uploadAsset(file)
+      patchAction({
+        materialVariants: updateAt(materialVariants, index, { textureUrl: result.url }),
+      })
+    } catch (error) {
+      setUploadError(error.message || 'Texture upload failed')
     }
   }
 
@@ -223,31 +239,43 @@ export default function ModelAuthoringEditor({ action, patchAction, uploadAsset 
       <div className="subsection-card">
         <div className="subsection-card__heading">
           <div>
-            <strong>Material variants</strong>
-            <div className="muted">Create simple fabric or finish choices by recoloring named GLB materials.</div>
+            <strong>Finish presets</strong>
+            <div className="muted">Create visitor-facing finishes with colour, texture and surface properties.</div>
           </div>
           <button
             type="button"
             onClick={() => patchAction({ materialVariants: [...materialVariants, createMaterialVariant()] })}
           >
-            Add variant
+            Add finish
           </button>
         </div>
 
-        {materialVariants.map((variant, index) => (
-          <div className="mini-card" key={variant.id || index}>
-            <label>
-              Customer label
-              <input
-                value={variant.label || ''}
-                onChange={(event) => patchAction({
-                  materialVariants: updateAt(materialVariants, index, { label: event.target.value }),
-                })}
-              />
-            </label>
-            <div className="action-card__grid">
+        {materialVariants.map((variant, index) => {
+          const repeat = Array.isArray(variant.textureRepeat) ? variant.textureRepeat : [1, 1]
+          return (
+            <div className="mini-card finish-preset-card" key={variant.id || index}>
+              <div className="finish-preset-card__headline">
+                <span
+                  className="finish-preset-card__swatch"
+                  style={{
+                    backgroundColor: variant.color || '#ffffff',
+                    backgroundImage: variant.textureUrl ? `url(${variant.textureUrl})` : undefined,
+                  }}
+                />
+                <label>
+                  Visitor label
+                  <input
+                    value={variant.label || ''}
+                    onChange={(event) => patchAction({
+                      materialVariants: updateAt(materialVariants, index, { label: event.target.value }),
+                    })}
+                    placeholder="Walnut, Sand, Dark grey..."
+                  />
+                </label>
+              </div>
+
               <label>
-                Material name
+                Target material
                 <input
                   list={`materials-${action.id}`}
                   value={variant.materialName || '*'}
@@ -257,28 +285,117 @@ export default function ModelAuthoringEditor({ action, patchAction, uploadAsset 
                   placeholder="* for all materials"
                 />
               </label>
+
+              <div className="action-card__grid">
+                <label>
+                  Tint colour
+                  <input
+                    type="color"
+                    value={variant.color || '#ffffff'}
+                    onChange={(event) => patchAction({
+                      materialVariants: updateAt(materialVariants, index, { color: event.target.value }),
+                    })}
+                  />
+                </label>
+                <label className="file-field">
+                  Upload texture
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    onChange={(event) => uploadVariantTexture(index, event.target.files?.[0])}
+                  />
+                </label>
+              </div>
+
               <label>
-                Color
+                Texture URL
                 <input
-                  type="color"
-                  value={variant.color || '#ffffff'}
+                  value={variant.textureUrl || ''}
                   onChange={(event) => patchAction({
-                    materialVariants: updateAt(materialVariants, index, { color: event.target.value }),
+                    materialVariants: updateAt(materialVariants, index, { textureUrl: event.target.value }),
                   })}
+                  placeholder="Optional image from the Library"
                 />
               </label>
+
+              <details className="advanced-details">
+                <summary>Surface settings</summary>
+                <div className="action-card__grid">
+                  <label>
+                    Roughness
+                    <input
+                      type="number"
+                      min="0"
+                      max="1"
+                      step="0.05"
+                      value={variant.roughness ?? ''}
+                      placeholder="Original"
+                      onChange={(event) => patchAction({
+                        materialVariants: updateAt(materialVariants, index, {
+                          roughness: event.target.value === '' ? null : Number(event.target.value),
+                        }),
+                      })}
+                    />
+                  </label>
+                  <label>
+                    Metalness
+                    <input
+                      type="number"
+                      min="0"
+                      max="1"
+                      step="0.05"
+                      value={variant.metalness ?? ''}
+                      placeholder="Original"
+                      onChange={(event) => patchAction({
+                        materialVariants: updateAt(materialVariants, index, {
+                          metalness: event.target.value === '' ? null : Number(event.target.value),
+                        }),
+                      })}
+                    />
+                  </label>
+                  <label>
+                    Texture repeat X
+                    <input
+                      type="number"
+                      min="0.01"
+                      step="0.25"
+                      value={repeat[0] ?? 1}
+                      onChange={(event) => patchAction({
+                        materialVariants: updateAt(materialVariants, index, {
+                          textureRepeat: [Number(event.target.value) || 1, repeat[1] ?? 1],
+                        }),
+                      })}
+                    />
+                  </label>
+                  <label>
+                    Texture repeat Y
+                    <input
+                      type="number"
+                      min="0.01"
+                      step="0.25"
+                      value={repeat[1] ?? 1}
+                      onChange={(event) => patchAction({
+                        materialVariants: updateAt(materialVariants, index, {
+                          textureRepeat: [repeat[0] ?? 1, Number(event.target.value) || 1],
+                        }),
+                      })}
+                    />
+                  </label>
+                </div>
+              </details>
+
+              <button
+                type="button"
+                className="danger compact-button"
+                onClick={() => patchAction({
+                  materialVariants: materialVariants.filter((_, itemIndex) => itemIndex !== index),
+                })}
+              >
+                Remove finish
+              </button>
             </div>
-            <button
-              type="button"
-              className="danger compact-button"
-              onClick={() => patchAction({
-                materialVariants: materialVariants.filter((_, itemIndex) => itemIndex !== index),
-              })}
-            >
-              Remove variant
-            </button>
-          </div>
-        ))}
+          )
+        })}
         <datalist id={`materials-${action.id}`}>
           <option value="*" />
           {detectedMaterials.map((name) => <option key={name} value={name} />)}
@@ -296,7 +413,12 @@ export default function ModelAuthoringEditor({ action, patchAction, uploadAsset 
           </div>
           <button
             type="button"
-            onClick={() => patchAction({ annotations: [...annotations, createModelAnnotation()] })}
+            onClick={() => {
+              const annotation = createModelAnnotation()
+              patchAction({ annotations: [...annotations, annotation] })
+              setPlacingAnnotationIndex(annotations.length)
+            }}
+            disabled={!action.modelUrl}
           >
             Add annotation
           </button>
@@ -325,25 +447,39 @@ export default function ModelAuthoringEditor({ action, patchAction, uploadAsset 
                   })}
                 />
               </label>
-              <div className="annotation-position-grid">
-                {['X', 'Y', 'Z'].map((axis, axisIndex) => (
-                  <label key={axis}>
-                    {axis}
-                    <input
-                      type="number"
-                      step="0.05"
-                      value={position[axisIndex] ?? 0}
-                      onChange={(event) => {
-                        const nextPosition = [...position]
-                        nextPosition[axisIndex] = Number(event.target.value)
-                        patchAction({
-                          annotations: updateAt(annotations, index, { position: nextPosition }),
-                        })
-                      }}
-                    />
-                  </label>
-                ))}
+              <div className="annotation-card__placement">
+                <button
+                  type="button"
+                  className="primary"
+                  disabled={!action.modelUrl}
+                  onClick={() => setPlacingAnnotationIndex(index)}
+                >
+                  Place visually
+                </button>
+                <span className="muted">{position.map((value) => Number(value).toFixed(2)).join(', ')}</span>
               </div>
+              <details className="advanced-details">
+                <summary>Precise coordinates</summary>
+                <div className="annotation-position-grid">
+                  {['X', 'Y', 'Z'].map((axis, axisIndex) => (
+                    <label key={axis}>
+                      {axis}
+                      <input
+                        type="number"
+                        step="0.05"
+                        value={position[axisIndex] ?? 0}
+                        onChange={(event) => {
+                          const nextPosition = [...position]
+                          nextPosition[axisIndex] = Number(event.target.value)
+                          patchAction({
+                            annotations: updateAt(annotations, index, { position: nextPosition }),
+                          })
+                        }}
+                      />
+                    </label>
+                  ))}
+                </div>
+              </details>
               <button
                 type="button"
                 className="danger compact-button"
@@ -357,6 +493,21 @@ export default function ModelAuthoringEditor({ action, patchAction, uploadAsset 
           )
         })}
       </div>
+
+      {Number.isInteger(placingAnnotationIndex) && annotations[placingAnnotationIndex] && (
+        <ModelAnnotationPlacementDialog
+          modelUrl={action.modelUrl}
+          modelScale={action.modelScale ?? 1}
+          annotation={annotations[placingAnnotationIndex]}
+          onClose={() => setPlacingAnnotationIndex(null)}
+          onConfirm={(position) => {
+            patchAction({
+              annotations: updateAt(annotations, placingAnnotationIndex, { position }),
+            })
+            setPlacingAnnotationIndex(null)
+          }}
+        />
+      )}
     </div>
   )
 }

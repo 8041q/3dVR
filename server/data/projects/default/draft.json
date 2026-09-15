@@ -17,6 +17,11 @@
           "position": {
             "yaw": 30,
             "pitch": 0
+          },
+          "style": {
+            "preset": "navigation",
+            "color": "#f5f7fa",
+            "opacity": 0.92
           }
         },
         {
@@ -33,7 +38,12 @@
               "type": "start-guide",
               "guideId": "demo-guide"
             }
-          ]
+          ],
+          "style": {
+            "preset": "info",
+            "color": "#cce8ff",
+            "opacity": 0.92
+          }
         }
       ]
     },
@@ -103,7 +113,12 @@
                 }
               ]
             }
-          ]
+          ],
+          "style": {
+            "preset": "product",
+            "color": "#ffe7a8",
+            "opacity": 0.92
+          }
         }
       ]
     }

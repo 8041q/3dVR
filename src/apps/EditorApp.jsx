@@ -4,7 +4,7 @@ import { useProjectDraft } from '../hooks/useProjectDraft'
 import Viewer from '../components/Viewer'
 import LoginModal from '../components/LoginModal'
 import EditorOverlay from '../components/editor/EditorOverlay'
-import PanoramaMasterUpload from '../components/editor/PanoramaMasterUpload'
+import { cleanupDraftPreviews, createDraftPreview } from '../preview/draftPreview'
 
 export default function EditorApp({ projectId = 'default' }) {
   const auth = useAuth()
@@ -56,9 +56,14 @@ export default function EditorApp({ projectId = 'default' }) {
               ...(scene.hotspots || []),
               {
                 id,
-                label: 'Hotspot',
+                label: 'Navigation hotspot',
                 size: 1,
                 position: { yaw, pitch },
+                style: {
+                  preset: 'navigation',
+                  color: '#f5f7fa',
+                  opacity: 0.92,
+                },
                 actions: [],
               },
             ],
@@ -80,18 +85,37 @@ export default function EditorApp({ projectId = 'default' }) {
   async function handleSave() {
     setSaveError('')
     try {
-      await saveDraft()
+      return await saveDraft()
     } catch (saveFailure) {
       setSaveError(saveFailure.message)
+      return null
+    }
+  }
+
+  function handlePreview() {
+    if (!project) return false
+    setSaveError('')
+    try {
+      cleanupDraftPreviews()
+      const key = createDraftPreview(project)
+      const url = `/preview/${encodeURIComponent(projectId)}?key=${encodeURIComponent(key)}`
+      const previewWindow = window.open(url, '_blank')
+      if (previewWindow) previewWindow.opener = null
+      else window.location.assign(url)
+      return true
+    } catch (previewFailure) {
+      setSaveError(previewFailure.message || 'Could not create draft preview')
+      return false
     }
   }
 
   async function handlePublish() {
     setSaveError('')
     try {
-      await publish()
+      return await publish()
     } catch (publishFailure) {
       setSaveError(publishFailure.message)
+      throw publishFailure
     }
   }
 
@@ -100,7 +124,7 @@ export default function EditorApp({ projectId = 'default' }) {
   if (!sceneId || !project) return null
 
   return (
-    <div className="app">
+    <div className="app editor-app">
       <Viewer
         sceneId={sceneId}
         onNavigate={navigate}
@@ -120,35 +144,34 @@ export default function EditorApp({ projectId = 'default' }) {
       )}
 
       {auth.isEditor && (
-        <>
-          <EditorOverlay
-            projectId={projectId}
-            projectTitle={project.title}
-            projectMeta={meta}
-            projectDirty={dirty}
-            projectSaving={saving}
-            projectPublishing={publishing}
-            authToken={auth.token}
-            onProjectTitleChange={updateTitle}
-            onSaveProject={handleSave}
-            onPublishProject={handlePublish}
-            scenes={scenes}
-            currentSceneId={sceneId}
-            startSceneId={project.startSceneId}
-            onStartSceneChange={updateStartScene}
-            onNavigate={navigate}
-            onScenesChange={updateScenes}
-            placingHotspot={placing}
-            onTogglePlacing={() => setPlacing((value) => !value)}
-            saveError={saveError}
-            selectedHotspotId={selected}
-            onSelectHotspot={setSelected}
-            uploadAsset={uploadAsset}
-            guides={guides}
-            onGuidesChange={updateGuides}
-          />
-          <PanoramaMasterUpload onUseProcessed={usePanorama} />
-        </>
+        <EditorOverlay
+          projectId={projectId}
+          projectTitle={project.title}
+          projectMeta={meta}
+          projectDirty={dirty}
+          projectSaving={saving}
+          projectPublishing={publishing}
+          authToken={auth.token}
+          onProjectTitleChange={updateTitle}
+          onSaveProject={handleSave}
+          onPreviewProject={handlePreview}
+          onPublishProject={handlePublish}
+          scenes={scenes}
+          currentSceneId={sceneId}
+          startSceneId={project.startSceneId}
+          onStartSceneChange={updateStartScene}
+          onNavigate={navigate}
+          onScenesChange={updateScenes}
+          placingHotspot={placing}
+          onTogglePlacing={() => setPlacing((value) => !value)}
+          saveError={saveError}
+          selectedHotspotId={selected}
+          onSelectHotspot={setSelected}
+          uploadAsset={uploadAsset}
+          guides={guides}
+          onGuidesChange={updateGuides}
+          onUseProcessedPanorama={usePanorama}
+        />
       )}
 
       {showLogin && <LoginModal onClose={() => setShowLogin(false)} />}

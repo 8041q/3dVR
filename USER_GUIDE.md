@@ -1,10 +1,10 @@
 # 3DVR Editor - Quick User Guide
 
-This guide is for the person creating and publishing VR presentations. It avoids server and programming details unless they are needed for normal use.
+This guide is for the person building and publishing a presentation. It focuses on the normal workflow, not server internals.
 
 ## 1. Start the editor
 
-For normal development/testing:
+For normal local work:
 
 ```bash
 npm run dev
@@ -16,135 +16,203 @@ Open:
 http://localhost:5173/editor/default
 ```
 
-Use the editor password when asked. In development the default is `admin` unless you changed `EDITOR_PASSWORD`.
+Use your editor password when asked. In development the default is `admin` unless `EDITOR_PASSWORD` was changed.
 
-## 2. Projects: draft vs published
+## 2. Use the Tool rail
 
-Every project now has two states:
+The left side of the editor has a compact **Tool rail**. It is grouped by the job you are doing:
+
+- **Scenes** - build the rooms/locations in the presentation.
+- **Interactions** - place hotspots and decide how they look and what they do.
+- **Guides** - build the visitor journey step by step.
+- **Library** - upload/reuse panoramas, models, audio and video.
+- **Project** - project name, create/switch/duplicate projects and project-level settings.
+
+Only one tool opens at a time. Each tool also shows a short explanation at the top, so you can tell what it is for before changing anything.
+
+Use **Hide** at the bottom of the rail when you want more space to inspect the panorama. Select any tool to open the panel again.
+
+## 3. Draft vs published
+
+Every project has two states:
 
 - **Draft** - what you are currently editing.
 - **Published** - what visitors see at `/v/project-name`.
 
-The editor shows one of these states at the top:
+The top of the editor can show:
 
-- **Unsaved changes** - save the draft.
-- **Draft saved - not published** - saved safely, but visitors still see the previous published version.
-- **Published** - draft and public viewer are the same version.
+- **Unsaved changes**
+- **Draft saved - not published**
+- **Published**
 
-### Save draft
+### Save
 
-Use **Save draft** while working. This does not change the public viewer.
+Use **Save** while working. Saving does not change the public presentation.
 
-### Publish
+### Preview the draft
 
-Use **Publish** when the project is ready. Publish automatically saves your current draft first.
+Use **Preview** to test the exact draft you currently have open, including unsaved changes.
 
-Use **Open viewer** to check the exact version visitors will see.
+Preview opens in a new tab and is clearly marked:
 
-## 3. Create or duplicate a project
+```text
+Draft preview - Not published
+```
 
-Open **Projects** near the top of the editor.
+This is for testing, not for sending to customers. It does not replace the published version.
 
-To create a clean project:
+### Publish and share
+
+Use **Publish** when the presentation is ready. Publishing saves the draft first and updates the public version.
+
+After publishing, a compact share window appears with:
+
+- the public URL and **Copy link**
+- **Open viewer**
+- a QR code and **Download QR**
+- the Share button on browsers/devices that support it
+- scene/Guide counts, start scene and revision information
+- a reminder that the published copy stays live while you keep editing the Draft
+
+The QR code is generated locally by 3DVR; it does not use an external QR website.
+
+## 4. Create or duplicate a project
+
+Open **Project**.
+
+To create a new project:
 
 1. Enter a project name.
 2. Select **Create**.
-3. The editor opens the new project automatically.
+3. The new project opens automatically.
 
-To use an existing project as a starting point:
+To reuse an existing presentation:
 
 1. Open the project you want to copy.
-2. Open **Projects**.
-3. Select **Duplicate current project**.
-4. Edit the copy without affecting the original.
+2. Select **Duplicate current project**.
+3. Edit the copy.
 
-A new or duplicated project is not public until you press **Publish**.
+A new/duplicated project is not public until you publish it.
 
-## 4. Scenes
+## 5. Scenes
 
-A scene is one 360-degree location.
+Open **Scenes**. A scene is one 360-degree location.
 
-To create a scene:
+To add one:
 
-1. Enter a name under **Scenes**.
+1. Enter a scene name.
 2. Select **Add**.
-3. Open the new scene.
-4. Replace its panorama with your own image.
+3. Select the new scene.
+4. Add its panorama.
 
-Use **Set as start scene** on the scene visitors should see first.
+Use **Group / area** when a project starts getting large. Good examples are `Ground floor`, `Bedrooms`, `Pavilion A` or `Outdoor`. The scene filters at the top then let you focus on one area.
 
-## 5. Add a normal 360 panorama
+You can drag scene cards up or down to change the editor order. This does not change which scene is the starting scene. Use **Set as start scene** for the scene visitors should see first.
 
-If the image is small enough for a normal browser texture:
+### Scene map
 
-1. Open **Asset library**.
-2. Select **Upload asset**.
-3. Upload a JPEG, PNG or WebP.
-4. Find the image in the library.
-5. Select **Use in scene**.
+Select **Open map** to see the project as a navigation diagram.
 
-The image should be a proper 2:1 equirectangular 360 render for correct viewing.
+- Each card is a scene.
+- Lines are created automatically from **Go to scene** hotspot actions.
+- The `Start` badge shows the public starting scene.
+- Drag the small **Move** handle to organise the diagram.
+- Select a scene card to jump back to that scene in the editor.
+- **Auto arrange** resets the diagram to a clean grid.
 
-## 6. Add a very large / maximum-quality panorama
+Moving cards in the Scene map only changes the editor diagram; it does not change visitor navigation.
 
-For large company renders, use **Master panorama upload** at the bottom of the screen instead of the normal image upload.
+## 6. Add a normal 360 panorama
 
-1. Open **Master panorama upload**.
-2. Choose the original 2:1 equirectangular render.
-3. Select **Upload master**.
-4. Wait for processing to complete.
-5. Select **Use in current scene**.
+Open **Library**.
 
-The server converts the master into multiresolution tiles. The headset then loads only the resolution it actually needs instead of trying to load the entire master image into GPU memory.
+For a normal-sized panorama:
 
-## 7. Place a hotspot
+1. Select **Upload asset** in the asset library.
+2. Upload a JPEG, PNG or WebP.
+3. Find it in the asset library.
+4. Select **Use in scene**.
 
-1. Open the scene.
-2. Select **Place hotspot**.
-3. Click the exact position in the panorama.
-4. Give the hotspot a useful label.
-5. Adjust its size if needed.
+The image should be a proper 2:1 equirectangular 360 render.
 
-A hotspot can have more than one action.
+## 7. Add a very large / maximum-quality panorama
 
-## 8. Hotspot actions
+Open **Library** and use **High-resolution panorama** (the Master panorama upload workflow).
 
-Open a hotspot and use **Add action**.
+1. Choose the original 2:1 equirectangular render.
+2. Select **Upload master**.
+3. Wait for upload and processing.
+4. Select **Use in current scene**.
 
-### Navigate to scene
+Large masters are converted into multiresolution tiles so the headset does not need the complete full-resolution render in GPU memory at once.
 
-Use this for moving between rooms/locations.
+## 8. Place a hotspot
 
-1. Choose **Navigate to scene**.
-2. Choose the destination scene.
+Open **Interactions**.
+
+1. Select **Add hotspot**.
+2. Click the desired position in the panorama.
+3. Select the new hotspot in the list.
+4. Give it a useful label.
+5. Choose its appearance and actions.
+
+You can also select an existing hotspot directly in the panorama while editing.
+
+## 9. Hotspot appearance
+
+Hotspot appearance does not change what the hotspot does.
+
+Available styles are:
+
+- **Navigation** - general movement marker.
+- **Floor** - wide oval, useful on the floor.
+- **Doorway** - tall marker for doors/passages.
+- **Window** - framed marker for windows/openings.
+- **Product** - distinctive marker for inspectable products.
+- **Information** - compact detail/information marker.
+
+You can also change marker colour, opacity and size.
+
+### Hotspots used by Guides
+
+You can safely change the appearance of a hotspot that is already used by a Guide.
+
+Guides identify the hotspot by its internal ID, not by its shape. When a Guide wants the visitor to select that hotspot, 3DVR adds a flashing halo around the chosen style.
+
+## 10. Hotspot actions
+
+A hotspot can have one or more actions. The **Actions** tab now shows an **Action sequence** instead of one long form.
+
+1. Select **Add action**.
+2. Choose what should happen.
+3. Select an action card to edit it.
+4. Use **Earlier** / **Later** when several actions should run in a specific order.
+
+The visitor runs the sequence from top to bottom when the hotspot is selected.
+
+### Go to scene
+
+Choose another scene to enter. These connections also appear automatically in the **Scene map**.
 
 ### Show information
 
-Use this for product descriptions, instructions or exhibition information.
+Use for descriptions, instructions or product information.
 
-1. Choose **Show information**.
-2. Add a title and text.
+### Open link
 
-### Open a link
-
-Use this when a visitor should open an external page.
+Use for an external website/page.
 
 ### Start guide
 
-Use this to launch one of your guided tours from inside the VR scene.
+Starts one of the project's guided tours.
 
-### Inspect 3D model
+### Inspect product
 
-Use this for a product that visitors should inspect more closely.
+Use when a product should open as an interactive GLB model.
 
-1. Choose **Inspect 3D model**.
-2. Upload/select a GLB model.
-3. Give it a clear visitor-facing title.
-4. Use **Scan model** to find its animations and materials.
+## 11. Asset library
 
-## 9. Asset library
-
-The **Asset library** lists reusable files already on the server.
+Open **Library** to see reusable files already stored on the server.
 
 You can filter by:
 
@@ -153,110 +221,114 @@ You can filter by:
 - Audio
 - Video
 
-Useful actions:
+Useful actions include:
 
-- **Use in scene** - sets an image as the current panorama.
-- **Add to hotspot** - creates a 3D inspection action using that GLB on the selected hotspot.
-- **Copy URL** - useful when another editor field asks for an asset URL.
+- **Use in scene** - use an image for the current scene.
+- **Add to hotspot** - add a GLB product inspection to the selected hotspot.
+- **Copy URL** - reuse the asset in narration or another field.
 
-Select a hotspot first before using **Add to hotspot**.
-
-## 10. Product animations
+## 12. Product animations
 
 For a GLB with animations:
 
 1. Open its **Inspect 3D model** action.
 2. Select **Scan model**.
-3. Add the animation clips you want visitors to control.
-4. Rename them to friendly labels.
+3. Add the animation clips visitors should control.
+4. Rename them to simple visitor-facing labels.
 
 Example:
 
 ```text
-Bed_Storage_Open_v04  ->  Open storage
-Headrest_Up_Final     ->  Raise headrest
+Bed_Storage_Open_v04 -> Open storage
+Headrest_Up_Final    -> Raise headrest
 ```
 
-Visitors only see the friendly label.
+## 13. Finish presets
 
-## 11. Material variants
+Use **Finish presets** when one product has several fabrics, woods, metals or colours. A finish can now change more than just colour.
 
-Use variants when one product has different finishes or colours.
+For each finish:
 
-For each variant:
+1. Select **Add finish**.
+2. Give it a visitor-facing label such as `Walnut`, `Sand fabric` or `Brushed steel`.
+3. Choose the GLB material that should change. Use `*` only when the whole model should receive the same finish.
+4. Choose a tint colour.
+5. Optionally **Upload texture** or paste a texture URL from the Library.
+6. Open **Surface settings** when you need to adjust roughness, metalness or how often the texture repeats.
 
-1. Add a variant.
-2. Give it a clear label such as `Walnut`, `Sand` or `Dark grey`.
-3. Choose the model material to change.
-4. Choose the colour.
+Useful examples:
 
-More advanced texture replacement can be added later; the current variants are colour/material based.
+- Fabric: texture + high roughness + metalness near 0.
+- Polished metal: grey tint + lower roughness + high metalness.
+- Wood: wood texture + roughness around the middle + metalness near 0.
 
-## 12. Product annotations
+The **Original** control in the product viewer restores the GLB's original material. Texture files referenced by finish presets are included in published/offline project asset discovery.
 
-Annotations are detail points attached to a 3D product.
+## 14. Product annotations
 
-Use them for things such as:
+Annotations are detail points attached to an inspected 3D product.
 
-- hidden storage
-- mechanisms
-- material details
-- USB ports
-- controls
-- construction details
+The normal workflow is visual:
 
-Give each annotation a short label and explanation.
+1. Open the product's **Inspect 3D model** action.
+2. Add an annotation and give it a short label/details.
+3. Select **Place visually**.
+4. Drag the model to rotate it.
+5. Click the exact point on the model.
+6. Select **Use this point**.
 
-## 13. Create a guide
+You can still open **Precise coordinates** when you need exact X/Y/Z values.
 
-Open **Guides** in the editor.
+Good uses include hidden storage, mechanisms, material details, controls and construction details. Keep labels short and explanations clear.
 
-A guide is a sequence of steps. A step can:
+## 15. Create a Guide
+
+Open **Guides**.
+
+The top of the Guide editor is a **Storyboard**. Each card is one visitor step. Select a card to edit only that step, or drag cards to reorder them. This keeps long Guides manageable.
+
+Use **Earlier/Later** if you prefer buttons instead of dragging. You can also duplicate a step when the next one is similar.
+
+A Guide is a sequence of steps. Steps can:
 
 - move to a scene
-- point the visitor toward something
-- highlight a hotspot
-- wait for a hotspot to be selected
+- point toward something
+- flash/highlight a hotspot
+- wait for that hotspot to be selected
 - open a product inspection
-- play a model animation
-- change a material variant
+- play a product animation
+- switch a material variant
 - play narration
 
-Keep exhibition guides short and clear. One instruction per step usually works best.
+A simple exhibition Guide is usually better than a long one. Aim for one clear visitor instruction per step.
 
-## 14. Narration
+## 16. Narration
 
-A guide step can use an audio file.
+A Guide step can use MP3/WAV/OGG narration.
 
-1. Upload the MP3/WAV/OGG through the asset upload tools.
-2. Add its URL to the guide step narration field.
-3. Test both online and after downloading the project offline.
+Upload the file through the asset tools and assign it to the step. The viewer also includes a manual **Narration** control because some browsers/headsets block automatic playback.
 
-The viewer also shows a **Narration** control because browsers/headsets can block automatic audio playback.
+## 17. Recommended testing order
 
-## 15. Test before publishing
+Before publishing:
 
-Before pressing Publish, check:
+1. Use **Preview** from the editor.
+2. Check every scene and hotspot.
+3. Run every Guide from start to finish.
+4. Test product models/animations.
+5. Test VR gaze/controller interaction.
+6. Publish.
+7. Scan the new QR code or open the published URL for one final public-viewer test.
 
-1. Every scene opens.
-2. Every navigation hotspot goes to the right place.
-3. Information text is readable.
-4. Models load.
-5. Product animation buttons do what their labels say.
-6. The guide can be completed without getting stuck.
-7. VR gaze/controller controls can reach all required actions.
+## 18. Download a project to the headset
 
-Then press **Publish** and use **Open viewer** for one final check.
-
-## 16. Download a project to the headset
-
-Open the published viewer on the headset and use **Download project**.
+Open the published viewer on the headset and select **Download project**.
 
 The offline copy includes the published project and its required assets, including multiresolution panorama tiles and referenced models/media.
 
-After download, test once with Wi-Fi disabled before taking the headset to an exhibition.
+After download, turn Wi-Fi off and test the presentation once before the exhibition.
 
-## 17. Production server
+## 19. Production server
 
 For a simple production installation:
 
@@ -266,29 +338,26 @@ npm run build
 npm start
 ```
 
-You do not need to keep two terminals open. `npm start` supervises both the web/API process and the panorama worker.
+You do not need two open terminals. `npm start` supervises the web/API process and panorama worker.
 
-For Docker deployment:
+For Docker:
 
 ```bash
 docker compose up -d --build
 ```
 
-Use HTTPS for the production URL, especially for WebXR/headset use.
+Use HTTPS for the production address, especially for WebXR/headset use.
 
 ## Recommended exhibition workflow
 
-A good routine is:
-
 ```text
 Duplicate last project
--> edit the draft
+-> edit draft
+-> Preview
 -> test on PC
 -> test in headset
--> publish
--> open published viewer
+-> Publish
+-> share/scan the QR code
 -> download published project to headset
 -> turn Wi-Fi off and test again
 ```
-
-That keeps the live exhibition version safe while a new presentation is being prepared.

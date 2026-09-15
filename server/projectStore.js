@@ -23,6 +23,7 @@ const ASSET_KEYS = new Set([
   'icon',
   'iconUrl',
   'thumbnail',
+  'textureUrl',
   'manifestUrl',
 ])
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 
 function formatDate(value) {
   if (!value) return 'Never'
@@ -11,13 +11,8 @@ export default function ProjectManager({
   projectId,
   title,
   meta,
-  dirty,
-  saving,
-  publishing,
   token,
   onTitleChange,
-  onSave,
-  onPublish,
 }) {
   const [projects, setProjects] = useState([])
   const [newTitle, setNewTitle] = useState('New project')
@@ -38,13 +33,6 @@ export default function ProjectManager({
   useEffect(() => {
     refreshProjects()
   }, [projectId, meta?.updatedAt, meta?.publishedAt])
-
-  const status = useMemo(() => {
-    if (dirty) return { label: 'Unsaved changes', tone: 'warning' }
-    if (meta?.hasUnpublishedChanges) return { label: 'Draft saved - not published', tone: 'warning' }
-    if (meta?.isPublished) return { label: 'Published', tone: 'success' }
-    return { label: 'Not published yet', tone: 'muted' }
-  }, [dirty, meta])
 
   async function createProject(duplicateFrom = null) {
     setBusy(true)
@@ -73,68 +61,44 @@ export default function ProjectManager({
   }
 
   return (
-    <section className="project-manager">
-      <div className="project-manager__heading">
-        <div>
-          <div className="editor-eyebrow">Project</div>
-          <strong>{title || projectId}</strong>
-        </div>
-        <span className={`status-pill status-pill--${status.tone}`}>{status.label}</span>
-      </div>
-
+    <div className="project-manager project-manager--details">
       <label>
         Project title
         <input value={title || ''} onChange={(event) => onTitleChange(event.target.value)} />
       </label>
-
-      <div className="project-manager__actions">
-        <button onClick={onSave} disabled={saving || publishing || !dirty}>
-          {saving ? 'Saving...' : 'Save draft'}
-        </button>
-        <button className="primary" onClick={onPublish} disabled={saving || publishing}>
-          {publishing ? 'Publishing...' : 'Publish'}
-        </button>
-        {meta?.isPublished && (
-          <a className="button-link" href={`/v/${encodeURIComponent(projectId)}`} target="_blank" rel="noreferrer">
-            Open viewer
-          </a>
-        )}
-      </div>
 
       <div className="project-manager__meta">
         <span>Published: {formatDate(meta?.publishedAt)}</span>
         {meta?.publishedRevision && <span>Revision: {meta.publishedRevision}</span>}
       </div>
 
-      <details className="project-manager__switcher">
-        <summary>Projects</summary>
-        <div className="project-list">
-          {projects.map((project) => (
-            <button
-              key={project.id}
-              className={project.id === projectId ? 'active list-button' : 'list-button'}
-              onClick={() => {
-                if (project.id !== projectId) {
-                  window.location.assign(`/editor/${encodeURIComponent(project.id)}`)
-                }
-              }}
-            >
-              <span>{project.title || project.id}</span>
-              <small>{project.hasUnpublishedChanges ? 'Draft changes' : project.isPublished ? 'Published' : 'Draft only'}</small>
-            </button>
-          ))}
-        </div>
+      <div className="editor-subheading">Projects</div>
+      <div className="project-list">
+        {projects.map((project) => (
+          <button
+            key={project.id}
+            className={project.id === projectId ? 'active list-button' : 'list-button'}
+            onClick={() => {
+              if (project.id !== projectId) {
+                window.location.assign(`/editor/${encodeURIComponent(project.id)}`)
+              }
+            }}
+          >
+            <span>{project.title || project.id}</span>
+            <small>{project.hasUnpublishedChanges ? 'Draft changes' : project.isPublished ? 'Published' : 'Draft only'}</small>
+          </button>
+        ))}
+      </div>
 
-        <div className="inline-form project-create-form">
-          <input value={newTitle} onChange={(event) => setNewTitle(event.target.value)} />
-          <button onClick={() => createProject(null)} disabled={busy}>Create</button>
-        </div>
-        <button onClick={() => createProject(projectId)} disabled={busy}>
-          Duplicate current project
-        </button>
-      </details>
+      <div className="inline-form project-create-form">
+        <input value={newTitle} onChange={(event) => setNewTitle(event.target.value)} />
+        <button onClick={() => createProject(null)} disabled={busy}>Create</button>
+      </div>
+      <button onClick={() => createProject(projectId)} disabled={busy}>
+        Duplicate current project
+      </button>
 
       {error && <div className="error-text">{error}</div>}
-    </section>
+    </div>
   )
 }

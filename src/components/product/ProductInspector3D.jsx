@@ -312,7 +312,7 @@ const ProductInspector3D = forwardRef(function ProductInspector3D({
         {materialVariants.map((variant, index) => (
           <WorldButton
             key={variant.id}
-            label={variant.label || 'Variant'}
+            label={variant.label || 'Finish'}
             position={buttonGridPosition(index, materialVariants.length, -1.05)}
             width={0.66}
             onActivate={() => applyVariant(variant.id)}

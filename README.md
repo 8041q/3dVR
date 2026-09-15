@@ -22,8 +22,10 @@ For normal editor use, start with [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md). It
 - Scene navigation, information, external-link, model-inspection and start-guide actions.
 - First-class guided experiences with ordered steps, scene changes, focus cues, hotspot highlights, narration, hotspot-driven completion and timed progression.
 - GLB product inspection with designer-friendly animation controls.
-- Material/fabric color variants targeting named GLB materials.
+- Finish presets targeting named GLB materials, with color, textures, roughness and metalness.
 - Selectable model annotations.
+- Scene groups, draggable scene ordering and a navigation Scene Map derived from hotspot connections.
+- Focused ordered action builder for multi-action hotspots.
 - Guide steps can open product hotspots and trigger product animations/material variants.
 - Generic streamed asset upload for models/media.
 - PWA/offline foundation.
@@ -117,6 +119,10 @@ npm run test:phase3
 npm run test:phase4
 npm run test:phase5
 npm run test:phase6
+npm run test:phase7
+npm run test:phase8
+npm run test:phase9
+npm run test:phase10
 npm run test:model
 ```
 
@@ -159,13 +165,22 @@ In the editor, use `Scan model` after uploading/entering a GLB URL to discover a
 
 ## Project data
 
-The current prototype stores editable content in:
+Projects use separate draft and published snapshots under:
 
 ```text
-server/data/scenes.json
-server/data/guides.json
+server/data/projects/<project-id>/
+  meta.json
+  draft.json
+  published.json
+  versions/
 ```
 
-This is intentionally retained while the viewer/editor feature model stabilizes. A later persistence/versioning phase should move projects, revisions, users and asset metadata to PostgreSQL/object storage without changing the viewer action/guide schemas.
+The public viewer only consumes the published snapshot. Saving a draft therefore cannot change the live exhibition presentation until **Publish** is used. The legacy scene/guide files are retained for automatic bootstrap of the `default` project.
 
-See `PHASE6.md` for the Phase 6 implementation details and current boundaries.
+A later infrastructure phase can move these snapshots and asset metadata to PostgreSQL/object storage without changing the viewer action/guide schemas.
+
+## Current editor workflow
+
+The editor uses the task-focused Scenes / Interactions / Guides / Library / Project tool rail. Scenes can be grouped and inspected in a visual navigation map. Hotspot actions are authored as an ordered sequence. Use **Preview** to test the current draft without publishing. After **Publish**, the share dialog provides the public URL and a locally generated QR code. See `docs/USER_GUIDE.md` for the operator workflow.
+
+See `PHASE10.md` for the latest editor/product-authoring changes.
