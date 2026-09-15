@@ -448,6 +448,8 @@ export default function EditorOverlay({
                     selectedHotspot={hotspot}
                     onUseImage={useImageAsset}
                     onUseModel={useModelAsset}
+                    authToken={authToken}
+                    projectContent={{ scenes, guides }}
                   />
                 </div>
               )}

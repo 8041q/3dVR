@@ -1,9 +1,10 @@
 import fs from 'node:fs'
 import fsPromises from 'node:fs/promises'
 import path from 'node:path'
-import crypto from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import { requireEditor } from './auth.js'
+import { chooseStoredFilename, sanitizeUploadFilename } from './assetStorage.js'
+import { registerAsset } from './assetRegistry.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const UPLOADS = path.join(__dirname, '..', 'public', 'uploads')
@@ -42,7 +43,8 @@ export function createUploadRouter(express) {
       return res.status(413).json({ error: 'Asset exceeds the configured upload size.' })
     }
 
-    const name = `${crypto.randomUUID()}${extension}`
+    const originalName = sanitizeUploadFilename(filename, extension)
+    const name = await chooseStoredFilename(UPLOADS, originalName, extension)
     const finalPath = path.join(UPLOADS, name)
     const tempPath = `${finalPath}.${process.pid}.part`
     const writeStream = fs.createWriteStream(tempPath, { flags: 'wx' })
@@ -89,11 +91,23 @@ export function createUploadRouter(express) {
       if (failed) return
       try {
         await fsPromises.rename(tempPath, finalPath)
+        const contentType = req.get('Content-Type') || 'application/octet-stream'
+        const url = `/uploads/${name}`
+        await registerAsset({
+          url,
+          originalName,
+          storedName: name,
+          bytes: written,
+          contentType,
+          uploadedAt: new Date().toISOString(),
+        })
         return res.status(201).json({
-          url: `/uploads/${name}`,
+          url,
           bytes: written,
           filename: name,
-          contentType: req.get('Content-Type') || 'application/octet-stream',
+          storedName: name,
+          originalName,
+          contentType,
         })
       } catch (error) {
         await cleanup()

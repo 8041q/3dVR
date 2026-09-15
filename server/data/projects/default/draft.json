@@ -131,7 +131,7 @@
       "spatial": {
         "schemaVersion": 1,
         "source": "blender",
-        "roomUrl": "/uploads/0c085634-292e-497e-90ca-856b08e47c72.glb",
+        "roomUrl": "/uploads/booth-room.glb",
         "sourceScene": "Scene",
         "cameraHeight": 2.1450605392456055,
         "bounds": {
@@ -149,7 +149,11 @@
         "exportedAt": "2026-09-15T14:05:42.911319+00:00",
         "animations": [],
         "environmentIntensity": 0.85,
-        "exposure": 1
+        "exposure": 1,
+        "roomFile": "booth-room.glb",
+        "manifestFile": "booth.3dvr.json",
+        "coordinateSystem": "camera-origin-y-up-forward-minus-z",
+        "storedRoomFile": "booth-room.glb"
       }
     }
   ],

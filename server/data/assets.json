@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "assets": [
+    {
+      "url": "/uploads/booth-room.glb",
+      "originalName": "booth-room.glb",
+      "storedName": "booth-room.glb",
+      "bytes": 538695584,
+      "contentType": "model/gltf-binary",
+      "source": "legacy-import-mapped-from-blender-manifest"
+    }
+  ]
+}

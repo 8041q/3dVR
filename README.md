@@ -115,23 +115,40 @@ Expose the application through trusted HTTPS for WebXR. A minimal Caddy example 
 npm test
 ```
 
-Individual checks:
+The test suite now contains two checks that are present in this repository:
 
 ```bash
-npm run test:phase3
-npm run test:phase4
-npm run test:phase5
-npm run test:phase6
-npm run test:phase7
-npm run test:phase8
-npm run test:phase9
-npm run test:phase10
-npm run test:phase11
-npm run test:phase12
-npm run test:model
+npm run test:repo
+npm run test:assets
+npm run test:migration
 ```
 
-The Phase 3 smoke test requires FFmpeg with `v360`.
+`test:repo` checks local imports, package-script targets and project upload references. `test:assets` verifies portable upload naming, numeric collision handling, safe deletion/reference guards and the Blender-room filename mapping. `test:migration` validates export identity and import preflight behavior without copying the large room asset.
+
+
+### Asset filenames and deletion
+
+Uploaded assets keep a sanitized human-readable filename. If a name already exists, the server allocates predictable numeric variants such as `booth-room-2.glb`, `booth-room-3.glb`, and so on; UUID filenames are not used for upload collisions.
+
+The Asset Library exposes **Delete** only for uploaded assets. Deletion is refused while the asset URL is still present in the current project state, saved draft, published snapshot, legacy project data, or a saved revision. Once references are removed and saved, deleting an asset removes both the file in `public/uploads/` and its `server/data/assets.json` registry entry. Demo assets are never deleted through this endpoint.
+
+## Project migration backups
+
+Uploads and generated panorama data are intentionally not committed to Git. Before moving an installation, export a project bundle:
+
+```bash
+npm run export:project -- default ./backups/default-project
+```
+
+The bundle includes the project data and every referenced local upload. Legacy UUID-named uploads are exported using their recorded original filename, so the existing room asset appears as `booth-room.glb`. To validate without copying large assets, add `--dry-run`.
+
+Restore the bundle into another checkout with:
+
+```bash
+npm run import:project -- ./backups/default-project
+```
+
+If the destination already contains that project id, explicitly add `--overwrite`. The importer restores files to the stored URLs expected by the project and restores the original-name metadata.
 
 ## Guides
 

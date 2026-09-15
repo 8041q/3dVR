@@ -492,7 +492,15 @@ Choose **Import Blender room** and select both files produced by the 3DVR Blende
 <scene>.3dvr.json
 ```
 
-The importer attaches the tracked room and imports Blender-authored hotspot positions.
+The importer attaches the tracked room and imports Blender-authored hotspot positions. New uploads keep a safe human-readable filename, and the project also retains the Blender manifest's expected room filename.
+
+For server migration or backups, run:
+
+```bash
+npm run export:project -- <project-id> <destination>
+```
+
+This is important because runtime uploads and generated panorama data are intentionally outside normal Git tracking. Restore the bundle in another checkout with `npm run import:project -- <bundle-directory>`.
 
 
 ### Moving objects inside a tracked Blender room

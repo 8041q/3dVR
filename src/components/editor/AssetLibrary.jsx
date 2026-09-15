@@ -2,6 +2,22 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 
 const FILTERS = ['all', 'image', 'model', 'audio', 'video']
 
+function containsExactString(value, target) {
+  if (typeof value === 'string') return value === target
+  if (Array.isArray(value)) return value.some((item) => containsExactString(item, target))
+  if (!value || typeof value !== 'object') return false
+  return Object.values(value).some((item) => containsExactString(item, target))
+}
+
+function referenceLabel(reference) {
+  if (!reference) return 'project data'
+  if (reference.projectId && reference.kind === 'version') {
+    return `${reference.projectId} revision ${reference.revision || ''}`.trim()
+  }
+  if (reference.projectId) return `${reference.projectId} ${reference.kind || 'project'}`
+  return reference.kind || reference.file || 'project data'
+}
+
 function formatBytes(bytes = 0) {
   if (!Number.isFinite(bytes) || bytes <= 0) return '0 MB'
   const mb = bytes / (1024 * 1024)
@@ -15,10 +31,13 @@ export default function AssetLibrary({
   selectedHotspot,
   onUseImage,
   onUseModel,
+  authToken,
+  projectContent,
 }) {
   const [assets, setAssets] = useState([])
   const [filter, setFilter] = useState('all')
   const [busy, setBusy] = useState(false)
+  const [deletingUrl, setDeletingUrl] = useState('')
   const [error, setError] = useState('')
   const fileRef = useRef(null)
 
@@ -63,6 +82,40 @@ export default function AssetLibrary({
       await navigator.clipboard.writeText(url)
     } catch {
       window.prompt('Asset URL', url)
+    }
+  }
+
+  async function deleteAsset(asset) {
+    if (!asset?.url || asset.source !== 'upload') return
+
+    if (containsExactString(projectContent, asset.url)) {
+      setError('This asset is used by the current project. Remove that reference and save the project before deleting the file.')
+      return
+    }
+
+    if (!window.confirm(`Delete ${asset.name}? This removes the uploaded file from disk.`)) return
+
+    setDeletingUrl(asset.url)
+    setError('')
+    try {
+      const response = await fetch(`/api/assets?url=${encodeURIComponent(asset.url)}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${authToken || ''}`,
+        },
+      })
+      const body = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        const references = Array.isArray(body.references) ? body.references : []
+        const labels = [...new Set(references.map(referenceLabel))].slice(0, 4)
+        const suffix = labels.length ? ` Used by: ${labels.join(', ')}.` : ''
+        throw new Error(`${body.error || 'Could not delete asset.'}${suffix}`)
+      }
+      await refresh()
+    } catch (deleteError) {
+      setError(deleteError.message)
+    } finally {
+      setDeletingUrl('')
     }
   }
 
@@ -122,6 +175,17 @@ export default function AssetLibrary({
                   </button>
                 )}
                 <button onClick={() => copyUrl(asset.url)}>Copy URL</button>
+                <a className="button-link" href={asset.url} download={asset.name}>Download</a>
+                {asset.source === 'upload' && (
+                  <button
+                    className="danger"
+                    onClick={() => deleteAsset(asset)}
+                    disabled={deletingUrl === asset.url}
+                    title="Delete this upload when it is no longer referenced by a project or saved revision"
+                  >
+                    {deletingUrl === asset.url ? 'Deleting...' : 'Delete'}
+                  </button>
+                )}
               </div>
             </div>
           </article>

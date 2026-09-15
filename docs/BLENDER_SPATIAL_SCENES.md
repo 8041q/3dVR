@@ -243,12 +243,16 @@ Select both files at the same time:
 
 The editor will:
 
-1. upload the room GLB;
-2. attach it to the current scene;
+1. upload the room GLB while preserving a safe form of its original filename;
+2. attach it to the current scene and retain the manifest `roomFile` identity;
 3. import the Blender hotspots;
 4. merge matching hotspot IDs instead of blindly creating duplicates.
 
+If the same filename already exists, 3DVR adds a short suffix rather than replacing the existing upload. Older UUID-named uploads remain valid; their original filename can be recorded in `server/data/assets.json` and project migration exports use that human filename.
+
 If a matching hotspot already has web-authored actions, those actions are kept unless the Blender export explicitly supplied actions.
+
+For migration or backup, use `npm run export:project -- <project-id> <destination>`. The resulting bundle includes referenced uploads and panorama assets instead of relying on the ignored `public/uploads/` and `storage/` directories being copied by Git.
 
 ## 9. Test the four runtime cases
 
