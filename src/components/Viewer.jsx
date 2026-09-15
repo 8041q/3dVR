@@ -10,6 +10,8 @@ import XRControllerInput from './XRControllerInput'
 import DesktopControls from './DesktopControls'
 import PhoneOrientationControls, { requestPhoneMotionPermission } from './PhoneOrientationControls'
 import PhoneStereoRenderer from './PhoneStereoRenderer'
+import PhoneCalibrationPanel from './PhoneCalibrationPanel'
+import PhoneDollhouseScene from './PhoneDollhouseScene'
 import PanoramaClickSurface from './PanoramaClickSurface'
 import ViewerModeBar from './ViewerModeBar'
 import ProductInspector3D from './product/ProductInspector3D'
@@ -24,6 +26,7 @@ import RemoteInputAdapter from '../input/RemoteInputAdapter'
 import { InteractionProvider } from '../contexts/InteractionContext'
 import { useViewerCapabilities } from '../hooks/useViewerCapabilities'
 import { ACTION_TYPES, normalizeHotspotActions } from '../actions/actionTypes'
+import { PHONE_VIEW_MODES, loadPhoneViewProfile, savePhoneViewProfile } from '../phoneViewProfile'
 
 function RendererBridge({ onReady }) {
   const { gl } = useThree()
@@ -46,6 +49,7 @@ function SceneContent({
   onSelectHotspot,
   mode,
   phoneHeadset,
+  phoneViewProfile,
   phoneMotionPermission,
   onPhoneMotionStatus,
   phoneOrientationRef,
@@ -73,6 +77,7 @@ function SceneContent({
   const modalOpen = Boolean(inspection || info)
   const immersiveOverlay = mode === 'vr' || (mode === 'phone' && phoneHeadset)
   const hasSpatialRoom = Boolean(scene?.spatial?.roomUrl)
+  const phoneDollhouse = mode === 'phone' && phoneViewProfile?.mode === PHONE_VIEW_MODES.DOLLHOUSE && hasSpatialRoom
   // A spatial-configured VR scene waits for WebXR tracking classification, then
   // loads exactly one representation: room for real position tracking, panorama
   // for emulated/rotation-only tracking.
@@ -107,6 +112,17 @@ function SceneContent({
             />
           ))}
         </SpatialScene>
+      ) : phoneDollhouse ? (
+        <PhoneDollhouseScene
+          scene={scene}
+          scaleMultiplier={phoneViewProfile?.dollhouseScale}
+          spatialSceneRef={spatialSceneRef}
+          onSpatialStatus={onSpatialStatus}
+          onHotspotActivate={onHotspotActivate}
+          selectedHotspotId={selectedHotspotId}
+          guideHighlightHotspotId={guideStep?.highlightHotspotId}
+          onSelectHotspot={onSelectHotspot}
+        />
       ) : !waitingForTracking ? (
         <>
           <PanoramaTransition scene={scene} />
@@ -134,8 +150,10 @@ function SceneContent({
         enabled={mode === 'phone'}
         permissionState={phoneMotionPermission}
         onStatusChange={onPhoneMotionStatus}
+        touchEnabled={mode === 'phone' && phoneViewProfile?.mode === PHONE_VIEW_MODES.MAGIC_WINDOW && phoneViewProfile?.touchLookEnabled}
+        fov={phoneViewProfile?.fovDeg}
       />
-      <PhoneStereoRenderer enabled={mode === 'phone' && phoneHeadset} />
+      <PhoneStereoRenderer enabled={mode === 'phone' && phoneHeadset} profile={phoneViewProfile} />
       <XRControllerInput enabled={mode === 'vr'} />
       {mode === 'phone' && <GazeCursor enabled dwellMs={2000} alwaysVisible />}
       {mode === 'vr' && <GazeCursor enabled dwellMs={1200} />}
@@ -190,7 +208,10 @@ export default function Viewer({
   showModeBar = true,
 }) {
   const [mode, setMode] = useState('pc')
-  const [phoneHeadset, setPhoneHeadset] = useState(false)
+  const [phoneViewProfile, setPhoneViewProfile] = useState(() => loadPhoneViewProfile())
+  const [savedPhoneViewProfile, setSavedPhoneViewProfile] = useState(() => loadPhoneViewProfile())
+  const [phoneCalibrationOpen, setPhoneCalibrationOpen] = useState(false)
+  const phoneHeadset = phoneViewProfile.mode === PHONE_VIEW_MODES.HEADSET_STEREO
   const [phoneMotionPermission, setPhoneMotionPermission] = useState('unknown')
   const [phoneMotionStatus, setPhoneMotionStatus] = useState({ status: 'inactive', detail: '' })
   const [xrTracking, setXRTracking] = useState('inactive')
@@ -534,29 +555,38 @@ export default function Viewer({
         // Session can already be closing. Returning to desktop is still safe.
       }
     }
-    setPhoneHeadset(false)
+    setPhoneCalibrationOpen(false)
     setPhoneMotionStatus({ status: 'inactive', detail: '' })
     setXRTracking('inactive')
     setMode('pc')
   }, [])
 
-  const togglePhoneHeadset = useCallback(async () => {
-    const next = !phoneHeadset
-    setPhoneHeadset(next)
-    if (!next) return
+  const enterPhoneHeadset = useCallback(async () => {
+    setPhoneViewProfile((current) => ({ ...current, mode: PHONE_VIEW_MODES.HEADSET_STEREO }))
+    try { await document.documentElement.requestFullscreen?.() } catch {}
+    try { await screen.orientation?.lock?.('landscape') } catch {}
+  }, [])
 
-    try {
-      await document.documentElement.requestFullscreen?.()
-    } catch {
-      // Fullscreen can be denied by the browser; stereo rendering still works.
-    }
+  const openPhoneCalibration = useCallback(() => {
+    setSavedPhoneViewProfile(phoneViewProfile)
+    setPhoneCalibrationOpen(true)
+  }, [phoneViewProfile])
 
-    try {
-      await screen.orientation?.lock?.('landscape')
-    } catch {
-      // Orientation lock is optional and not supported by every phone browser.
-    }
-  }, [phoneHeadset])
+  const previewPhoneProfile = useCallback((profile) => {
+    setPhoneViewProfile(profile)
+  }, [])
+
+  const savePhoneProfile = useCallback((profile) => {
+    const saved = savePhoneViewProfile(profile)
+    setSavedPhoneViewProfile(saved)
+    setPhoneViewProfile(saved)
+    setPhoneCalibrationOpen(false)
+  }, [])
+
+  const cancelPhoneCalibration = useCallback(() => {
+    setPhoneViewProfile(savedPhoneViewProfile)
+    setPhoneCalibrationOpen(false)
+  }, [savedPhoneViewProfile])
 
   const handlePlaceHotspot = useCallback(({ yaw, pitch }) => {
     if (!editMode || !placingHotspot) return
@@ -584,7 +614,9 @@ export default function Viewer({
           vrAvailable={capabilities.immersiveVRSupported}
           vrReason={capabilities.immersiveVRReason}
           phoneHeadset={phoneHeadset}
-          onTogglePhoneHeadset={togglePhoneHeadset}
+          phoneViewMode={phoneViewProfile.mode}
+          onEnterPhoneHeadset={enterPhoneHeadset}
+          onOpenPhoneCalibration={openPhoneCalibration}
           phoneMotionStatus={phoneMotionStatus}
           onEnablePhoneMotion={enablePhoneMotion}
           onRecenterPhone={recenterPhone}
@@ -592,6 +624,18 @@ export default function Viewer({
           spatialAvailable={Boolean(scene?.spatial?.roomUrl)}
         />
       )}
+
+      <PhoneCalibrationPanel
+        open={mode === 'phone' && phoneCalibrationOpen}
+        profile={phoneViewProfile}
+        spatialAvailable={Boolean(scene?.spatial?.roomUrl)}
+        onPreview={previewPhoneProfile}
+        onSave={savePhoneProfile}
+        onCancel={cancelPhoneCalibration}
+        onRecenter={recenterPhone}
+        onEnableMotion={enablePhoneMotion}
+        motionStatus={phoneMotionStatus}
+      />
 
       <Canvas
         className="viewer-canvas"
@@ -609,6 +653,7 @@ export default function Viewer({
           onSelectHotspot={onSelectHotspot}
           mode={mode}
           phoneHeadset={phoneHeadset}
+          phoneViewProfile={phoneViewProfile}
           phoneMotionPermission={phoneMotionPermission}
           onPhoneMotionStatus={setPhoneMotionStatus}
           phoneOrientationRef={phoneOrientationRef}

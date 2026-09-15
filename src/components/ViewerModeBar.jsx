@@ -1,4 +1,5 @@
 import React from 'react'
+import { PHONE_VIEW_MODES } from '../phoneViewProfile'
 
 function motionLabel(state) {
   const status = state?.status || 'inactive'
@@ -11,6 +12,12 @@ function motionLabel(state) {
   return '2 s gaze select'
 }
 
+function phoneModeLabel(mode) {
+  if (mode === PHONE_VIEW_MODES.HEADSET_STEREO) return 'Headset stereo'
+  if (mode === PHONE_VIEW_MODES.DOLLHOUSE) return 'Dollhouse'
+  return 'Magic window'
+}
+
 export default function ViewerModeBar({
   mode,
   onPC,
@@ -19,7 +26,9 @@ export default function ViewerModeBar({
   vrAvailable,
   vrReason,
   phoneHeadset,
-  onTogglePhoneHeadset,
+  phoneViewMode,
+  onEnterPhoneHeadset,
+  onOpenPhoneCalibration,
   phoneMotionStatus,
   onEnablePhoneMotion,
   onRecenterPhone,
@@ -33,28 +42,16 @@ export default function ViewerModeBar({
       <div className="mode-bar">
         <button onClick={onPC} disabled={mode === 'pc'}>PC</button>
         <button onClick={onPhone} disabled={mode === 'phone'}>Phone</button>
-        <button
-          onClick={onVR}
-          disabled={mode === 'vr'}
-          title={vrAvailable ? 'VR Preview' : vrReason}
-        >
-          VR Preview
-        </button>
+        <button onClick={onVR} disabled={mode === 'vr'} title={vrAvailable ? 'VR Preview' : vrReason}>VR Preview</button>
       </div>
 
       {mode === 'phone' && (
         <div className="phone-tools phone-tools--diagnostic">
-          <button
-            className={phoneHeadset ? 'active' : ''}
-            onClick={onTogglePhoneHeadset}
-          >
-            {phoneHeadset ? 'Exit phone headset' : 'Phone headset'}
-          </button>
+          {!phoneHeadset && <button type="button" onClick={onEnterPhoneHeadset}>Headset stereo</button>}
+          <button type="button" className="active" onClick={onOpenPhoneCalibration}>Calibrate view</button>
           <button type="button" onClick={onRecenterPhone}>Recenter view</button>
-          {motionNeedsHelp && (
-            <button type="button" onClick={onEnablePhoneMotion}>Enable motion</button>
-          )}
-          <span title={phoneMotionStatus?.detail || ''}>{motionLabel(phoneMotionStatus)}</span>
+          {motionNeedsHelp && <button type="button" onClick={onEnablePhoneMotion}>Enable motion</button>}
+          <span>{phoneModeLabel(phoneViewMode)} · <span title={phoneMotionStatus?.detail || ''}>{motionLabel(phoneMotionStatus)}</span></span>
         </div>
       )}
 

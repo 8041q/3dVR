@@ -10,6 +10,8 @@ const rawQuaternion = new THREE.Quaternion()
 const yawCorrection = new THREE.Quaternion()
 const forward = new THREE.Vector3()
 const yAxis = new THREE.Vector3(0, 1, 0)
+const touchCorrection = new THREE.Quaternion()
+const touchEuler = new THREE.Euler(0, 0, 0, 'YXZ')
 
 function screenOrientationRadians() {
   const angle = window.screen?.orientation?.angle
@@ -45,8 +47,10 @@ const PhoneOrientationControls = forwardRef(function PhoneOrientationControls({
   enabled,
   permissionState = 'unknown',
   onStatusChange,
+  touchEnabled = false,
+  fov = 75,
 }, ref) {
-  const { camera } = useThree()
+  const { camera, gl } = useThree()
   const state = useRef({
     alpha: null,
     beta: null,
@@ -59,6 +63,11 @@ const PhoneOrientationControls = forwardRef(function PhoneOrientationControls({
     status: 'inactive',
     statusDetail: '',
     statusReportedAt: 0,
+    touchYaw: 0,
+    touchPitch: 0,
+    pointerId: null,
+    pointerX: 0,
+    pointerY: 0,
   })
 
   const report = (status, detail = '') => {
@@ -82,6 +91,8 @@ const PhoneOrientationControls = forwardRef(function PhoneOrientationControls({
       current.screen,
     )
     current.yawOffset = -horizontalYawFromQuaternion(rawQuaternion)
+    current.touchYaw = 0
+    current.touchPitch = 0
     current.calibrated = true
     report('active', 'Motion active')
     return true
@@ -164,6 +175,55 @@ const PhoneOrientationControls = forwardRef(function PhoneOrientationControls({
     }
   }, [enabled, permissionState])
 
+  useEffect(() => {
+    const element = gl.domElement
+    if (!enabled || !touchEnabled || !element) return undefined
+
+    const down = (event) => {
+      if (event.pointerType !== 'touch') return
+      const current = state.current
+      current.pointerId = event.pointerId
+      current.pointerX = event.clientX
+      current.pointerY = event.clientY
+      try { element.setPointerCapture?.(event.pointerId) } catch {}
+    }
+
+    const move = (event) => {
+      const current = state.current
+      if (current.pointerId !== event.pointerId) return
+      const dx = event.clientX - current.pointerX
+      const dy = event.clientY - current.pointerY
+      current.pointerX = event.clientX
+      current.pointerY = event.clientY
+      current.touchYaw += dx * 0.0045
+      current.touchPitch = THREE.MathUtils.clamp(current.touchPitch + dy * 0.0035, -Math.PI * 0.42, Math.PI * 0.42)
+    }
+
+    const up = (event) => {
+      if (state.current.pointerId === event.pointerId) state.current.pointerId = null
+    }
+
+    element.addEventListener('pointerdown', down, { passive: true })
+    element.addEventListener('pointermove', move, { passive: true })
+    element.addEventListener('pointerup', up, { passive: true })
+    element.addEventListener('pointercancel', up, { passive: true })
+    return () => {
+      element.removeEventListener('pointerdown', down)
+      element.removeEventListener('pointermove', move)
+      element.removeEventListener('pointerup', up)
+      element.removeEventListener('pointercancel', up)
+    }
+  }, [enabled, gl, touchEnabled])
+
+  useEffect(() => {
+    if (!enabled) return
+    const next = THREE.MathUtils.clamp(Number(fov) || 75, 35, 120)
+    if (Math.abs(camera.fov - next) > 0.01) {
+      camera.fov = next
+      camera.updateProjectionMatrix()
+    }
+  }, [camera, enabled, fov])
+
   useFrame(() => {
     const current = state.current
     if (!enabled || current.alpha == null) return
@@ -178,7 +238,9 @@ const PhoneOrientationControls = forwardRef(function PhoneOrientationControls({
 
     if (!current.calibrated) calibrate()
     yawCorrection.setFromAxisAngle(yAxis, current.yawOffset)
-    camera.quaternion.copy(yawCorrection).multiply(rawQuaternion)
+    touchEuler.set(current.touchPitch, current.touchYaw, 0)
+    touchCorrection.setFromEuler(touchEuler)
+    camera.quaternion.copy(yawCorrection).multiply(touchCorrection).multiply(rawQuaternion)
   })
 
   return null

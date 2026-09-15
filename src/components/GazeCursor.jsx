@@ -24,7 +24,8 @@ export default function GazeCursor({ enabled, dwellMs = 1200, alwaysVisible=fals
   const origin = useMemo(() => new THREE.Vector3(), [])
   const dir = useMemo(() => new THREE.Vector3(), [])
   const mesh = useRef()
-  const fill = useRef()
+  const progressRing = useRef()
+  const progressGeometry = useRef()
   const current = useRef(null)
   const started = useRef(0)
   const fired = useRef(false)
@@ -68,9 +69,10 @@ export default function GazeCursor({ enabled, dwellMs = 1200, alwaysVisible=fals
       mesh.current.quaternion.copy(activeCamera.quaternion)
       mesh.current.scale.setScalar(0.02 * distance)
     }
-    if (fill.current) {
-      fill.current.scale.setScalar(0.2 + 0.8 * progress)
-      fill.current.visible = Boolean(target)
+    if (progressRing.current) progressRing.current.visible = Boolean(target)
+    if (progressGeometry.current) {
+      const maxCount = progressGeometry.current.index?.count || 0
+      progressGeometry.current.setDrawRange(0, Math.floor(maxCount * progress))
     }
   })
 
@@ -81,9 +83,9 @@ export default function GazeCursor({ enabled, dwellMs = 1200, alwaysVisible=fals
         <ringGeometry args={[0.45, 0.6, 32]} />
         <meshBasicMaterial color="#ffffff" transparent opacity={0.95} depthTest={false} />
       </mesh>
-      <mesh ref={fill} position={[0, 0, 0.001]}>
-        <circleGeometry args={[0.32, 32]} />
-        <meshBasicMaterial color="#ffffff" transparent opacity={0.35} depthTest={false} />
+      <mesh ref={progressRing} position={[0, 0, 0.001]} visible={false}>
+        <ringGeometry ref={progressGeometry} args={[0.68, 0.82, 64]} />
+        <meshBasicMaterial color="#ffffff" transparent opacity={0.95} depthTest={false} />
       </mesh>
     </group>
   )

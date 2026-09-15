@@ -516,3 +516,45 @@ For the complete Blender preparation/export walkthrough, read:
 ```text
 docs/BLENDER_SPATIAL_SCENES.md
 ```
+
+## Calibrating Phone and Phone Headset view
+
+Open **Phone**, then choose **Calibrate view**. The calibration panel is intentionally translucent so the scene remains visible while you change values.
+
+Changes are a live preview. **Save profile** stores the calibration on that phone. Closing the panel without saving restores the previously saved profile. **Reset defaults** returns the preview to the standard values.
+
+### Magic Window
+
+Use this for normal handheld phone viewing. Device motion controls where you look. You may also enable touch drag as a small manual correction. The 2-second center crosshair remains available for selecting hotspots.
+
+### Headset Stereo
+
+Use this before placing the phone into a plastic/cardboard-style headset. The scene is split into left and right eyes and the center crosshair is used for interaction.
+
+Useful controls:
+
+- **IPD / lens spacing** — separation between the virtual left and right eyes.
+- **Focus distance** — stereo convergence distance.
+- **Focus / convergence trim** — a digital comfort adjustment. This is not a real optical diopter control; physical diopter correction requires adjustable headset lenses.
+- **Field of view** — virtual camera FOV.
+- **Screen width** — physical phone display width used as a calibration reference.
+- **Screen-to-lens distance** — physical spacing between display and headset lens; the panel shows an estimated optical FOV from this value.
+- **Rendered screen size** — shrinks the stereo render symmetrically from both outside edges. This is useful when a headset does not expose the entire phone screen through its lenses.
+- **Stereo split** — moves the left/right division.
+- **Center gap** — leaves a blank strip between both eye images if the headset requires it.
+- **Lens center offset** — moves both eye images toward or away from the optical lens centers.
+- **Stereoscopic rendering** — disable this to duplicate the same mono camera into both halves for troubleshooting.
+
+The left/right output is now centered mathematically around the screen. The renderer also uses the correct half-screen stereo projection rather than rendering a full-screen projection into two half-width viewports.
+
+### Re-center / orientation reset
+
+Hold the phone in the position that should be considered forward and choose **Re-center / orientation reset**. Do this again after mounting the phone if the headset changed the phone's angle.
+
+### Dollhouse
+
+Dollhouse appears only when the current scene has an imported Blender spatial room. It shows that room as a miniature phone preview. It is useful for checking room geometry and Blender-authored hotspots; it is not used by the normal panorama or tracked-VR presentation.
+
+### Gaze timer
+
+When the center crosshair rests on an interactive target, a circular progress ring grows around it. A full ring equals the 2-second dwell and triggers the selection. Looking away clears the ring immediately.

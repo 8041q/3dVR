@@ -193,3 +193,8 @@ See `PHASE10.md` for the scene/action/finish-authoring changes and `PHASE12.md` 
 ## Phase 12 highlights
 
 Product inspection now stays inside the current panorama on every device instead of replacing desktop/mobile with a fullscreen model workspace. Pointer/touch users can drag and zoom directly; gaze-only headsets, phone headsets and controller VR use the same in-world Motion / Finishes / Details / View controls. Recenter places the inspection back in front of the visitor without leaving the scene. Phase 11 lighting, loading, animation, compressed-GLB and animated-annotation improvements are retained in the in-scene renderer.
+
+
+## Phase 15
+
+Phone viewing now includes a live calibration overlay for Magic Window, Headset Stereo and Blender-room Dollhouse preview, with corrected centered stereo projection and a visible 2-second gaze progress ring. See `PHASE15.md` and `docs/USER_GUIDE.md`.
