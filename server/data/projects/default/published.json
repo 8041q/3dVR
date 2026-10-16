@@ -5,63 +5,10 @@
   "startSceneId": "scene-1789481576000",
   "scenes": [
     {
-      "id": "lobby",
-      "title": "Lobby",
-      "image": "/demo/lobby.jpg",
-      "hotspots": [
-        {
-          "id": "to-room",
-          "label": "Room",
-          "targetSceneId": "room",
-          "size": 1.2,
-          "position": {
-            "yaw": 30,
-            "pitch": 0
-          },
-          "style": {
-            "preset": "navigation",
-            "color": "#f5f7fa",
-            "opacity": 0.92
-          }
-        },
-        {
-          "id": "start-demo-guide",
-          "label": "Start guided tour",
-          "size": 1.1,
-          "position": {
-            "yaw": -28,
-            "pitch": -4
-          },
-          "actions": [
-            {
-              "id": "start-demo-guide-action",
-              "type": "start-guide",
-              "guideId": "demo-guide"
-            }
-          ],
-          "style": {
-            "preset": "info",
-            "color": "#cce8ff",
-            "opacity": 0.92
-          }
-        }
-      ]
-    },
-    {
       "id": "room",
-      "title": "Room",
-      "image": "/demo/room.png",
+      "title": "Shared Room",
+      "image": "/demo/shared room.png",
       "hotspots": [
-        {
-          "id": "to-lobby",
-          "label": "Lobby",
-          "targetSceneId": "lobby",
-          "size": 1.2,
-          "position": {
-            "yaw": -35,
-            "pitch": -2
-          }
-        },
         {
           "id": "inspect-demo-product",
           "label": "Inspect demo product",
@@ -119,15 +66,60 @@
             "color": "#ffe7a8",
             "opacity": 0.92
           }
+        },
+        {
+          "id": "hotspot-1792163299238",
+          "label": "Navigation hotspot",
+          "size": 0.4,
+          "position": {
+            "yaw": -89.7542276057222,
+            "pitch": -16.77123700150321
+          },
+          "style": {
+            "preset": "info",
+            "color": "#cce8ff",
+            "opacity": 0.92
+          },
+          "actions": [
+            {
+              "id": "86b5ec1f-fefc-4866-8134-63d22520d168",
+              "type": "navigate-scene",
+              "sceneId": "scene-1789481576000"
+            }
+          ],
+          "targetSceneId": "scene-1789481576000"
         }
       ]
     },
     {
       "id": "scene-1789481576000",
-      "title": "3D Model",
-      "image": "/demo/lobby.jpg",
+      "title": "VIP Room",
+      "image": "/demo/vip room.png",
       "group": "",
-      "hotspots": [],
+      "hotspots": [
+        {
+          "id": "hotspot-1792163232539",
+          "label": "Navigation hotspot",
+          "size": 0.4,
+          "position": {
+            "yaw": -91.56518259226596,
+            "pitch": -18.58112311476673
+          },
+          "style": {
+            "preset": "info",
+            "color": "#cce8ff",
+            "opacity": 0.5
+          },
+          "actions": [
+            {
+              "id": "9ba2bff1-8209-4c37-9e6f-69064bc4c8db",
+              "type": "navigate-scene",
+              "sceneId": "room"
+            }
+          ],
+          "targetSceneId": "room"
+        }
+      ],
       "spatial": {
         "schemaVersion": 1,
         "source": "blender",
@@ -164,18 +156,6 @@
       "description": "A short guided example that moves from the lobby to the product inspection.",
       "steps": [
         {
-          "id": "guide-step-lobby",
-          "title": "Enter the room",
-          "sceneId": "lobby",
-          "instruction": "Look at the Room hotspot to continue into the product scene.",
-          "focus": {
-            "yaw": 30,
-            "pitch": 0
-          },
-          "highlightHotspotId": "to-room",
-          "advanceOnHotspotId": "to-room"
-        },
-        {
           "id": "guide-step-product",
           "title": "Inspect the product",
           "sceneId": "room",
@@ -199,12 +179,12 @@
       ]
     }
   ],
-  "revision": "3eb068dfbf4c8286",
-  "publishedAt": "2026-09-15T14:38:54.321Z",
+  "revision": "d9d4ba73c459c84f",
+  "publishedAt": "2026-10-16T15:09:15.538Z",
   "assets": [
-    "/demo/lobby.jpg",
-    "/demo/room.png",
+    "/demo/shared room.png",
     "/demo/product-demo.glb",
+    "/demo/vip room.png",
     "/uploads/booth-room.glb"
   ]
 }

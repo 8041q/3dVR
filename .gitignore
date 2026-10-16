@@ -7,3 +7,5 @@ public/uploads/*
 .DS_Store
 *.log
 .phase3-smoke/
+
+public/demo/*
