@@ -239,6 +239,7 @@ export default function Hotspot({
       }}
       onClick={(event) => {
         event.stopPropagation()
+        if (event.delta > 5) return
         if (editMode) onSelect?.(hotspot.id)
         else if (pointerEnabled) interaction.activateObject(event.object, 'pointer')
       }}

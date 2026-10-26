@@ -15,8 +15,8 @@ const ACTION_CHOICES = [
   },
   {
     type: ACTION_TYPES.INSPECT_MODEL,
-    label: 'Inspect product (separate GLB)',
-    description: 'Legacy/fallback action for a standalone GLB outside the spatial room.',
+    label: 'Open a 3D product',
+    description: 'Let visitors rotate, inspect and customize a 3D model.',
   },
   {
     type: ACTION_TYPES.SHOW_INFO,
@@ -95,7 +95,7 @@ export default function HotspotActionEditor({
   const currentScene = scenes.find((scene) => scene.id === currentSceneId)
   const roomAnimations = Array.isArray(currentScene?.spatial?.animations) ? currentScene.spatial.animations : []
   const [selectedActionId, setSelectedActionId] = useState(actions[0]?.id || '')
-  const [showAddPicker, setShowAddPicker] = useState(false)
+  const [showAddPicker, setShowAddPicker] = useState(actions.length === 0)
 
   useEffect(() => {
     if (actions.length === 0) {
@@ -312,7 +312,7 @@ export default function HotspotActionEditor({
                 </label>
               </div>
               {roomAnimations.length === 0 && currentScene?.spatial?.roomUrl && (
-                <div className="muted">Re-export the Blender room with Phase 14 to expose its animation names automatically.</div>
+                <div className="muted">Import a Blender room export with animation metadata to choose from a list.</div>
               )}
             </>
           )}

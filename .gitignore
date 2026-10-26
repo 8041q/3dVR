@@ -9,3 +9,4 @@ public/uploads/*
 .phase3-smoke/
 
 public/demo/*
+!public/demo/product-demo.glb

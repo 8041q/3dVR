@@ -158,23 +158,15 @@
         {
           "id": "guide-step-product",
           "title": "Inspect the product",
-          "sceneId": "room",
+          "sceneId": "scene-1789481576000",
           "instruction": "Open the product inspection. The guide will continue after you select it.",
           "focus": {
-            "yaw": 25,
-            "pitch": -10
+            "yaw": -91.56518259226596,
+            "pitch": -18.58112311476673
           },
-          "highlightHotspotId": "inspect-demo-product",
-          "advanceOnHotspotId": "inspect-demo-product"
-        },
-        {
-          "id": "guide-step-animation",
-          "title": "Moving parts",
-          "sceneId": "room",
-          "instruction": "The drawer animation demonstrates how guides can control moving product parts.",
-          "inspectionCommand": {
-            "animationClip": "Open drawer"
-          }
+          "highlightHotspotId": "hotspot-1792163232539",
+          "advanceOnHotspotId": "",
+          "autoActivateHotspotId": ""
         }
       ]
     }

@@ -73,6 +73,8 @@ function SceneContent({
   onGuidePlayNarration,
   xrTracking,
   onXRTrackingChange,
+  editorFocusRequest,
+  editorViewRef,
 }) {
   const modalOpen = Boolean(inspection || info)
   const immersiveOverlay = mode === 'vr' || (mode === 'phone' && phoneHeadset)
@@ -126,7 +128,7 @@ function SceneContent({
       ) : !waitingForTracking ? (
         <>
           <PanoramaTransition scene={scene} />
-          {!modalOpen && (scene?.hotspots || []).map((hotspot) => (
+          {!modalOpen && !placingHotspot && (scene?.hotspots || []).map((hotspot) => (
             <Hotspot
               key={hotspot.id}
               hotspot={hotspot}
@@ -143,7 +145,8 @@ function SceneContent({
 
       <DesktopControls
         enabled={!modalOpen && mode === 'pc'}
-        focusRequest={focusRequest}
+        focusRequest={editorFocusRequest || focusRequest}
+        viewRef={editorViewRef}
       />
       <PhoneOrientationControls
         ref={phoneOrientationRef}
@@ -206,6 +209,8 @@ export default function Viewer({
   onSelectHotspot,
   onHotspotCreate,
   showModeBar = true,
+  editorFocusRequest = null,
+  editorViewRef = null,
 }) {
   const [mode, setMode] = useState('pc')
   const [phoneViewProfile, setPhoneViewProfile] = useState(() => loadPhoneViewProfile())
@@ -645,6 +650,8 @@ export default function Viewer({
       >
         <SceneContent
           scene={scene}
+          editorFocusRequest={editorFocusRequest}
+          editorViewRef={editorViewRef}
           onHotspotActivate={activateHotspot}
           editMode={editMode}
           placingHotspot={placingHotspot}
@@ -680,11 +687,11 @@ export default function Viewer({
         />
       </Canvas>
 
-      <GuideLauncher
+      {!editMode && !inspection && !info && <GuideLauncher
         guides={guides}
         activeGuide={activeGuide}
         onStart={startGuide}
-      />
+      />}
 
       {!immersiveOverlay && (
         <GuideOverlay

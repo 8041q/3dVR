@@ -28,7 +28,7 @@ function stepBadges(step) {
   return badges
 }
 
-export default function GuideEditor({ guides, scenes, onGuidesChange, uploadAsset }) {
+export default function GuideEditor({ guides, scenes, onGuidesChange, uploadAsset, currentSceneId, onNavigate, onReadView, selectionRequest }) {
   const [selectedGuideId, setSelectedGuideId] = useState(guides[0]?.id || '')
   const [selectedStepId, setSelectedStepId] = useState(guides[0]?.steps?.[0]?.id || '')
   const [uploadError, setUploadError] = useState('')
@@ -39,6 +39,10 @@ export default function GuideEditor({ guides, scenes, onGuidesChange, uploadAsse
   const selectedStep = selectedStepIndex >= 0 ? selectedGuide.steps[selectedStepIndex] : selectedGuide?.steps?.[0] || null
   const actualStepIndex = selectedStep ? selectedGuide.steps.findIndex((step) => step.id === selectedStep.id) : -1
   const sceneMap = useMemo(() => new Map(scenes.map((scene) => [scene.id, scene])), [scenes])
+
+  useEffect(() => {
+    if (selectedStep?.sceneId && scenes.some((scene) => scene.id === selectedStep.sceneId)) onNavigate?.(selectedStep.sceneId)
+  }, [selectedStep?.id, selectedStep?.sceneId, onNavigate])
 
   useEffect(() => {
     if (!selectedGuide) {
@@ -53,6 +57,12 @@ export default function GuideEditor({ guides, scenes, onGuidesChange, uploadAsse
       setSelectedStepId(selectedGuide.steps[0]?.id || '')
     }
   }, [guides, selectedGuide, selectedGuideId, selectedStep, selectedStepId])
+
+  useEffect(() => {
+    if (!selectionRequest) return
+    setSelectedGuideId(selectionRequest.guideId)
+    setSelectedStepId(selectionRequest.stepId || '')
+  }, [selectionRequest])
 
   function updateGuide(nextGuide) {
     onGuidesChange(guides.map((guide) => guide.id === nextGuide.id ? nextGuide : guide))
@@ -91,7 +101,7 @@ export default function GuideEditor({ guides, scenes, onGuidesChange, uploadAsse
     if (!selectedGuide) return
     const sourceIndex = Math.max(-1, Number(afterIndex))
     const priorStep = selectedGuide.steps[sourceIndex] || selectedGuide.steps.at(-1)
-    const defaultScene = priorStep?.sceneId || scenes[0]?.id || ''
+    const defaultScene = priorStep?.sceneId || currentSceneId || scenes[0]?.id || ''
     const step = createGuideStep(defaultScene)
     const next = [...selectedGuide.steps]
     next.splice(Math.min(sourceIndex + 1, next.length), 0, step)
@@ -345,6 +355,8 @@ export default function GuideEditor({ guides, scenes, onGuidesChange, uploadAsse
 
                 {focusEnabled && (
                   <div className="guide-focus-editor">
+                    <p className="muted">Drag the scene to frame the view, then capture it for this step.</p>
+                    <button type="button" disabled={Boolean(selectedStep.sceneId) && currentSceneId !== selectedStep.sceneId} onClick={() => patchSelectedStep({ focus: onReadView?.() || { yaw: 0, pitch: 0 } })}>Use current view</button>
                     <div className="action-card__grid">
                       <label>
                         Yaw

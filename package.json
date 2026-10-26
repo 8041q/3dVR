@@ -14,6 +14,7 @@
     "start:web": "node server/index.js",
     "preview": "vite preview --host 0.0.0.0",
     "test": "npm run test:repo && npm run test:assets && npm run test:migration",
+    "test:editor": "node --test tests/editor.test.mjs",
     "test:repo": "node scripts/repo-check.mjs",
     "test:assets": "node scripts/asset-portability-smoke.mjs",
     "test:migration": "node scripts/migration-smoke.mjs",

@@ -1,114 +1,92 @@
 import { useEffect, useRef } from 'react'
 import * as THREE from 'three'
 import { useFrame, useThree } from '@react-three/fiber'
+import { clamp, damp, nearestAngle, PITCH_LIMIT, pointerSensitivity, wheelPixels } from '../input/lookMotion'
 
-// Dragging is intentionally inverted on both axes: moving the pointer right/down
-// rotates the view right/down instead of dragging the panorama under the pointer.
-export default function DesktopControls({
-  enabled = true,
-  invertX = true,
-  invertY = true,
-  focusRequest = null,
-}) {
+export default function DesktopControls({ enabled = true, invertX = true, invertY = true, focusRequest = null, viewRef = null }) {
   const { camera, gl } = useThree()
-  const state = useRef({
-    yaw: 0,
-    pitch: 0,
-    dragging: false,
-    x: 0,
-    y: 0,
-    focusId: null,
-    targetYaw: null,
-    targetPitch: null,
-  })
+  const state = useRef({ yaw: 0, pitch: 0, targetYaw: 0, targetPitch: 0, fov: 75, pointerId: null, focusId: null })
 
   useEffect(() => {
+    const current = state.current
     if (!enabled) return undefined
-
+    const pose = new THREE.Euler().setFromQuaternion(camera.quaternion, 'YXZ')
+    current.yaw = current.targetYaw = pose.y
+    current.pitch = current.targetPitch = pose.x
+    current.fov = camera.fov
     const element = gl.domElement
-
-    const onPointerDown = (event) => {
-      state.current.dragging = true
-      state.current.targetYaw = null
-      state.current.targetPitch = null
-      state.current.x = event.clientX
-      state.current.y = event.clientY
+    const previousTouchAction = element.style.touchAction
+    element.style.touchAction = 'none'
+    const stop = (event) => {
+      if (event?.pointerId != null && event.pointerId !== current.pointerId) return
+      const id = current.pointerId
+      current.pointerId = null
+      if (id != null && element.hasPointerCapture?.(id)) element.releasePointerCapture(id)
+      element.style.cursor = ''
+    }
+    const down = (event) => {
+      if (event.button !== 0 || current.pointerId != null) return
+      current.pointerId = event.pointerId
+      current.x = event.clientX
+      current.y = event.clientY
+      element.style.cursor = 'grabbing'
       element.setPointerCapture?.(event.pointerId)
     }
-
-    const onPointerMove = (event) => {
-      if (!state.current.dragging) return
-
-      const dx = event.clientX - state.current.x
-      const dy = event.clientY - state.current.y
-      state.current.x = event.clientX
-      state.current.y = event.clientY
-
-      const horizontalSign = invertX ? 1 : -1
-      const verticalSign = invertY ? 1 : -1
-
-      state.current.yaw += dx * 0.0035 * horizontalSign
-      state.current.pitch = THREE.MathUtils.clamp(
-        state.current.pitch + dy * 0.0035 * verticalSign,
-        -Math.PI / 2 + 0.03,
-        Math.PI / 2 - 0.03,
-      )
+    const move = (event) => {
+      if (event.pointerId !== current.pointerId) return
+      const sensitivity = pointerSensitivity(camera.fov, element.clientHeight)
+      current.targetYaw += (event.clientX - current.x) * sensitivity * (invertX ? 1 : -1)
+      current.targetPitch = clamp(current.targetPitch + (event.clientY - current.y) * sensitivity * (invertY ? 1 : -1), -PITCH_LIMIT, PITCH_LIMIT)
+      current.x = event.clientX
+      current.y = event.clientY
     }
-
-    const onPointerUp = () => {
-      state.current.dragging = false
+    const wheel = (event) => {
+      event.preventDefault()
+      current.fov = clamp(current.fov + wheelPixels(event, element.clientHeight) * 0.045, 35, 95)
     }
-
-    const onWheel = (event) => {
-      camera.fov = THREE.MathUtils.clamp(camera.fov + event.deltaY * 0.02, 35, 95)
-      camera.updateProjectionMatrix()
-    }
-
-    element.addEventListener('pointerdown', onPointerDown)
-    element.addEventListener('pointermove', onPointerMove)
-    window.addEventListener('pointerup', onPointerUp)
-    element.addEventListener('wheel', onWheel, { passive: true })
-
+    element.addEventListener('pointerdown', down)
+    element.addEventListener('pointermove', move)
+    element.addEventListener('pointerup', stop)
+    element.addEventListener('pointercancel', stop)
+    element.addEventListener('lostpointercapture', stop)
+    element.addEventListener('wheel', wheel, { passive: false })
+    window.addEventListener('blur', stop)
     return () => {
-      element.removeEventListener('pointerdown', onPointerDown)
-      element.removeEventListener('pointermove', onPointerMove)
-      window.removeEventListener('pointerup', onPointerUp)
-      element.removeEventListener('wheel', onWheel)
+      stop()
+      element.style.touchAction = previousTouchAction
+      element.removeEventListener('pointerdown', down)
+      element.removeEventListener('pointermove', move)
+      element.removeEventListener('pointerup', stop)
+      element.removeEventListener('pointercancel', stop)
+      element.removeEventListener('lostpointercapture', stop)
+      element.removeEventListener('wheel', wheel)
+      window.removeEventListener('blur', stop)
     }
-  }, [enabled, gl, camera, invertX, invertY])
+  }, [enabled, camera, gl, invertX, invertY])
 
   useEffect(() => {
-    if (!enabled || !focusRequest?.id || state.current.focusId === focusRequest.id) return
-    state.current.focusId = focusRequest.id
-    state.current.targetYaw = THREE.MathUtils.degToRad(Number(focusRequest.yaw) || 0)
-    state.current.targetPitch = THREE.MathUtils.clamp(
-      THREE.MathUtils.degToRad(Number(focusRequest.pitch) || 0),
-      -Math.PI / 2 + 0.03,
-      Math.PI / 2 - 0.03,
-    )
+    const current = state.current
+    if (!enabled || !focusRequest?.id || current.focusId === focusRequest.id) return
+    current.focusId = focusRequest.id
+    // Hotspot yaw is clockwise from forward; camera yaw is anticlockwise.
+    current.targetYaw = nearestAngle(current.yaw, -THREE.MathUtils.degToRad(Number(focusRequest.yaw) || 0))
+    current.targetPitch = clamp(THREE.MathUtils.degToRad(Number(focusRequest.pitch) || 0), -PITCH_LIMIT, PITCH_LIMIT)
+    if (focusRequest.fov) current.fov = clamp(focusRequest.fov, 35, 95)
   }, [enabled, focusRequest])
 
   useFrame((_, delta) => {
     if (!enabled) return
-
-    if (state.current.targetYaw != null && state.current.targetPitch != null) {
-      const alpha = 1 - Math.exp(-7 * Math.min(delta, 0.1))
-      state.current.yaw = THREE.MathUtils.lerp(state.current.yaw, state.current.targetYaw, alpha)
-      state.current.pitch = THREE.MathUtils.lerp(state.current.pitch, state.current.targetPitch, alpha)
-
-      if (
-        Math.abs(state.current.yaw - state.current.targetYaw) < 0.002 &&
-        Math.abs(state.current.pitch - state.current.targetPitch) < 0.002
-      ) {
-        state.current.yaw = state.current.targetYaw
-        state.current.pitch = state.current.targetPitch
-        state.current.targetYaw = null
-        state.current.targetPitch = null
-      }
+    const current = state.current
+    const speed = current.pointerId == null ? 12 : 22
+    current.yaw = damp(current.yaw, current.targetYaw, delta, speed)
+    current.pitch = damp(current.pitch, current.targetPitch, delta, speed)
+    camera.rotation.set(current.pitch, current.yaw, 0, 'YXZ')
+    if (viewRef) viewRef.current = { yaw: THREE.MathUtils.radToDeg(-current.yaw), pitch: THREE.MathUtils.radToDeg(current.pitch) }
+    const fov = damp(camera.fov, current.fov, delta)
+    if (fov !== camera.fov) {
+      camera.fov = fov
+      camera.updateProjectionMatrix()
     }
-
-    camera.rotation.set(state.current.pitch, state.current.yaw, 0, 'YXZ')
   })
-
   return null
 }

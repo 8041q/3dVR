@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
+import { contentSignature, mergeSavedDraft } from '../editor/draftState'
 
 export function useProjectDraft(projectId) {
   const auth = useAuth()
@@ -9,6 +10,16 @@ export function useProjectDraft(projectId) {
   const [dirty, setDirty] = useState(false)
   const [saving, setSaving] = useState(false)
   const [publishing, setPublishing] = useState(false)
+  const projectRef = useRef(null)
+  const history = useRef({ past: [], future: [] })
+  const [historySize, setHistorySize] = useState({ past: 0, future: 0 })
+  const savingRef = useRef(false)
+  const savedSignature = useRef('')
+
+  const commitProject = useCallback((next) => {
+    projectRef.current = next
+    setProject(next)
+  }, [])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -20,26 +31,44 @@ export function useProjectDraft(projectId) {
       })
       const body = await response.json().catch(() => ({}))
       if (!response.ok) throw new Error(body.error || `Project ${response.status}`)
-      setProject(body)
+      commitProject(body)
+      savedSignature.current = contentSignature(body)
+      history.current = { past: [], future: [] }
+      setHistorySize({ past: 0, future: 0 })
       setDirty(false)
     } catch (loadError) {
       setError(loadError.message || 'Could not load project')
     } finally {
       setLoading(false)
     }
-  }, [projectId])
+  }, [commitProject, projectId])
 
   useEffect(() => {
     load()
   }, [load])
 
   const updateProject = useCallback((updater) => {
-    setProject((previous) => {
-      if (!previous) return previous
-      return typeof updater === 'function' ? updater(previous) : updater
-    })
-    setDirty(true)
-  }, [])
+    const previous = projectRef.current
+    if (!previous) return
+    const next = typeof updater === 'function' ? updater(previous) : updater
+    if (next === previous || JSON.stringify(next) === JSON.stringify(previous)) return
+    history.current.past = [...history.current.past.slice(-59), previous]
+    history.current.future = []
+    setHistorySize({ past: history.current.past.length, future: 0 })
+    commitProject(next)
+    setDirty(contentSignature(next) !== savedSignature.current)
+  }, [commitProject])
+
+  const travelHistory = useCallback((direction) => {
+    const source = history.current[direction === 'undo' ? 'past' : 'future']
+    const destination = history.current[direction === 'undo' ? 'future' : 'past']
+    if (!source.length) return
+    destination.push(projectRef.current)
+    const next = source.pop()
+    commitProject({ ...next, meta: projectRef.current.meta })
+    setHistorySize({ past: history.current.past.length, future: history.current.future.length })
+    setDirty(contentSignature(next) !== savedSignature.current)
+  }, [commitProject])
 
   const updateScenes = useCallback((next) => {
     updateProject((previous) => ({
@@ -63,8 +92,9 @@ export function useProjectDraft(projectId) {
     updateProject((previous) => ({ ...previous, startSceneId }))
   }, [updateProject])
 
-  const saveDraft = useCallback(async (value = project) => {
-    if (!value) return null
+  const saveDraft = useCallback(async (value = projectRef.current) => {
+    if (!value || savingRef.current) return null
+    savingRef.current = true
     setSaving(true)
     setError('')
 
@@ -84,20 +114,25 @@ export function useProjectDraft(projectId) {
       })
       const body = await response.json().catch(() => ({}))
       if (!response.ok) throw new Error(body.error || 'Draft save failed')
-      setProject(body)
-      setDirty(false)
+      // A save may finish after the user has made another edit. Keep those edits.
+      const result = mergeSavedDraft(projectRef.current, value, body)
+      savedSignature.current = contentSignature(body)
+      commitProject(result.project)
+      setDirty(result.dirty)
       return body
     } finally {
+      savingRef.current = false
       setSaving(false)
     }
-  }, [auth?.token, project, projectId])
+  }, [auth?.token, commitProject, projectId])
 
   const publish = useCallback(async () => {
     setPublishing(true)
     setError('')
 
     try {
-      const saved = dirty ? await saveDraft(project) : project
+      const snapshot = projectRef.current
+      const saved = dirty ? await saveDraft(snapshot) : snapshot
       if (!saved) throw new Error('Project is not loaded')
 
       const response = await fetch(`/api/projects/${encodeURIComponent(projectId)}/publish`, {
@@ -109,16 +144,17 @@ export function useProjectDraft(projectId) {
       const body = await response.json().catch(() => ({}))
       if (!response.ok) throw new Error(body.error || 'Publish failed')
 
-      setProject((previous) => previous ? {
-        ...previous,
+      const unchanged = projectRef.current === saved
+      commitProject(projectRef.current ? {
+        ...projectRef.current,
         meta: body.meta,
-      } : previous)
-      setDirty(false)
+      } : null)
+      setDirty(!unchanged)
       return body
     } finally {
       setPublishing(false)
     }
-  }, [auth?.token, dirty, project, projectId, saveDraft])
+  }, [auth?.token, commitProject, dirty, projectId, saveDraft])
 
   const uploadAsset = useCallback(async (file) => {
     const response = await fetch('/api/upload', {
@@ -135,6 +171,9 @@ export function useProjectDraft(projectId) {
     return body
   }, [auth?.token])
 
+  const undo = useCallback(() => travelHistory('undo'), [travelHistory])
+  const redo = useCallback(() => travelHistory('redo'), [travelHistory])
+
   return {
     project,
     scenes: project?.scenes || [],
@@ -145,7 +184,12 @@ export function useProjectDraft(projectId) {
     dirty,
     saving,
     publishing,
+    canUndo: historySize.past > 0,
+    canRedo: historySize.future > 0,
+    undo,
+    redo,
     updateScenes,
+    updateProject,
     updateGuides,
     updateTitle,
     updateStartScene,

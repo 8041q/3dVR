@@ -1,6 +1,7 @@
-import React, { useMemo, useState } from 'react'
+import React, { useMemo, useRef, useState } from 'react'
 import SceneMapDialog from './SceneMapDialog'
 import SpatialSceneImporter from './SpatialSceneImporter'
+import PanoramaMasterUpload from './PanoramaMasterUpload'
 
 function moveItem(items, fromIndex, toIndex) {
   if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0) return items
@@ -25,12 +26,18 @@ export default function SceneOrganizer({
   onStartSceneChange,
   patchScene,
   uploadAsset,
+  onOpenLibrary,
+  onEditHotspots,
+  onUseProcessedPanorama,
 }) {
-  const [newTitle, setNewTitle] = useState('New scene')
+  const [newTitle, setNewTitle] = useState('')
   const [query, setQuery] = useState('')
   const [groupFilter, setGroupFilter] = useState('all')
   const [showMap, setShowMap] = useState(false)
   const [draggedId, setDraggedId] = useState(null)
+  const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState('')
+  const fileInput = useRef(null)
 
   const currentScene = scenes.find((scene) => scene.id === currentSceneId)
   const groups = useMemo(() => [...new Set(
@@ -48,7 +55,26 @@ export default function SceneOrganizer({
 
   function addScene() {
     onAddScene(newTitle.trim() || 'New scene')
-    setNewTitle('New scene')
+    setNewTitle('')
+    setQuery('')
+    setGroupFilter('all')
+  }
+
+  async function uploadPanorama(file) {
+    if (!file) return
+    const targetId = currentSceneId
+    setUploading(true)
+    setUploadError('')
+    try {
+      if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) throw new Error('Choose a JPEG, PNG or WebP panorama.')
+      const asset = await uploadAsset(file)
+      onScenesChange((previous) => previous.map((scene) => scene.id === targetId ? { ...scene, image: asset.url, panorama: null } : scene))
+    } catch (error) {
+      setUploadError(error.message || 'Could not upload this panorama. Try again.')
+    } finally {
+      setUploading(false)
+      if (fileInput.current) fileInput.current.value = ''
+    }
   }
 
   return (
@@ -110,7 +136,7 @@ export default function SceneOrganizer({
             <button type="button" className="scene-card__select" onClick={() => onNavigate(scene.id)}>
               <span
                 className="scene-card__thumb"
-                style={sceneThumb(scene) ? { backgroundImage: `url(${sceneThumb(scene)})` } : undefined}
+                style={sceneThumb(scene) ? { backgroundImage: `url(${JSON.stringify(sceneThumb(scene))})` } : undefined}
               >
                 {!sceneThumb(scene) && scene.panorama?.manifestUrl ? '360' : ''}
               </span>
@@ -130,6 +156,7 @@ export default function SceneOrganizer({
 
       <div className="inline-form scene-organizer__add">
         <input
+          aria-label="New scene name"
           value={newTitle}
           onChange={(event) => setNewTitle(event.target.value)}
           onKeyDown={(event) => {
@@ -137,7 +164,7 @@ export default function SceneOrganizer({
           }}
           placeholder="New scene name"
         />
-        <button type="button" onClick={addScene}>Add</button>
+        <button type="button" onClick={addScene}>Add scene</button>
       </div>
 
       {currentScene && (
@@ -162,16 +189,27 @@ export default function SceneOrganizer({
           <datalist id="scene-groups">
             {groups.map((group) => <option value={group} key={group} />)}
           </datalist>
-          <label>
-            Panorama URL
+          <div className="scene-panorama-source">
+            <div className="editor-subheading">360° panorama</div>
+            <p>{currentScene.image || currentScene.panorama?.manifestUrl ? 'The backdrop visitors see on desktop and phone.' : 'Add the first view of this room. Use a 2:1 panorama exported from your camera or 3D software.'}</p>
+            <div className="button-row"><button className="primary" onClick={() => fileInput.current?.click()} disabled={uploading}>{uploading ? 'Uploading panorama…' : currentScene.image || currentScene.panorama ? 'Replace panorama' : 'Upload panorama'}</button><button onClick={onOpenLibrary}>Choose from assets</button></div>
+            <input ref={fileInput} type="file" hidden accept="image/jpeg,image/png,image/webp" onChange={(event) => uploadPanorama(event.target.files?.[0])} />
+            {uploadError && <div className="error-text" role="alert">{uploadError}</div>}
+            {uploading && <p role="status">Uploading… You can keep editing; the image will apply to this scene.</p>}
+          </div>
+          <details className="advanced-details" key={`source-${currentSceneId}`}><summary>Image URL & high-resolution processing</summary><label>
+            Panorama image URL
             <input
               value={currentScene.image || ''}
-              onChange={(event) => patchScene({ image: event.target.value })}
+              onChange={(event) => patchScene({ image: event.target.value, panorama: null })}
             />
           </label>
           <div className="muted">
             High-resolution panorama: {currentScene.panorama?.manifestUrl ? 'configured' : 'not configured'}
           </div>
+          <PanoramaMasterUpload key={currentSceneId} onUseProcessed={onUseProcessedPanorama} />
+          </details>
+          <details className="advanced-details" key={`spatial-${currentSceneId}`}><summary>Tracked VR room {currentScene.spatial?.roomUrl ? '· configured' : '· optional'}</summary>
           <SpatialSceneImporter
             uploadAsset={uploadAsset}
             configured={Boolean(currentScene.spatial?.roomUrl)}
@@ -194,6 +232,8 @@ export default function SceneOrganizer({
               patchScene({ spatial, hotspots: merged })
             }}
           />
+          </details>
+          <button className="editor-inline-next" onClick={onEditHotspots}>Next: add hotspots to {currentScene.title} →</button>
           <div className="button-row">
             <button
               type="button"

@@ -8,31 +8,44 @@ import AssetLibrary from './AssetLibrary'
 import PanoramaMasterUpload from './PanoramaMasterUpload'
 import PublishShareDialog from '../PublishShareDialog'
 import SceneOrganizer from './SceneOrganizer'
+import WorkflowOverview from './WorkflowOverview'
+import PublishReviewDialog from './PublishReviewDialog'
+import { projectChecks } from '../../editor/projectChecks'
+import { removeProjectScene, removeProjectHotspot } from '../../editor/projectEdits'
 
 const TOOLS = {
+  overview: {
+    id: 'overview', label: 'Start here', number: '⌂',
+    description: 'Your tour workflow and the next things to finish.',
+  },
   scene: {
     id: 'scene',
     label: 'Scenes',
+    number: '01',
     description: 'Choose rooms and edit the panorama shown in each scene.',
   },
   hotspots: {
     id: 'hotspots',
-    label: 'Interactions',
+    label: 'Hotspots',
+    number: '02',
     description: 'Place hotspots, choose their appearance and define what they do.',
   },
   guides: {
     id: 'guides',
     label: 'Guides',
+    number: '03',
     description: 'Build the step-by-step visitor journey.',
   },
   assets: {
     id: 'assets',
-    label: 'Library',
+    label: 'Assets',
+    number: '▧',
     description: 'Upload and reuse panoramas, models, audio and video.',
   },
   project: {
     id: 'project',
     label: 'Project',
+    number: '⚙',
     description: 'Project name, duplication, sharing and publication settings.',
   },
 }
@@ -51,8 +64,9 @@ function RailButton({ tool, activeTab, panelOpen, onChoose }) {
       className={activeTab === tool.id && panelOpen ? 'active' : ''}
       onClick={() => onChoose(tool.id)}
       title={tool.description}
+      aria-pressed={activeTab === tool.id && panelOpen}
     >
-      {tool.label}
+      <span className="rail-number" aria-hidden="true">{tool.number}</span>{tool.label}
     </button>
   )
 }
@@ -75,6 +89,7 @@ export default function EditorOverlay({
   onStartSceneChange,
   onNavigate,
   onScenesChange,
+  onEditProject,
   placingHotspot,
   onTogglePlacing,
   saveError,
@@ -84,31 +99,48 @@ export default function EditorOverlay({
   guides = [],
   onGuidesChange,
   onUseProcessedPanorama,
+  onRepositionHotspot,
+  onCancelPlacing,
+  onFocusHotspot,
+  onResetView,
+  onReadView,
+  canUndo,
+  canRedo,
+  onUndo,
+  onRedo,
 }) {
   const scene = scenes.find((item) => item.id === currentSceneId)
   const hotspot = scene?.hotspots?.find((item) => item.id === selectedHotspotId)
-  const [activeTab, setActiveTab] = useState(() => localStorage.getItem('3dvr-editor-tool') || 'scene')
-  const [panelOpen, setPanelOpen] = useState(true)
+  const [activeTab, setActiveTab] = useState('overview')
+  const [panelOpen, setPanelOpen] = useState(() => window.innerWidth > 760)
   const [shareResult, setShareResult] = useState(null)
   const [commandError, setCommandError] = useState('')
   const [hotspotSection, setHotspotSection] = useState('setup')
+  const [reviewOpen, setReviewOpen] = useState(false)
+  const [hotspotType, setHotspotType] = useState(ACTION_TYPES.NAVIGATE_SCENE)
+  const [hotspotDestination, setHotspotDestination] = useState('')
+  const [creatorOpen, setCreatorOpen] = useState(false)
+  const [guideSelection, setGuideSelection] = useState(null)
+  const issues = useMemo(() => projectChecks({ scenes, guides, startSceneId }), [scenes, guides, startSceneId])
   const status = useMemo(
     () => projectStatus(projectDirty, projectMeta),
     [projectDirty, projectMeta],
   )
 
   useEffect(() => {
-    localStorage.setItem('3dvr-editor-tool', activeTab)
-  }, [activeTab])
+    if (placingHotspot && window.innerWidth <= 760) setPanelOpen(false)
+  }, [placingHotspot])
 
   useEffect(() => {
+    setCreatorOpen(false)
     if (!selectedHotspotId) return
     setActiveTab('hotspots')
     setPanelOpen(true)
-    setHotspotSection('setup')
+    setHotspotSection('actions')
   }, [selectedHotspotId])
 
   function chooseTab(tabId) {
+    onCancelPlacing?.()
     setActiveTab(tabId)
     setPanelOpen(true)
   }
@@ -135,7 +167,7 @@ export default function EditorOverlay({
       {
         id,
         title: String(title || 'New scene').trim() || 'New scene',
-        image: '/demo/lobby.jpg',
+        image: '',
         group: scene?.group || '',
         hotspots: [],
       },
@@ -143,33 +175,27 @@ export default function EditorOverlay({
     onNavigate(id)
   }
 
+  function resolveIssue(issue) {
+    setReviewOpen(false)
+    chooseTab(issue.tool)
+    if (issue.sceneId) onNavigate(issue.sceneId)
+    if (issue.guideId) setGuideSelection({ guideId: issue.guideId, stepId: issue.stepId, id: crypto.randomUUID() })
+    if (issue.hotspotId) {
+      onSelectHotspot(issue.hotspotId)
+      onFocusHotspot?.(issue.hotspotId, issue.sceneId)
+      setHotspotSection('actions')
+    }
+  }
+
   function removeScene() {
     if (scenes.length <= 1) return
-
-    const nextScenes = scenes
-      .filter((item) => item.id !== currentSceneId)
-      .map((item) => ({
-        ...item,
-        hotspots: (item.hotspots || []).filter((itemHotspot) => (
-          itemHotspot.targetSceneId !== currentSceneId &&
-          !(itemHotspot.actions || []).some((action) => (
-            action.type === ACTION_TYPES.NAVIGATE_SCENE && action.sceneId === currentSceneId
-          ))
-        )),
-      }))
-
-    onScenesChange(nextScenes)
-    onGuidesChange?.(guides.map((guide) => ({
-      ...guide,
-      steps: (guide.steps || []).filter((step) => step.sceneId !== currentSceneId),
-    })))
-
-    if (startSceneId === currentSceneId) onStartSceneChange(nextScenes[0].id)
-    onNavigate(nextScenes[0].id)
+    onEditProject((project) => removeProjectScene(project, currentSceneId))
+    onNavigate(scenes.find((item) => item.id !== currentSceneId).id)
   }
 
   function useImageAsset(asset) {
     patchScene({ image: asset.url, panorama: null })
+    setActiveTab('scene')
   }
 
   function useModelAsset(asset) {
@@ -185,22 +211,7 @@ export default function EditorOverlay({
 
   function deleteHotspot() {
     if (!hotspot) return
-    patchScene({
-      hotspots: (scene.hotspots || []).filter((item) => item.id !== hotspot.id),
-    })
-    onGuidesChange?.(guides.map((guide) => ({
-      ...guide,
-      steps: (guide.steps || []).map((step) => (
-        step.sceneId === currentSceneId
-          ? {
-              ...step,
-              highlightHotspotId: step.highlightHotspotId === hotspot.id ? '' : step.highlightHotspotId,
-              advanceOnHotspotId: step.advanceOnHotspotId === hotspot.id ? '' : step.advanceOnHotspotId,
-              autoActivateHotspotId: step.autoActivateHotspotId === hotspot.id ? '' : step.autoActivateHotspotId,
-            }
-          : step
-      )),
-    })))
+    onEditProject((project) => removeProjectHotspot(project, currentSceneId, hotspot.id))
     onSelectHotspot(null)
   }
 
@@ -209,6 +220,7 @@ export default function EditorOverlay({
     try {
       const result = await onPublishProject()
       if (result) {
+        setReviewOpen(false)
         setShareResult({
           revision: result.manifest?.revision || result.meta?.publishedRevision,
           publishedAt: result.manifest?.publishedAt || result.meta?.publishedAt,
@@ -224,9 +236,20 @@ export default function EditorOverlay({
 
   return (
     <>
+      <header className="editor-topbar">
+        <div className="editor-topbar__identity"><span className="editor-logo">3D<span>VR</span></span><div><strong>{projectTitle || projectId}</strong><span>Tour editor</span></div></div>
+        <span className={`status-pill status-pill--${status.tone}`} role="status">{projectSaving ? 'Saving draft…' : status.label}</span>
+        <div className="editor-topbar__actions">
+          <div className="editor-history"><button onClick={onUndo} disabled={!canUndo || projectSaving || projectPublishing} title="Undo (Ctrl+Z)" aria-label="Undo">↶</button><button onClick={onRedo} disabled={!canRedo || projectSaving || projectPublishing} title="Redo (Ctrl+Shift+Z)" aria-label="Redo">↷</button></div>
+          <button onClick={() => onSaveProject()} disabled={projectSaving || projectPublishing || !projectDirty} title="Save draft (Ctrl+S)">{projectSaving ? 'Saving…' : 'Save draft'}</button>
+          <button onClick={onPreviewProject}>Preview ↗</button>
+          <button className="primary" onClick={() => { setCommandError(''); setReviewOpen(true) }} disabled={projectSaving || projectPublishing}>Review & publish</button>
+        </div>
+      </header>
+      {(saveError || commandError) && <div role="alert" className="editor-global-error">{saveError || commandError}</div>}
       <aside className={panelOpen ? 'editor-workspace' : 'editor-workspace editor-workspace--collapsed'}>
         <nav className="editor-tool-rail" aria-label="Editor tools">
-          <div className="editor-tool-rail__brand">3DVR</div>
+          <RailButton tool={TOOLS.overview} activeTab={activeTab} panelOpen={panelOpen} onChoose={chooseTab} />
 
           <div className="editor-tool-rail__group">
             <span>Build</span>
@@ -235,7 +258,6 @@ export default function EditorOverlay({
           </div>
 
           <div className="editor-tool-rail__group">
-            <span>Experience</span>
             <RailButton tool={TOOLS.guides} activeTab={activeTab} panelOpen={panelOpen} onChoose={chooseTab} />
           </div>
 
@@ -250,8 +272,9 @@ export default function EditorOverlay({
               type="button"
               className="editor-tool-rail__collapse"
               onClick={() => setPanelOpen((value) => !value)}
+              aria-expanded={panelOpen}
             >
-              {panelOpen ? 'Hide' : 'Show'}
+              {panelOpen ? '← Hide panel' : 'Show panel →'}
             </button>
           </div>
         </nav>
@@ -260,37 +283,14 @@ export default function EditorOverlay({
           <div className="editor-panel editor-panel--workspace">
             <header className="editor-workspace__header">
               <div className="editor-workspace__heading">
-                <div className="editor-eyebrow">{activeTool.label}</div>
-                <strong title={projectTitle}>{projectTitle || projectId}</strong>
+                <div className="editor-eyebrow">{activeTab === 'overview' ? 'The big picture' : 'Edit your tour'}</div>
+                <h1>{activeTool.label}</h1>
                 <p>{activeTool.description}</p>
               </div>
-              <span className={`status-pill status-pill--${status.tone}`}>{status.label}</span>
             </header>
 
-            <div className="editor-commandbar">
-              <button
-                type="button"
-                onClick={onSaveProject}
-                disabled={projectSaving || projectPublishing || !projectDirty}
-              >
-                {projectSaving ? 'Saving...' : 'Save'}
-              </button>
-              <button type="button" onClick={onPreviewProject}>Preview</button>
-              <button
-                type="button"
-                className="primary"
-                onClick={publishAndShare}
-                disabled={projectSaving || projectPublishing}
-              >
-                {projectPublishing ? 'Publishing...' : 'Publish'}
-              </button>
-            </div>
-
-            {(saveError || commandError) && (
-              <div className="error-text editor-command-error">{saveError || commandError}</div>
-            )}
-
-            <div className="editor-workspace__content">
+            <div key={activeTab} className="editor-workspace__content" inert={projectPublishing ? true : undefined}>
+              {activeTab === 'overview' && <WorkflowOverview scenes={scenes} guides={guides} startSceneId={startSceneId} issues={issues} onChoose={chooseTab} onPreview={onPreviewProject} onReview={() => setReviewOpen(true)} onResolve={resolveIssue} />}
               {activeTab === 'project' && (
                 <ProjectManager
                   projectId={projectId}
@@ -313,6 +313,9 @@ export default function EditorOverlay({
                   onStartSceneChange={onStartSceneChange}
                   patchScene={patchScene}
                   uploadAsset={uploadAsset}
+                  onOpenLibrary={() => chooseTab('assets')}
+                  onEditHotspots={() => chooseTab('hotspots')}
+                  onUseProcessedPanorama={onUseProcessedPanorama}
                 />
               )}
 
@@ -323,13 +326,20 @@ export default function EditorOverlay({
                       <div className="editor-subheading">Hotspots in this scene</div>
                       <div className="muted">{scene?.title || currentSceneId}</div>
                     </div>
-                    <button className={placingHotspot ? 'active' : ''} onClick={onTogglePlacing}>
-                      {placingHotspot ? 'Click panorama' : 'Add hotspot'}
-                    </button>
                   </div>
 
+                  {hotspot && <button className="editor-inline-next" onClick={() => setCreatorOpen((value) => !value)}>{creatorOpen ? 'Close new hotspot' : '+ Add another hotspot'}</button>}
+                  {(!hotspot || creatorOpen) && <div className="hotspot-create-card">
+                    <strong>Add a hotspot</strong><p>A hotspot is a clickable point in your scene.</p>
+                    <label>What should it do?<select value={hotspotType} onChange={(event) => setHotspotType(event.target.value)}>
+                      <option value={ACTION_TYPES.NAVIGATE_SCENE}>Go to another scene</option><option value={ACTION_TYPES.SHOW_INFO}>Show information</option><option value={ACTION_TYPES.INSPECT_MODEL}>Open a 3D product</option><option value={ACTION_TYPES.START_GUIDE}>Start a guided tour</option><option value={ACTION_TYPES.OPEN_URL}>Open a website</option><option value={ACTION_TYPES.PLAY_ROOM_ANIMATION}>Play a VR room animation</option>
+                    </select></label>
+                    {hotspotType === ACTION_TYPES.NAVIGATE_SCENE && <label>Destination<select value={hotspotDestination} onChange={(event) => setHotspotDestination(event.target.value)}><option value="">Choose a scene</option>{scenes.filter((item) => item.id !== currentSceneId).map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}</select></label>}
+                    <button className={placingHotspot ? 'active' : 'primary'} disabled={!placingHotspot && hotspotType === ACTION_TYPES.NAVIGATE_SCENE && !scenes.some((item) => item.id === hotspotDestination && item.id !== currentSceneId)} onClick={() => placingHotspot ? onCancelPlacing() : onTogglePlacing({ type: hotspotType, sceneId: hotspotDestination })}>{placingHotspot ? 'Cancel placement' : 'Place in scene →'}</button>
+                  </div>}
+
                   {placingHotspot && (
-                    <div className="editor-callout">Click anywhere in the panorama to place the new hotspot.</div>
+                    <div className="editor-callout">Drag to look around. Click once to place. Press Esc to cancel.</div>
                   )}
 
                   <div className="hotspot-list">
@@ -337,17 +347,17 @@ export default function EditorOverlay({
                       <button
                         key={item.id}
                         className={item.id === selectedHotspotId ? 'active list-button' : 'list-button'}
-                        onClick={() => onSelectHotspot(item.id)}
+                        onClick={() => { onSelectHotspot(item.id); onFocusHotspot?.(item.id) }}
                       >
                         <span>{item.label || item.id}</span>
-                        <small>{item.style?.preset || 'navigation'}</small>
+                        <small>{normalizeHotspotActions(item).length ? `${normalizeHotspotActions(item).length} ${normalizeHotspotActions(item).length === 1 ? 'action' : 'actions'}` : 'Needs an action'}</small>
                       </button>
                     ))}
                   </div>
 
                   {!hotspot && (
                     <div className="editor-empty-state">
-                      Select a hotspot in this list or directly in the panorama. Then edit its setup, appearance or actions.
+                      {scene?.hotspots?.length ? 'Select a hotspot above or in the scene to edit it. Selecting one here brings it into view.' : 'No hotspots in this scene yet. Choose what visitors should do, then place the first one.'}
                     </div>
                   )}
 
@@ -367,6 +377,8 @@ export default function EditorOverlay({
                           <button
                             type="button"
                             key={id}
+                            role="tab"
+                            aria-selected={hotspotSection === id}
                             className={hotspotSection === id ? 'active' : ''}
                             onClick={() => setHotspotSection(id)}
                           >
@@ -404,6 +416,8 @@ export default function EditorOverlay({
                               <span>Yaw {Number(hotspot.position?.yaw || 0).toFixed(1)}°</span>
                               <span>Pitch {Number(hotspot.position?.pitch || 0).toFixed(1)}°</span>
                             </div>
+                            <div className="button-row"><button onClick={() => onRepositionHotspot(hotspot.id)}>Move in scene</button><button onClick={() => onFocusHotspot?.(hotspot.id)}>Find in scene</button></div>
+                            {Array.isArray(hotspot.spatialPosition) && <p className="muted">Moving here changes the panorama position. The tracked VR position comes from your Blender room.</p>}
                             <button className="danger" onClick={deleteHotspot}>Delete hotspot</button>
                           </>
                         )}
@@ -423,6 +437,7 @@ export default function EditorOverlay({
                           />
                         )}
                       </div>
+                      {!normalizeHotspotActions(hotspot).length && <button className="editor-inline-next" onClick={() => setHotspotSection('actions')}>Next: choose what this hotspot does →</button>}
                     </div>
                   )}
                 </div>
@@ -434,13 +449,17 @@ export default function EditorOverlay({
                   scenes={scenes}
                   onGuidesChange={onGuidesChange}
                   uploadAsset={uploadAsset}
+                  currentSceneId={currentSceneId}
+                  onNavigate={onNavigate}
+                  onReadView={onReadView}
+                  selectionRequest={guideSelection}
                 />
               )}
 
               {activeTab === 'assets' && (
                 <div className="editor-tool-view editor-assets-tool">
                   <div className="editor-callout">
-                    Use the library to reuse content. Use High-resolution panorama when the source is a large 2:1 render.
+                    Images apply to <strong>{scene?.title}</strong>. Models attach to {hotspot ? <strong>{hotspot.label}</strong> : 'a hotspot you select in Hotspots'}. Audio and video URLs can be copied into your guide or product settings.
                   </div>
                   <PanoramaMasterUpload onUseProcessed={onUseProcessedPanorama} />
                   <AssetLibrary
@@ -457,6 +476,19 @@ export default function EditorOverlay({
           </div>
         )}
       </aside>
+
+      <div className={`editor-canvas-toolbar${panelOpen ? '' : ' editor-canvas-toolbar--wide'}`}>
+        <div><span className="editor-eyebrow">Editing scene</span><strong>{scene?.title}</strong></div>
+        <select aria-label="Switch scene" value={currentSceneId} onChange={(event) => onNavigate(event.target.value)}>{scenes.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}</select>
+        <button onClick={onResetView}>Reset view</button>
+      </div>
+      {!scene?.image && !scene?.panorama?.manifestUrl && <div className={`editor-canvas-empty${panelOpen ? '' : ' editor-canvas-empty--wide'}`}><span className="editor-eyebrow">A new perspective</span><h2>This room needs a view.</h2><p>Add a 360° panorama in Scenes to start building here.</p><button onClick={() => chooseTab('scene')}>Add a panorama →</button></div>}
+      <div className={`editor-canvas-hint${panelOpen ? '' : ' editor-canvas-hint--wide'}${placingHotspot ? ' editor-canvas-hint--placing' : ''}`} role="status">
+        <span>{placingHotspot ? 'Click to place · Drag to look around' : 'Drag to look around · Scroll to zoom · Click a hotspot to edit'}</span>
+        {placingHotspot && <button onClick={onCancelPlacing}>Cancel <kbd>Esc</kbd></button>}
+      </div>
+
+      {reviewOpen && <PublishReviewDialog title={projectTitle} issues={issues} scenes={scenes} startSceneId={startSceneId} busy={projectPublishing} error={saveError || commandError} onResolve={resolveIssue} onPreview={onPreviewProject} onPublish={publishAndShare} onClose={() => setReviewOpen(false)} />}
 
       {shareResult && (
         <PublishShareDialog

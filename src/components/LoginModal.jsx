@@ -1,3 +1,29 @@
 import React, { useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
-export default function LoginModal({ onClose }) { const { login }=useAuth(); const [password,setPassword]=useState(''); const [error,setError]=useState(''); const [busy,setBusy]=useState(false); async function submit(e){e.preventDefault();setBusy(true);setError('');try{await login(password);onClose?.()}catch(err){setError(err.message)}finally{setBusy(false)}} return <div className="modal-backdrop"><form className="modal" onSubmit={submit}><h2>Editor login</h2><input type="password" autoFocus value={password} onChange={(e)=>setPassword(e.target.value)} placeholder="Password"/>{error&&<div className="error-text">{error}</div>}<div className="button-row"><button type="submit" disabled={busy}>Login</button><button type="button" onClick={onClose}>Cancel</button></div></form></div> }
+export default function LoginModal({ onClose }) {
+  const { login } = useAuth()
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+  async function submit(event) {
+    event.preventDefault()
+    setBusy(true)
+    setError('')
+    try { await login(password); onClose?.() }
+    catch (failure) { setError(failure.message) }
+    finally { setBusy(false) }
+  }
+  return (
+    <div className="modal-backdrop">
+      <form className="modal editor-login" role="dialog" aria-modal="true" aria-labelledby="editor-login-title" onSubmit={submit}>
+        <div className="editor-eyebrow">3DVR · Tour editor</div>
+        <h2 id="editor-login-title">Let’s build your tour.</h2>
+        <p>Sign in to arrange scenes, add hotspots and publish your visitor experience.</p>
+        <label htmlFor="editor-password">Editor password</label>
+        <input id="editor-password" type="password" autoFocus required autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Enter your password" />
+        {error && <div className="error-text" role="alert">{error}</div>}
+        <div className="button-row"><button className="primary" type="submit" disabled={busy}>{busy ? 'Signing in…' : 'Open editor'}</button><button type="button" onClick={onClose}>Cancel</button></div>
+      </form>
+    </div>
+  )
+}

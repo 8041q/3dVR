@@ -20,17 +20,25 @@ Use your editor password when asked. In development the default is `admin` unles
 
 ## 2. Use the Tool rail
 
-The left side of the editor has a compact **Tool rail**. It is grouped by the job you are doing:
+The editor opens on **Start here**, with four steps: build scenes, connect hotspots, optionally add guides, then preview and publish. The checklist below those steps points directly to unfinished scenes, actions and guide steps.
+
+The left side has a **Tool rail** grouped by the job you are doing:
 
 - **Scenes** — build the rooms/locations in the presentation.
-- **Interactions** — place hotspots and decide how they look and what they do.
+- **Hotspots** — place clickable points and decide how they look and what they do.
 - **Guides** — build the visitor journey step by step.
-- **Library** — upload/reuse panoramas, models, audio and video.
+- **Assets** — upload/reuse panoramas, models, audio and video.
 - **Project** — project name, create/switch/duplicate projects and project-level settings.
 
 Only one tool opens at a time. Each tool also shows a short explanation at the top, so you can tell what it is for before changing anything.
 
 Use **Hide** at the bottom of the rail when you want more space to inspect the panorama. Select any tool to open the panel again.
+
+The top bar keeps **Save draft**, **Preview**, **Review & publish**, **Undo** and **Redo** available even when the panel is hidden. The scene switcher above the panorama works from every tool. Use **Reset view** to return to the default direction and zoom.
+
+Drag to look around; scroll to zoom. Movement and zoom ease smoothly into place. While placing or moving a hotspot, dragging still looks around and a single click confirms its position. **Esc** cancels placement.
+
+Use **Ctrl+S** (or **Cmd+S**) to save, **Ctrl+Z** to undo and **Ctrl+Shift+Z** to redo. Text fields keep their normal text undo behavior. Leaving a page with unsaved edits shows a browser reminder.
 
 ## 3. Draft vs published
 
@@ -63,7 +71,7 @@ This is for testing, not for sending to customers. It does not replace the publi
 
 ### Publish and share
 
-Use **Publish** when the presentation is ready. Publishing saves the draft first and updates the public version.
+Use **Review & publish** when the presentation is ready. The review lists missing panoramas, unfinished actions and broken guide references. Select an item to open its editor. When the checklist is clear, use **Publish & get link** to save the draft and update the public version.
 
 After publishing, a compact share window appears with:
 
@@ -98,6 +106,12 @@ A new/duplicated project is not public until you publish it.
 
 Open **Scenes**. A scene is one 360-degree location.
 
+Give the scene a name and choose **Add scene**. New scenes begin empty, with a prompt to add their view. Use **Upload panorama** or **Choose from assets** directly in the selected scene. The optional **Image URL & high-resolution processing** section handles manually entered URLs and large, tiled panoramas. Blender room imports are under **Tracked VR room**.
+
+Choose **Next: add hotspots** to continue. Pick what a new hotspot does; for scene navigation, choose its destination before placing it. Select **Place in scene**, then click in the panorama. Select a hotspot in the list to bring it into view and open its action settings. Its **Setup** tab includes **Move in scene** and **Find in scene**.
+
+In **Guides**, selecting a step displays its scene. Enable **Guide the view toward a direction**, frame the panorama with the mouse, then choose **Use current view** to capture the direction without entering angles.
+
 To add one:
 
 1. Enter a scene name.
@@ -124,7 +138,7 @@ Moving cards in the Scene map only changes the editor diagram; it does not chang
 
 ## 6. Add a normal 360 panorama
 
-Open **Library**.
+Open **Assets**.
 
 For a normal-sized panorama:
 
@@ -137,7 +151,7 @@ The image should be a proper 2:1 equirectangular 360 render.
 
 ## 7. Add a very large / maximum-quality panorama
 
-Open **Library** and use **High-resolution panorama** (the Master panorama upload workflow).
+Open **Assets** and use **High-resolution panorama** (the Master panorama upload workflow).
 
 1. Choose the original 2:1 equirectangular render.
 2. Select **Upload master**.
@@ -148,9 +162,9 @@ Large masters are converted into multiresolution tiles so the headset does not n
 
 ## 8. Place a hotspot
 
-Open **Interactions**.
+Open **Hotspots**.
 
-1. Select **Add hotspot**.
+1. Choose what the hotspot should do, choose its destination if needed, then select **Place in scene**.
 2. Click the desired position in the panorama.
 3. Select the new hotspot in the list.
 4. Give it a useful label.
@@ -212,7 +226,7 @@ Use when a product should open as an interactive GLB model.
 
 ## 11. Asset library
 
-Open **Library** to see reusable files already stored on the server.
+Open **Assets** to see reusable files already stored on the server.
 
 You can filter by:
 
@@ -253,7 +267,7 @@ For each finish:
 2. Give it a visitor-facing label such as `Walnut`, `Sand fabric` or `Brushed steel`.
 3. Choose the GLB material that should change. Use `*` only when the whole model should receive the same finish.
 4. Choose a tint colour.
-5. Optionally **Upload texture** or paste a texture URL from the Library.
+5. Optionally **Upload texture** or paste a texture URL from Assets.
 6. Open **Surface settings** when you need to adjust roughness, metalness or how often the texture repeats.
 
 Useful examples:
@@ -431,7 +445,7 @@ For the best result, give important moving objects meaningful names in the sourc
 
 ### In-scene presentation settings
 
-In **Interactions → Inspect 3D model → In-scene presentation**, you can set:
+In **Hotspots → Open a 3D product → In-scene presentation**, you can set:
 
 - distance from the visitor;
 - closest and furthest product size;

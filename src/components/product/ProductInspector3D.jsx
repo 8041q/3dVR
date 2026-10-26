@@ -18,6 +18,7 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 import WorldButton from './WorldButton'
 import WorldInfoPanel from './WorldInfoPanel'
 import WorldLabel from './WorldLabel'
+import { damp, wheelPixels } from '../../input/lookMotion'
 import {
   applyMaterialVariant,
   resetObjectMaterials,
@@ -108,12 +109,21 @@ function activeCamera(camera, gl) {
   return gl.xr.isPresenting ? gl.xr.getCamera(camera) : camera
 }
 
-function captureAnchor(camera, gl, distance) {
+function captureAnchor(camera, gl, distance, keepLevel = false) {
   const viewCamera = activeCamera(camera, gl)
   const direction = new THREE.Vector3()
   const position = new THREE.Vector3()
   viewCamera.getWorldPosition(position)
   viewCamera.getWorldDirection(direction)
+  if (!keepLevel) {
+    const orientation = viewCamera.getWorldQuaternion(new THREE.Quaternion())
+    // Fit the full control grid at the current zoom and viewport aspect ratio.
+    const vertical = Math.tan(THREE.MathUtils.degToRad(viewCamera.fov || 75) / 2)
+    const horizontal = vertical * (viewCamera.aspect || 1)
+    const fittedDistance = Math.max(distance, 0.9 + Math.max(1.95 / horizontal, 1.55 / vertical))
+    position.add(new THREE.Vector3(0, -0.375, -fittedDistance).applyQuaternion(orientation))
+    return { position: position.toArray(), rotation: new THREE.Euler().setFromQuaternion(orientation, 'YXZ').toArray() }
+  }
   direction.y = 0
   if (direction.lengthSq() < 0.001) direction.set(0, 0, -1)
   direction.normalize()
@@ -205,7 +215,7 @@ const ProductInspector3D = forwardRef(function ProductInspector3D({
   const backdropOpacity = clamp(Number(settings.backdropOpacity ?? 0.10), 0, 0.45)
   const initialSpeed = Math.max(0.05, Number(settings.animationSpeed) || 1)
 
-  const [anchorTransform, setAnchorTransform] = useState(() => captureAnchor(camera, gl, anchorDistance))
+  const [anchorTransform, setAnchorTransform] = useState(() => captureAnchor(camera, gl, anchorDistance, immersive))
   const [model, setModel] = useState(null)
   const [animations, setAnimations] = useState([])
   const [status, setStatus] = useState({ state: 'loading', progress: 0, error: '' })
@@ -228,14 +238,14 @@ const ProductInspector3D = forwardRef(function ProductInspector3D({
     onStatusChange?.(next)
   }, [onStatusChange])
 
-  const syncViewTransform = useCallback(() => {
+  const syncViewTransform = useCallback((delta = null) => {
     const rotation = modelRotation.current
     const zoomRoot = modelZoom.current
     if (rotation) {
-      rotation.rotation.x = viewRef.current.pitch
-      rotation.rotation.y = viewRef.current.yaw
+      rotation.rotation.x = delta == null ? viewRef.current.pitch : damp(rotation.rotation.x, viewRef.current.pitch, delta, 22)
+      rotation.rotation.y = delta == null ? viewRef.current.yaw : damp(rotation.rotation.y, viewRef.current.yaw, delta, 22)
     }
-    if (zoomRoot) zoomRoot.scale.setScalar(viewRef.current.zoom)
+    if (zoomRoot) zoomRoot.scale.setScalar(delta == null ? viewRef.current.zoom : damp(zoomRoot.scale.x, viewRef.current.zoom, delta))
   }, [])
 
   const resetView = useCallback(() => {
@@ -251,21 +261,19 @@ const ProductInspector3D = forwardRef(function ProductInspector3D({
 
   const adjustZoom = useCallback((factor) => {
     viewRef.current.zoom = clamp(viewRef.current.zoom * factor, minZoom, maxZoom)
-    syncViewTransform()
     return true
-  }, [maxZoom, minZoom, syncViewTransform])
+  }, [maxZoom, minZoom])
 
   const rotateBy = useCallback((yaw, pitch = 0) => {
     viewRef.current.yaw += yaw
     viewRef.current.pitch = clamp(viewRef.current.pitch + pitch, -0.65, 0.65)
-    syncViewTransform()
     return true
-  }, [syncViewTransform])
+  }, [])
 
   const recenter = useCallback(() => {
-    setAnchorTransform(captureAnchor(camera, gl, anchorDistance))
+    setAnchorTransform(captureAnchor(camera, gl, anchorDistance, immersive))
     return true
-  }, [anchorDistance, camera, gl])
+  }, [anchorDistance, camera, gl, immersive])
 
   const resetMaterials = useCallback(() => {
     resetObjectMaterials(modelRef.current)
@@ -337,13 +345,13 @@ const ProductInspector3D = forwardRef(function ProductInspector3D({
       pitch: 0,
       zoom: 1,
     }
-    setAnchorTransform(captureAnchor(camera, gl, anchorDistance))
+    setAnchorTransform(captureAnchor(camera, gl, anchorDistance, immersive))
     setActiveAnnotation(null)
     setActiveVariantId('')
     setPage(0)
     setAutoRotate(Boolean(settings.autoRotate))
     syncViewTransform()
-  }, [anchorDistance, camera, gl, inspection.id, inspection.rotationY, settings.autoRotate, syncViewTransform])
+  }, [anchorDistance, camera, gl, immersive, inspection.id, inspection.rotationY, settings.autoRotate, syncViewTransform])
 
   useEffect(() => {
     const previousEnvironment = scene.environment
@@ -451,7 +459,7 @@ const ProductInspector3D = forwardRef(function ProductInspector3D({
         setStatusAndNotify({
           state: 'error',
           progress: 0,
-          error: error?.message || 'Could not load the GLB model.',
+          error: 'Could not open this model. Check the model URL or replace the GLB in the editor.',
         })
       },
     )
@@ -508,8 +516,8 @@ const ProductInspector3D = forwardRef(function ProductInspector3D({
     mixerRef.current?.update(delta)
     if (autoRotate && pointersRef.current.size === 0) {
       viewRef.current.yaw += delta * (Number(settings.autoRotateSpeed) || 0.65) * 0.42
-      syncViewTransform()
     }
+    syncViewTransform(delta)
   })
 
   const animationButtons = useMemo(
@@ -545,7 +553,7 @@ const ProductInspector3D = forwardRef(function ProductInspector3D({
       }))
 
       if (animationState.activeClip) {
-        result.push({
+        if (animationState.playing || animationState.paused) result.push({
           id: 'motion:toggle',
           label: animationState.paused ? 'Resume' : 'Pause',
           activate: toggleAnimation,
@@ -612,6 +620,7 @@ const ProductInspector3D = forwardRef(function ProductInspector3D({
     animationButtons,
     animationState.activeClip,
     animationState.paused,
+    animationState.playing,
     animationState.speed,
     annotations,
     applyVariant,
@@ -632,7 +641,7 @@ const ProductInspector3D = forwardRef(function ProductInspector3D({
   const buttonWidth = immersive ? 0.98 : 0.90
 
   function pointerDown(event) {
-    if (!directManipulation) return
+    if (!directManipulation || (event.pointerType !== 'touch' && event.button !== 0)) return
     event.stopPropagation()
     const point = pointerXY(event)
     pointersRef.current.set(event.pointerId, point)
@@ -675,7 +684,7 @@ const ProductInspector3D = forwardRef(function ProductInspector3D({
 
   const hint = immersive || !directManipulation
     ? 'Look at a control and hold the crosshair, or point and select with a controller.'
-    : 'Drag the product to rotate. Wheel to zoom. Use View for gaze-friendly controls.'
+    : 'Scroll to zoom. Choose Motion, Finishes or Details to explore.'
 
   return (
     <>
@@ -703,7 +712,7 @@ const ProductInspector3D = forwardRef(function ProductInspector3D({
         )}
 
         {settings.showGround !== false && (
-          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.045, 0]} renderOrder={9}>
+          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, immersive ? 0.045 : -0.335, 0]} renderOrder={9}>
             <planeGeometry args={[2.3, 2.3]} />
             <meshBasicMaterial
               map={shadowTexture}
@@ -725,7 +734,7 @@ const ProductInspector3D = forwardRef(function ProductInspector3D({
             ? `Loading ${Math.round((status.progress || 0) * 100)}%`
             : status.state === 'error'
               ? 'Model unavailable'
-              : 'Inspect in scene'}
+              : directManipulation ? 'Drag to rotate' : 'Explore the product'}
           detail={status.state === 'error' ? status.error : hint}
           position={[0, 1.17, 0.82]}
           width={1.72}
@@ -741,7 +750,7 @@ const ProductInspector3D = forwardRef(function ProductInspector3D({
 
         <group
           ref={modelZoom}
-          position={[0, 0.08, 0]}
+          position={[0, immersive ? 0.08 : -0.3, 0]}
           onPointerDown={directManipulation ? pointerDown : undefined}
           onPointerMove={directManipulation ? pointerMove : undefined}
           onPointerUp={directManipulation ? pointerEnd : undefined}
@@ -749,7 +758,7 @@ const ProductInspector3D = forwardRef(function ProductInspector3D({
           onWheel={directManipulation ? (event) => {
             event.stopPropagation()
             setAutoRotate(false)
-            adjustZoom(event.deltaY < 0 ? 1.10 : 0.91)
+            adjustZoom(Math.exp(-wheelPixels(event, gl.domElement.clientHeight) * 0.0015))
           } : undefined}
         >
           <group

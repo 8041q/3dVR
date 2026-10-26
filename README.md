@@ -183,6 +183,8 @@ The demo shows:
 - two material color variants;
 - a selectable model annotation.
 
+The small demo GLB is included in the repository. Regenerate it with `node scripts/generate-demo-product.mjs` if needed.
+
 In the editor, use `Scan model` after uploading/entering a GLB URL to discover animation clips and material names. Technical clip names can then be mapped to customer-facing labels.
 
 ## Project data
@@ -203,7 +205,7 @@ A later infrastructure phase can move these snapshots and asset metadata to Post
 
 ## Current editor workflow
 
-The editor uses the task-focused Scenes / Interactions / Guides / Library / Project tool rail. Scenes can be grouped and inspected in a visual navigation map. Hotspot actions are authored as an ordered sequence. Use **Preview** to test the current draft without publishing. After **Publish**, the share dialog provides the public URL and a locally generated QR code. See `docs/USER_GUIDE.md` for the operator workflow.
+The editor opens with **Start here**, a guided scene → hotspot → guide → preview/publish workflow and an actionable completeness checklist. The Scenes / Hotspots / Guides / Assets / Project rail exposes each task. Panorama uploads are available directly in scene settings; hotspot creation includes purpose and destination, with click-to-place, repositioning and camera focus. Save, preview, undo/redo and publication review remain in the top bar. **Preview** tests the current draft; **Review & publish** checks unfinished items before updating the public URL and generating its QR code. See `docs/USER_GUIDE.md` for the operator workflow. Run `npm run test:editor` for camera-motion, project-check and reference-cleanup regression tests.
 
 See `PHASE10.md` for the scene/action/finish-authoring changes and `PHASE12.md` for the current product-inspection architecture.
 
