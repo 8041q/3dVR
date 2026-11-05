@@ -4,6 +4,12 @@ import { fileURLToPath } from 'node:url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 export const ASSET_REGISTRY_PATH = path.join(__dirname, 'data', 'assets.json')
+let pendingMutation = Promise.resolve()
+function serializeMutation(operation) {
+  const result = pendingMutation.then(operation)
+  pendingMutation = result.catch(() => {})
+  return result
+}
 
 async function readJson(filePath, fallback) {
   try {
@@ -29,7 +35,8 @@ export async function readAssetRegistry() {
   }
 }
 
-export async function registerAsset(record) {
+export function registerAsset(record) { return serializeMutation(() => writeAssetRecord(record)) }
+async function writeAssetRecord(record) {
   const registry = await readAssetRegistry()
   const url = String(record?.url || '').trim()
   if (!url) throw new Error('Asset registry record requires a URL.')
@@ -49,7 +56,8 @@ export async function registerAsset(record) {
   return next
 }
 
-export async function removeAssetFromRegistry(url) {
+export function removeAssetFromRegistry(url) { return serializeMutation(() => removeAssetRecord(url)) }
+async function removeAssetRecord(url) {
   const target = String(url || '').trim()
   if (!target) return null
 

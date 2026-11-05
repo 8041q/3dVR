@@ -1,5 +1,6 @@
 import React from 'react'
 import { PROJECT_METADATA_LIMITS } from '../../projectMetadata.js'
+import { PROJECT_SETTINGS_DEFAULTS, normalizeProjectSettings } from '../../projectSettings.js'
 import './projectDetails.css'
 
 function formatDate(value) {
@@ -10,8 +11,19 @@ function formatDate(value) {
 
 export default function ProjectDetails({ project, meta, onChange }) {
   const metadata = project.metadata || {}
+  const settings = { ...PROJECT_SETTINGS_DEFAULTS, ...normalizeProjectSettings(project.settings) }
+  const availableGuides = (project.guides || []).filter((guide) => guide.steps?.length)
   function updateMetadata(key, value) {
     onChange((current) => ({ ...current, metadata: { ...current.metadata, [key]: value } }))
+  }
+  function updateSetting(key, value) {
+    onChange((current) => ({ ...current, settings: normalizeProjectSettings({ ...current.settings, [key]: value }) }))
+  }
+  function toggle(key, label, hint) {
+    return <label className="project-details__toggle">
+      <input type="checkbox" aria-label={label} aria-describedby={`project-setting-${key}`} checked={settings[key]} onChange={(event) => updateSetting(key, event.target.checked)} />
+      <span>{label}<small id={`project-setting-${key}`}>{hint}</small></span>
+    </label>
   }
   function field(key, label, placeholder, { multiline = false, hint } = {}) {
     const Input = multiline ? 'textarea' : 'input'
@@ -61,9 +73,10 @@ export default function ProjectDetails({ project, meta, onChange }) {
             {field('rights', 'Copyright & usage notes', 'Copyright holder, attribution requirements, or usage restrictions.', { multiline: true })}
           </div>
         </section>
-        <section className="project-details__section" aria-labelledby="project-start-title">
-          <h3 id="project-start-title">Starting scene</h3>
-          <p>Choose where visitors enter the published experience.</p>
+        <section className="project-details__section" aria-labelledby="project-viewer-title">
+          <h3 id="project-viewer-title">Viewer & sharing settings</h3>
+          <p>Set how visitors enter and use this experience. Changes take effect when you publish.</p>
+          <div className="project-details__fields">
           <label>Starting scene
             <select value={project.startSceneId || ''} disabled={!project.scenes?.length}
               onChange={(event) => onChange((current) => ({ ...current, startSceneId: event.target.value }))}>
@@ -71,9 +84,30 @@ export default function ProjectDetails({ project, meta, onChange }) {
               {(project.scenes || []).map((scene) => <option key={scene.id} value={scene.id}>{scene.title || scene.id}</option>)}
             </select>
           </label>
+          <label>Startup guide
+            <select aria-label="Startup guide" aria-describedby="project-startup-guide-hint" value={settings.defaultGuideId} onChange={(event) => updateSetting('defaultGuideId', event.target.value)}>
+              <option value="">No automatic guide</option>
+              {settings.defaultGuideId && !availableGuides.some((guide) => guide.id === settings.defaultGuideId)
+                && <option value={settings.defaultGuideId}>Unavailable guide — choose another</option>}
+              {availableGuides.map((guide) => <option key={guide.id} value={guide.id}>{guide.title || guide.id}</option>)}
+            </select>
+            <small id="project-startup-guide-hint">{availableGuides.length ? 'Starts automatically when the experience opens.' : 'Add a guide with steps in Guides to enable automatic playback.'}</small>
+          </label>
+          </div>
+          <div className="project-details__toggles">
+            {toggle('showGuideMenu', 'Show guide menu', 'Let visitors choose from the available guides. Hotspot-triggered guides still work when this is off.')}
+            {toggle('openLinksInNewTab', 'Open external links in a new tab', 'Keep the experience open when a visitor follows a link.')}
+            {toggle('allowOffline', 'Offer offline downloads', 'Show the offline download control in the published viewer. Existing saved copies remain on their devices.')}
+          </div>
         </section>
       </div>
       <aside className="project-details__summary" aria-label="Project information">
+        <nav className="project-details__contents" aria-label="Project detail sections">
+          <a href="#project-about-title">About this project</a>
+          <a href="#project-credits-title">Organization & credits</a>
+          <a href="#project-rights-title">Rights & usage</a>
+          <a href="#project-viewer-title">Viewer & sharing settings</a>
+        </nav>
         <h3>Project information</h3>
         <p>Details are saved with your draft and included in published project data and exports. Add information you’re happy to share.</p>
         <dl>

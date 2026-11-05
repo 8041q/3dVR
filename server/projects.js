@@ -39,12 +39,13 @@ export function createProjectsRouter(express) {
 
   router.post('/', requireEditor, async (req, res) => {
     try {
-      const { title, duplicateFrom, draft } = req.body || {}
+      const { title, metadata, duplicateFrom, draft } = req.body || {}
       if (draft && (!duplicateFrom || !Array.isArray(draft.scenes) || !Array.isArray(draft.guides))) {
         return res.status(400).json({ error: 'Choose a project and provide its draft to create a copy.' })
       }
       const project = await createProject({
         title,
+        metadata,
         duplicateFrom,
         draft,
       })

@@ -215,6 +215,7 @@ export default function Viewer({
   onSelectHotspot,
   onHotspotCreate,
   showModeBar = true,
+  showGuideMenu = true,
   editorFocusRequest = null,
   editorViewRef = null,
   editorHighlightedHotspotId = '',
@@ -720,7 +721,7 @@ export default function Viewer({
         </div>
       )}
 
-      {!editMode && !inspection && !info && <GuideLauncher
+      {showGuideMenu && !editMode && !inspection && !info && <GuideLauncher
         guides={guides}
         activeGuide={activeGuide}
         onStart={startGuide}

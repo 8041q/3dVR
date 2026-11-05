@@ -17,6 +17,7 @@ import { removeProjectHotspot, removeProjectScene, replaceSpatialRoom } from '..
 import { hasPanorama, panoramaKey } from '../../panorama/panoramaSource'
 import { replaceProductModel } from '../../product/modelMetadata'
 import { resolveSceneId } from '../../viewer/sceneSelection'
+import { projectViewerSettings } from '../../projectSettings.js'
 
 const SCENE_INSPECTOR = { kind: 'scene' }
 const WORKSPACES = [
@@ -261,7 +262,7 @@ export default function EditorWorkspace({ projectId, draft, authToken }) {
     previewOpener.current = opener
     setPlacement(null)
     setReviewOpen(false)
-    setPreview({ sceneId: firstSceneId, initialSceneId: firstSceneId, startSceneId, scenes, guides, guideId, guideStepId, run: 0 })
+    setPreview({ sceneId: firstSceneId, initialSceneId: firstSceneId, startSceneId, scenes, guides, settings: projectViewerSettings(project), guideId, guideStepId, run: 0 })
   }
 
   function previewGuide(id, opener, stepId = '') {
@@ -457,7 +458,7 @@ export default function EditorWorkspace({ projectId, draft, authToken }) {
             </div>
             <button disabled={!draft.dirty || busy} onClick={save}>Save draft</button>
             <button ref={previewButton} disabled={(!startReady && !panoramaConfigured) || draft.publishing}
-              onClick={() => openPreview(startReady ? startSceneId : sceneId)}>Preview</button>
+              onClick={() => openPreview(startReady ? startSceneId : sceneId, previewButton.current, projectViewerSettings(project).defaultGuideId)}>Preview</button>
             <button
               className="primary studio-publish"
               disabled={busy}
@@ -622,32 +623,28 @@ export default function EditorWorkspace({ projectId, draft, authToken }) {
           </main>
         )}
 
-        {workspace.kind === 'project' && (
-          <main className="editor-panel studio-workspace-view studio-workspace-view--project" aria-label="Project details"
+        {['project', 'projects'].includes(workspace.kind) && (
+          <main className="editor-panel studio-workspace-view studio-workspace-view--project" aria-label={workspace.kind === 'project' ? 'Project details' : 'Manage projects'}
             inert={draft.publishing ? true : undefined}>
             <header className="studio-workspace-header">
               <div>
-                <h2 ref={workspaceHeading} tabIndex={-1}>Project details</h2>
-                <p>Metadata, credits, and experience settings. Use Save draft to keep your changes.</p>
+                <h2 ref={workspaceHeading} tabIndex={-1}>{workspace.kind === 'project' ? 'Project details' : 'Manage projects'}</h2>
+                <p>{workspace.kind === 'project'
+                  ? 'Metadata, credits, and viewer settings. Use Save draft to keep your changes.'
+                  : 'Browse your projects, create a new experience, or duplicate your current draft.'}</p>
               </div>
-              <button onClick={() => openWorkspace({ kind: 'projects' })}>Manage projects</button>
             </header>
+            <nav className="studio-project-navigation" aria-label="Project tools">
+              <button type="button" aria-current={workspace.kind === 'project' ? 'page' : undefined}
+                onClick={() => openWorkspace({ kind: 'project' })}>Project details</button>
+              <button type="button" aria-current={workspace.kind === 'projects' ? 'page' : undefined}
+                onClick={() => openWorkspace({ kind: 'projects' })}>Manage projects</button>
+            </nav>
             <div className="studio-workspace-body">
-              <ProjectDetails project={project} meta={draft.meta} onChange={draft.updateProject} />
-            </div>
-          </main>
-        )}
-
-        {workspace.kind === 'projects' && (
-          <main className="editor-panel studio-workspace-view" aria-label="Manage projects"
-            inert={draft.publishing ? true : undefined}>
-            <header className="studio-workspace-header">
-              <h2 ref={workspaceHeading} tabIndex={-1}>Manage projects</h2>
-              <button onClick={() => openWorkspace({ kind: 'project' })}>Back to project details</button>
-            </header>
-            <div className="studio-workspace-body">
-              <ProjectManager projectId={projectId} title={project.title} meta={draft.meta} token={authToken}
-                project={project} />
+              {workspace.kind === 'project'
+                ? <ProjectDetails project={project} meta={draft.meta} onChange={draft.updateProject} />
+                : <ProjectManager projectId={projectId} title={project.title} meta={draft.meta} token={authToken}
+                    project={project} dirty={draft.dirty} onOpenDetails={() => openWorkspace({ kind: 'project' })} />}
             </div>
           </main>
         )}
@@ -713,6 +710,7 @@ export default function EditorWorkspace({ projectId, draft, authToken }) {
               guides={preview.guides}
               initialGuideId={preview.guideId}
               initialGuideStepId={preview.guideStepId}
+              showGuideMenu={preview.settings.showGuideMenu}
               openLinksInNewTab
               onNavigate={(id) => setPreview((current) => ({ ...current, sceneId: id }))}
             />
@@ -724,7 +722,7 @@ export default function EditorWorkspace({ projectId, draft, authToken }) {
         <PublishReviewDialog
           title={project.title} issues={issues} warnings={warnings} checkingMedia={checkingMedia}
           scenes={scenes} startSceneId={project.startSceneId}
-          busy={draft.publishing} error={error} onResolve={resolveIssue} onPreview={() => openPreview(startSceneId)}
+          busy={draft.publishing} error={error} onResolve={resolveIssue} onPreview={() => openPreview(startSceneId, previewButton.current, projectViewerSettings(project).defaultGuideId)}
           onPublish={publish} onClose={() => setReviewOpen(false)}
         />
       )}

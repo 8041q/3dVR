@@ -4,12 +4,14 @@ import ProjectOfflineControl from '../components/ProjectOfflineControl'
 import ProjectWatermark from '../components/ProjectWatermark'
 import { useProject } from '../hooks/useProject'
 import { resolveSceneId } from '../viewer/sceneSelection'
+import { projectViewerSettings } from '../projectSettings.js'
 
 export default function ViewerApp({ projectId = 'default' }) {
   const { project, loading, error, source, reload } = useProject(projectId)
   const [selectedSceneId, setSceneId] = useState(null)
   const scenes = project?.scenes || []
   const guides = project?.guides || []
+  const settings = projectViewerSettings(project)
 
   const sceneId = resolveSceneId(scenes, selectedSceneId, project?.startSceneId)
 
@@ -33,8 +35,11 @@ export default function ViewerApp({ projectId = 'default' }) {
         onNavigate={setSceneId}
         scenes={scenes}
         guides={guides}
+        initialGuideId={settings.defaultGuideId}
+        showGuideMenu={settings.showGuideMenu}
+        openLinksInNewTab={settings.openLinksInNewTab}
         overlayChildren={<>
-          <ProjectOfflineControl project={project} source={source} />
+          {settings.allowOffline && <ProjectOfflineControl project={project} source={source} />}
           <ProjectWatermark title={project.title || project.id} offline={source === 'offline'} />
         </>}
       />

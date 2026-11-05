@@ -171,13 +171,21 @@
   inset-inline-start: 0;
   display: grid;
   min-width: max-content;
-  padding: var(--studio-space-1);
+  gap: 6px;
+  padding: 8px;
   border: 1px solid var(--studio-border);
   border-radius: var(--studio-radius);
   background: var(--studio-panel);
   box-shadow: var(--ui-shadow);
 }
-.studio-app .studio-project-menu > div > button { border-color: transparent; text-align: left; }
+.studio-app .studio-project-menu > div > button {
+  min-height: 40px;
+  padding: 10px 14px;
+  border-color: transparent;
+  background: transparent;
+  text-align: left;
+}
+.studio-app .studio-project-menu > div > button:hover { background: var(--studio-subtle); }
 
 .studio-app .studio-workspace-view {
   position: relative;

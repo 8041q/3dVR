@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import Viewer from '../components/Viewer'
 import { readDraftPreview } from '../preview/draftPreview'
 import { resolveSceneId } from '../viewer/sceneSelection'
+import { projectViewerSettings } from '../projectSettings.js'
 
 export default function PreviewApp({ projectId = 'default' }) {
   const [project] = useState(() => {
@@ -12,6 +13,7 @@ export default function PreviewApp({ projectId = 'default' }) {
 
   const scenes = project?.scenes || []
   const guides = project?.guides || []
+  const settings = projectViewerSettings(project)
 
   const sceneId = resolveSceneId(scenes, selectedSceneId, project?.startSceneId)
 
@@ -46,6 +48,8 @@ export default function PreviewApp({ projectId = 'default' }) {
         onNavigate={setSceneId}
         scenes={scenes}
         guides={guides}
+        initialGuideId={settings.defaultGuideId}
+        showGuideMenu={settings.showGuideMenu}
         openLinksInNewTab
         overlayChildren={<div className="preview-banner" data-viewer-chrome="bottom">
           <div>

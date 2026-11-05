@@ -6,6 +6,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { test } from 'node:test'
 import { contentSignature, createDraftState, draftContent, editDraft, moveDraftHistory, receiveSavedDraft } from '../src/editor/draftState.js'
 import { normalizeProjectMetadata } from '../src/projectMetadata.js'
+import { normalizeProjectSettings, projectViewerSettings } from '../src/projectSettings.js'
 
 async function projectStore(t) {
   const directory = await mkdtemp(fileURLToPath(new URL('./.project-store-', import.meta.url)))
@@ -15,6 +16,7 @@ async function projectStore(t) {
   const modulePath = path.join(directory, 'server', 'projectStore.mjs')
   await copyFile(new URL('../server/projectStore.js', import.meta.url), modulePath)
   await copyFile(new URL('../src/projectMetadata.js', import.meta.url), path.join(directory, 'src', 'projectMetadata.js'))
+  await copyFile(new URL('../src/projectSettings.js', import.meta.url), path.join(directory, 'src', 'projectSettings.js'))
   return { store: await import(pathToFileURL(modulePath)), directory: path.join(directory, 'server') }
 }
 
@@ -220,4 +222,56 @@ test('metadata accepts bounded text, ignores unknown fields, and never coerces o
   assert.equal(normalizeProjectMetadata({ description: 'a'.repeat(3000) }).description.length, 2000)
   assert.deepEqual(normalizeProjectMetadata(null), {})
   assert.deepEqual(normalizeProjectMetadata(['no']), {})
+})
+
+test('viewer settings survive saves, publishing, and duplication without changing the live copy early', async (t) => {
+  const { store } = await projectStore(t)
+  const initial = await store.createProject({ title: 'Guided workshop' })
+  const published = await store.publishProject(initial.id)
+  const settings = { defaultGuideId: 'welcome', showGuideMenu: false, openLinksInNewTab: true, allowOffline: false }
+  const edited = { ...initial, settings, guides: [{ id: 'welcome', title: 'Welcome', steps: [{ id: 'one', sceneId: initial.startSceneId }] }] }
+  const saved = await store.saveProjectDraft(initial.id, draftContent(edited))
+  assert.deepEqual(saved.settings, settings)
+  assert.equal(saved.meta.hasUnpublishedChanges, true)
+  assert.deepEqual((await store.getPublishedManifest(initial.id)).settings, {})
+  const copy = await store.createProject({ title: 'Guided copy', duplicateFrom: initial.id, draft: draftContent(edited) })
+  assert.deepEqual(copy.settings, settings)
+  const release = await store.publishProject(initial.id)
+  assert.deepEqual(release.manifest.settings, settings)
+  assert.notEqual(release.manifest.revision, published.manifest.revision)
+  assert.deepEqual((await store.getProjectVersion(initial.id, release.manifest.revision)).settings, settings)
+  const reset = await store.saveProjectDraft(initial.id, { ...saved, settings: {}, guides: [] })
+  assert.equal(reset.meta.draftRevision, initial.meta.draftRevision)
+})
+
+test('new projects retain author and description, and the library returns content summaries', async (t) => {
+  const { store } = await projectStore(t)
+  const created = await store.createProject({ title: 'New studio', metadata: { author: '  Sample team  ', description: 'A studio visit.' } })
+  assert.equal(created.metadata.author, 'Sample team')
+  assert.equal((await store.getProjectDraft(created.id)).metadata.description, 'A studio visit.')
+  const listed = (await store.listProjects()).find((item) => item.id === created.id)
+  assert.equal(listed.author, 'Sample team')
+  assert.equal(listed.description, 'A studio visit.')
+  assert.equal(listed.sceneCount, 1)
+  assert.equal(listed.guideCount, 0)
+  assert.equal(listed.isPublished, false)
+})
+
+test('viewer settings preserve legacy defaults and ignore unavailable startup guides', () => {
+  assert.deepEqual(normalizeProjectSettings({ defaultGuideId: '', showGuideMenu: true, openLinksInNewTab: false, allowOffline: true }), {})
+  assert.deepEqual(normalizeProjectSettings({ showGuideMenu: 'false', allowOffline: 0, unknown: true }), {})
+  const defaults = projectViewerSettings(null)
+  assert.deepEqual(defaults, { defaultGuideId: '', showGuideMenu: true, openLinksInNewTab: false, allowOffline: true })
+  assert.equal(projectViewerSettings({ settings: { defaultGuideId: 'removed' }, guides: [] }).defaultGuideId, '')
+  assert.equal(projectViewerSettings({ settings: { defaultGuideId: 'empty' }, guides: [{ id: 'empty', steps: [] }] }).defaultGuideId, '')
+  assert.equal(projectViewerSettings({ settings: { defaultGuideId: 'valid' }, guides: [{ id: 'valid', steps: [{ id: 'one' }] }] }).defaultGuideId, 'valid')
+  const initial = { title: 'Tour', scenes: [], guides: [] }
+  assert.equal(contentSignature(initial), contentSignature({ ...initial, settings: defaults }))
+  let state = createDraftState(initial)
+  state = editDraft(state, { ...initial, settings: { showGuideMenu: false } })
+  assert.equal(state.dirty, true)
+  state = moveDraftHistory(state, 'undo')
+  assert.equal(state.dirty, false)
+  state = moveDraftHistory(state, 'redo')
+  assert.equal(state.project.settings.showGuideMenu, false)
 })

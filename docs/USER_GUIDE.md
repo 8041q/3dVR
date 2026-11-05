@@ -72,7 +72,17 @@ Open **Manage projects** from the project name menu or the **Project** tab. Ente
 
 In **Project**, describe the experience with a title, description, content language, and comma-separated keywords. Record the author, organization, contributors, license, and copyright or usage notes. All metadata is optional and follows the same **Save draft**, **Undo**, and **Review & publish** workflow as scene edits. Metadata is included in published manifests, offline copies, and project exports. Content language describes the project; it does not translate the interface.
 
-The **Starting scene** setting chooses the visitor’s entry point. **Project information** shows the project ID, creation date, last saved date, publication date, and published revision. These values are maintained automatically.
+The **Viewer & sharing settings** section chooses the visitor’s starting scene and optional startup guide. You can also show or hide the guide menu, open external links in a new tab, and offer offline downloads in the published viewer. A startup guide must have steps. These settings follow **Save draft** and **Review & publish**. Existing offline copies remain on visitors’ devices when downloads are turned off.
+
+**Project information** shows the project ID, creation date, last saved date, publication date, and published revision. These values are maintained automatically. Section links jump to metadata, credits, rights, and viewer settings.
+
+In **Manage projects**, search by title, author, or description; filter by publication status; and sort by name or last update. Project cards show credits, content counts, dates, and links to edit or open the published experience. New projects can include an author and description immediately. Copies can be given their own title. If loading fails, the current project stays available and **Refresh projects** retries the library.
+
+### Export and import a complete project
+
+Open **Export / import** in the manager, or select **Export ZIP** on a project card. Choose a project and select **Export project ZIP**. The `.3dvr.zip` download includes the draft, credits and metadata, viewer settings, saved releases, uploads, models and their local dependencies, and processed panorama tiles. For the current project, **Include current unsaved edits** captures your work without changing the saved draft or live tour. External links remain links and still need their original hosts.
+
+To restore or move a project, choose its ZIP file and select **Import project ZIP**. The progress bar shows upload progress, followed by archive validation and media restoration. Successful imports appear in the library, with a link to open the imported project in a new tab. Imports create a separate unpublished draft, retain saved release history, and allocate new media paths when necessary. Existing projects and files are preserved. Preview the imported draft, then use **Review & publish** when ready.
 
 ## 5. Scenes
 

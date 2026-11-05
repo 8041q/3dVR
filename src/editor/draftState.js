@@ -1,4 +1,5 @@
 import { PROJECT_METADATA_LIMITS } from '../projectMetadata.js'
+import { normalizeProjectSettings } from '../projectSettings.js'
 
 const HISTORY_LIMIT = 60
 
@@ -9,6 +10,7 @@ export function draftContent(project) {
       .filter((key) => typeof project.metadata?.[key] === 'string' && project.metadata[key] !== '')
       .map((key) => [key, project.metadata[key]])),
     startSceneId: project.startSceneId,
+    settings: normalizeProjectSettings(project.settings),
     scenes: project.scenes || [],
     guides: project.guides || [],
   }

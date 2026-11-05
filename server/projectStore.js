@@ -3,6 +3,7 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { normalizeProjectMetadata } from '../src/projectMetadata.js'
+import { normalizeProjectSettings } from '../src/projectSettings.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const DATA_ROOT = path.join(__dirname, 'data')
@@ -140,6 +141,7 @@ function normalizeSnapshot(projectId, value = {}) {
     id: projectId,
     title: String(value.title || 'Untitled project').trim() || 'Untitled project',
     metadata: normalizeProjectMetadata(value.metadata),
+    settings: normalizeProjectSettings(value.settings),
     startSceneId,
     scenes,
     guides,
@@ -157,6 +159,8 @@ function revisionForSnapshot(snapshot) {
       // Keep existing revision identifiers stable until metadata is added.
       ...(Object.keys(normalizeProjectMetadata(snapshot.metadata)).length
         ? { metadata: normalizeProjectMetadata(snapshot.metadata) } : {}),
+      ...(Object.keys(normalizeProjectSettings(snapshot.settings)).length
+        ? { settings: normalizeProjectSettings(snapshot.settings) } : {}),
     }))
     .digest('hex')
     .slice(0, 16)
@@ -299,7 +303,15 @@ export async function listProjects() {
     if (!entry.isDirectory()) continue
     const meta = await runProjectOperation(entry.name, async () => {
       const stored = await readJson(metaPath(entry.name))
-      return stored ? withStatus((await readProjectState(stored)).meta) : null
+      if (!stored) return null
+      const { draft, meta } = await readProjectState(stored)
+      return {
+        ...withStatus(meta),
+        author: draft?.metadata?.author || '',
+        description: draft?.metadata?.description || '',
+        sceneCount: draft?.scenes?.length || 0,
+        guideCount: draft?.guides?.length || 0,
+      }
     })
     if (meta) projects.push(meta)
   }
@@ -387,11 +399,11 @@ export async function getPublishedManifest(projectId) {
   return manifest
 }
 
-export async function createProject({ title, duplicateFrom = null, draft = null } = {}) {
-  return runProjectOperation(CREATE_PROJECT, () => createProjectSnapshot(title, duplicateFrom, draft))
+export async function createProject({ title, metadata, duplicateFrom = null, draft = null } = {}) {
+  return runProjectOperation(CREATE_PROJECT, () => createProjectSnapshot(title, duplicateFrom, draft, metadata))
 }
 
-async function createProjectSnapshot(title, duplicateFrom, draft) {
+async function createProjectSnapshot(title, duplicateFrom, draft, metadata) {
   await ensureDefaultProject()
 
   const projectTitle = String(title || '').trim() || 'Untitled project'
@@ -411,6 +423,7 @@ async function createProjectSnapshot(title, duplicateFrom, draft) {
     title: projectTitle,
   } : {
     title: projectTitle,
+    metadata,
     startSceneId: 'scene-1',
     scenes: [
       {
@@ -459,4 +472,53 @@ export async function getProjectVersion(projectId, revision) {
     throw error
   }
   return version
+}
+
+// Capture draft, publication and history together while project writes are locked.
+export async function exportProjectState(projectId, { draft: submitted, expectedDraftRevision } = {}) {
+  const id = sanitizeProjectId(projectId)
+  return runProjectOperation(id, async () => {
+    const state = await readProjectState(await ensureProject(id))
+    if (submitted) checkDraftRevision(state.meta.draftRevision, expectedDraftRevision)
+    const draft = submitted ? normalizeSnapshot(id, submitted) : state.draft
+    const files = [
+      { path: 'draft.json', value: draft },
+      { path: 'meta.json', value: { ...state.meta, title: draft.title, draftRevision: revisionForSnapshot(draft) } },
+    ]
+    if (state.published) files.push({ path: 'published.json', value: state.published })
+    for (const name of await fs.readdir(versionsDir(id))) {
+      if (/^[a-f0-9]{16}\.json$/i.test(name)) files.push({ path: `versions/${name}`, file: path.join(versionsDir(id), name) })
+    }
+    return { id, title: draft.title, files }
+  })
+}
+
+// Imports never replace a project or publish automatically. Imported releases
+// remain available as history, with revisions rebuilt after media URLs change.
+export async function importProjectState({ draft, published, versions = [] }) {
+  return runProjectOperation(CREATE_PROJECT, async () => {
+    await ensureDefaultProject()
+    const id = await uniqueProjectId(draft.title || 'Imported project')
+    const snapshot = normalizeSnapshot(id, draft)
+    const timestamp = nowIso()
+    const meta = {
+      id, title: snapshot.title, createdAt: timestamp, updatedAt: timestamp,
+      draftRevision: revisionForSnapshot(snapshot), publishedRevision: null, publishedAt: null,
+    }
+    const staging = path.join(DATA_ROOT, `.project-import-${crypto.randomUUID()}`)
+    try {
+      await fs.mkdir(path.join(staging, 'versions'), { recursive: true })
+      for (const version of [...versions, ...(published ? [published] : [])]) {
+        const content = normalizeSnapshot(id, version)
+        const revision = revisionForSnapshot(content)
+        await writeJsonAtomic(path.join(staging, 'versions', `${revision}.json`), manifestFromSnapshot(content, revision, version.publishedAt || null))
+      }
+      await writeJsonAtomic(path.join(staging, 'draft.json'), snapshot)
+      await writeJsonAtomic(path.join(staging, 'meta.json'), meta)
+      await fs.rename(staging, projectDir(id))
+      return { ...snapshot, meta: withStatus(meta) }
+    } finally {
+      await fs.rm(staging, { recursive: true, force: true }).catch(() => {})
+    }
+  })
 }

@@ -126,6 +126,12 @@ The Asset Library exposes **Delete** only for uploaded assets. Deletion is refus
 
 ## Project migration backups
 
+In **Project → Manage projects**, choose **Export / import**. Export downloads a `.3dvr.zip` containing the draft, metadata, viewer settings, published snapshot/history, local uploads, processed panorama tiles, and referenced demo/model dependencies. The current project's unsaved edits can be included without saving or publishing them. Other projects export their saved drafts. External URLs remain linked; they are not downloaded.
+
+Import a ZIP to create a separate **unpublished** project. The importer restores media using available filenames and fresh panorama IDs, rewrites references, and retains imported releases as version history. It never overwrites an existing project or automatically publishes a tour. ZIPs containing a version-1 `migration-manifest.json` bundle (including a zipped CLI export directory) are supported. Archives are validated for paths, checksums, missing media, and size limits before project creation; failed imports roll back newly created media.
+
+Imports default to a 10 GiB upload limit and a 20 GiB extracted limit. Override these with `MAX_PROJECT_IMPORT_BYTES` and `MAX_PROJECT_EXTRACT_BYTES`. Ensure the reverse proxy permits the same upload size and sufficient transfer time. ZIP media streams to disk; exports use the browser's native downloader rather than buffering the entire archive in browser memory.
+
 Uploads and generated panorama data are intentionally not committed to Git. Before moving an installation, export a project bundle:
 
 ```bash

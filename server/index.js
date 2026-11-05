@@ -8,6 +8,7 @@ import { createAuthRouter } from './auth.js'
 import { createScenesRouter } from './scenes.js'
 import { createUploadRouter } from './upload.js'
 import { createProjectsRouter } from './projects.js'
+import { createProjectTransfersRouter } from './projectTransfers.js'
 import { createGuidesRouter } from './guides.js'
 import { createAssetsRouter } from './assets.js'
 import { createPanoramaUploadsRouter } from './panoramaUploads.js'
@@ -40,6 +41,7 @@ app.use('/api/scenes', createScenesRouter(express))
 app.use('/api/upload', createUploadRouter(express))
 app.use('/api/assets', createAssetsRouter(express))
 app.use('/api/projects', createProjectsRouter(express))
+app.use('/api/project-transfers', createProjectTransfersRouter(express))
 app.use('/api/guides', createGuidesRouter(express))
 app.use('/api/panorama-uploads', createPanoramaUploadsRouter(express))
 app.use('/api/panorama-jobs', createPanoramaJobsRouter(express))
