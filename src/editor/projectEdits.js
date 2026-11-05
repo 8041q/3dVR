@@ -1,7 +1,9 @@
-import { ACTION_TYPES, normalizeHotspotActions } from '../actions/actionTypes.js'
+import { ACTION_TYPES, normalizeHotspotActions, withHotspotActions } from '../actions/actionTypes.js'
+import { GUIDE_ADVANCE, guideProductTarget } from '../guides/guidePlayback.js'
 
 function clearMissingHotspots(guides, scenes) {
   const idsByScene = new Map(scenes.map((scene) => [scene.id, new Set((scene.hotspots || []).map((hotspot) => hotspot.id))]))
+  const scenesById = new Map(scenes.map((scene) => [scene.id, scene]))
   const allIds = new Set([...idsByScene.values()].flatMap((ids) => [...ids]))
   return guides.map((guide) => ({
     ...guide,
@@ -10,6 +12,19 @@ function clearMissingHotspots(guides, scenes) {
       const ids = step.sceneId ? idsByScene.get(step.sceneId) : allIds
       for (const key of ['highlightHotspotId', 'advanceOnHotspotId', 'autoActivateHotspotId']) {
         if (step[key] && !ids.has(step[key])) patch[key] = ''
+      }
+      if (patch.advanceOnHotspotId === '' && step.advanceMode === GUIDE_ADVANCE.HOTSPOT) {
+        patch.advanceMode = GUIDE_ADVANCE.MANUAL
+      }
+      if (patch.advanceOnHotspotId === '' && step.advanceMode === GUIDE_ADVANCE.EITHER) {
+        patch.advanceMode = Number(step.autoAdvanceMs) > 0 ? GUIDE_ADVANCE.TIMER : GUIDE_ADVANCE.MANUAL
+      }
+      if (patch.autoActivateHotspotId === '') {
+        patch.autoActivateActionId = ''
+      }
+      if ((step.inspectionCommand?.animationClip || step.inspectionCommand?.variantId) &&
+        (patch.autoActivateHotspotId === '' || (patch.highlightHotspotId === '' && !guideProductTarget({ ...step, ...patch }, scenesById.get(step.sceneId))))) {
+        patch.inspectionCommand = { animationClip: '', variantId: '' }
       }
       return { ...step, ...patch }
     }),
@@ -40,5 +55,28 @@ export function removeProjectHotspot(project, sceneId, hotspotId) {
   const scenes = project.scenes.map((scene) => scene.id === sceneId ? {
     ...scene, hotspots: (scene.hotspots || []).filter((hotspot) => hotspot.id !== hotspotId),
   } : scene)
+  return { ...project, scenes, guides: clearMissingHotspots(project.guides || [], scenes) }
+}
+
+export function replaceSpatialRoom(project, sceneId, { spatial, hotspots: imported = [] }) {
+  const scenes = project.scenes.map((scene) => {
+    if (scene.id !== sceneId) return scene
+    const incoming = new Map(imported.map((hotspot) => [hotspot.id, hotspot]))
+    const hotspots = (scene.hotspots || []).flatMap((hotspot) => {
+      const replacement = incoming.get(hotspot.id)
+      if (replacement) {
+        incoming.delete(hotspot.id)
+        const actions = normalizeHotspotActions(hotspot)
+        return [withHotspotActions({ ...replacement, ...hotspot, spatialPosition: replacement.spatialPosition },
+          actions.length ? actions : normalizeHotspotActions(replacement))]
+      }
+      const actions = normalizeHotspotActions(hotspot)
+      const panoramaActions = actions.filter((action) => action.type !== ACTION_TYPES.PLAY_ROOM_ANIMATION)
+      const { spatialPosition, ...panoramaHotspot } = hotspot
+      if (!spatialPosition && panoramaActions.length === actions.length) return [hotspot]
+      return panoramaActions.length ? [withHotspotActions(panoramaHotspot, panoramaActions)] : []
+    })
+    return { ...scene, spatial, hotspots: [...hotspots, ...incoming.values()] }
+  })
   return { ...project, scenes, guides: clearMissingHotspots(project.guides || [], scenes) }
 }

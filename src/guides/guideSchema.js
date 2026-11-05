@@ -1,3 +1,5 @@
+import { GUIDE_ADVANCE } from './guidePlayback.js'
+
 function id(prefix) {
   return globalThis.crypto?.randomUUID?.() || `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}`
 }
@@ -19,9 +21,10 @@ export function createGuideStep(sceneId = '') {
     instruction: '',
     focus: null,
     highlightHotspotId: '',
+    advanceMode: GUIDE_ADVANCE.MANUAL,
     advanceOnHotspotId: '',
     autoActivateHotspotId: '',
-    narrationUrl: '',
+    autoActivateActionId: '',
     autoAdvanceMs: 0,
     inspectionCommand: {
       animationClip: '',

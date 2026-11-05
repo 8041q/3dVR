@@ -1,172 +1,139 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import {
-  DEFAULT_PHONE_VIEW_PROFILE,
   PHONE_VIEW_MODES,
   normalizePhoneViewProfile,
   opticalFovEstimateDeg,
+  resetPhoneViewProfile,
 } from '../phoneViewProfile'
 
 function Range({ label, value, min, max, step, unit = '', onChange }) {
+  const digits = Math.max(String(step).split('.')[1]?.length || 0, String(min).split('.')[1]?.length || 0)
+  const display = `${Number(value).toFixed(digits)}${unit}`
   return (
     <label className="phone-calibration__range">
-      <span>{label}<strong>{Number(value).toFixed(step < 1 ? 1 : 0)}{unit}</strong></span>
-      <input
-        type="range"
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        onChange={(event) => onChange(Number(event.target.value))}
-      />
+      <span>{label}<span className="phone-calibration__value" aria-hidden="true">{display}</span></span>
+      <input type="range" min={min} max={max} step={step} value={value}
+        aria-valuetext={display} onChange={(event) => onChange(Number(event.target.value))} />
     </label>
   )
 }
 
 export default function PhoneCalibrationPanel({
-  open,
-  profile,
-  spatialAvailable,
-  onPreview,
-  onSave,
-  onCancel,
-  onRecenter,
-  onEnableMotion,
-  motionStatus,
+  open, profile, onPreview, onSave, onCancel, onRecenter, motionStatus,
 }) {
   const [draft, setDraft] = useState(() => normalizePhoneViewProfile(profile))
+  const latest = useRef(draft)
+  const cancel = useRef(null)
 
   useEffect(() => {
     if (!open) return
-    setDraft(normalizePhoneViewProfile(profile))
+    const next = normalizePhoneViewProfile(profile)
+    latest.current = next
+    setDraft(next)
   }, [open, profile])
 
-  const update = (patch) => {
-    setDraft((current) => {
-      const next = normalizePhoneViewProfile({ ...current, ...patch })
-      onPreview?.(next)
-      return next
-    })
+  useEffect(() => {
+    if (!open) return undefined
+    const opener = document.activeElement
+    cancel.current?.focus()
+    return () => opener?.focus?.()
+  }, [open])
+
+  function apply(profile) {
+    const next = normalizePhoneViewProfile(profile)
+    latest.current = next
+    setDraft(next)
+    onPreview?.(next)
   }
 
-  const estimatedFov = useMemo(() => opticalFovEstimateDeg(draft), [draft])
+  const update = (patch) => apply({ ...latest.current, ...patch })
   if (!open) return null
 
-  const motionText = motionStatus?.status === 'active'
-    ? 'Motion active'
-    : motionStatus?.detail || 'Motion is not active yet.'
+  const motionActive = motionStatus?.status === 'active'
+  const motionText = motionActive ? 'Motion active' : motionStatus?.detail || 'Motion is not active yet.'
 
   return (
-    <div className="phone-calibration" role="dialog" aria-modal="true" aria-label="Phone view calibration">
+    <div className="phone-calibration">
       <div className="phone-calibration__backdrop" />
-      <section className="phone-calibration__panel">
+      <section className="phone-calibration__panel" role="dialog" aria-labelledby="phone-calibration-title" aria-modal="true"
+        onKeyDown={(event) => {
+          if (event.key === 'Escape') {
+            event.preventDefault()
+            event.stopPropagation()
+            onCancel?.()
+            return
+          }
+          if (event.key !== 'Tab') return
+          const focusable = [...event.currentTarget.querySelectorAll('button:not(:disabled), input, summary')]
+            .filter((control) => control.getClientRects().length)
+          const first = focusable[0]
+          const last = focusable.at(-1)
+          if (event.shiftKey && document.activeElement === first) {
+            event.preventDefault()
+            last?.focus()
+          } else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault()
+            first?.focus()
+          }
+        }}>
         <header>
           <div>
-            <strong>Phone view calibration</strong>
-            <p>Adjust while watching the live scene. Save only when it feels comfortable.</p>
+            <p className="phone-calibration__eyebrow">Live preview</p>
+            <h2 id="phone-calibration-title">Phone VR calibration</h2>
           </div>
-          <button type="button" onClick={onCancel}>Close</button>
+          <button ref={cancel} type="button" onClick={onCancel}>Cancel</button>
         </header>
-
-        <div className="phone-calibration__mode-grid">
-          <button
-            type="button"
-            className={draft.mode === PHONE_VIEW_MODES.MAGIC_WINDOW ? 'active' : ''}
-            onClick={() => update({ mode: PHONE_VIEW_MODES.MAGIC_WINDOW })}
-          >
-            <strong>Magic Window</strong>
-            <span>Mono panorama · gyro + optional touch look</span>
-          </button>
-          <button
-            type="button"
-            className={draft.mode === PHONE_VIEW_MODES.HEADSET_STEREO ? 'active' : ''}
-            onClick={() => update({ mode: PHONE_VIEW_MODES.HEADSET_STEREO })}
-          >
-            <strong>Headset Stereo</strong>
-            <span>Split screen · gyro · 2 s gaze</span>
-          </button>
-          <button
-            type="button"
-            disabled={!spatialAvailable}
-            title={spatialAvailable ? 'Preview the Blender room as a miniature' : 'Import a Blender spatial room first'}
-            className={draft.mode === PHONE_VIEW_MODES.DOLLHOUSE ? 'active' : ''}
-            onClick={() => spatialAvailable && update({ mode: PHONE_VIEW_MODES.DOLLHOUSE })}
-          >
-            <strong>Dollhouse</strong>
-            <span>{spatialAvailable ? 'Miniature Blender room' : 'No Blender room in this scene'}</span>
-          </button>
-        </div>
 
         <div className="phone-calibration__scroll">
           <section>
+            <h3>View</h3>
+              <Range label="Field of view" value={draft.fovDeg} min={35} max={120} step={1} unit="°" onChange={(fovDeg) => update({ fovDeg })} />
+          </section>
+          {draft.mode === PHONE_VIEW_MODES.HEADSET_STEREO && (
+            <section>
+              <h3>Phone viewer fit</h3>
+              <p className="phone-calibration__hint">Adjust the split-screen view to match your phone headset.</p>
+              <Range label="Lens spacing (IPD)" value={draft.ipdMm} min={45} max={90} step={0.5} unit=" mm" onChange={(ipdMm) => update({ ipdMm })} />
+              <Range label="Visible screen width" value={draft.renderWidthPercent} min={55} max={100} step={1} unit="%" onChange={(renderWidthPercent) => update({ renderWidthPercent })} />
+            </section>
+          )}
+
+          <section>
             <h3>Orientation</h3>
-            <p className="phone-calibration__status">{motionText}</p>
+            <p className="phone-calibration__status" role="status">{motionText}</p>
             <div className="button-row">
-              <button type="button" onClick={onRecenter}>Re-center / orientation reset</button>
-              {motionStatus?.status !== 'active' && <button type="button" onClick={onEnableMotion}>Enable motion</button>}
+              <button type="button" onClick={onRecenter}>Recenter view</button>
             </div>
-            {draft.mode === PHONE_VIEW_MODES.MAGIC_WINDOW && (
-              <label className="phone-calibration__check">
-                <input
-                  type="checkbox"
-                  checked={draft.touchLookEnabled}
-                  onChange={(event) => update({ touchLookEnabled: event.target.checked })}
-                />
-                Allow touch drag to fine-tune the view
-              </label>
-            )}
           </section>
 
           {draft.mode === PHONE_VIEW_MODES.HEADSET_STEREO && (
-            <>
-              <section>
-                <h3>Stereo optics</h3>
-                <label className="phone-calibration__check">
-                  <input
-                    type="checkbox"
-                    checked={draft.stereoscopic}
-                    onChange={(event) => update({ stereoscopic: event.target.checked })}
-                  />
-                  Stereoscopic rendering
-                </label>
-                <Range label="IPD / lens spacing" value={draft.ipdMm} min={45} max={90} step={0.5} unit=" mm" onChange={(ipdMm) => update({ ipdMm })} />
-                <Range label="Focus distance" value={draft.focusDistanceM} min={0.25} max={30} step={0.25} unit=" m" onChange={(focusDistanceM) => update({ focusDistanceM })} />
-                <Range label="Focus / convergence trim" value={draft.convergenceTrim} min={-1} max={1} step={0.05} onChange={(convergenceTrim) => update({ convergenceTrim })} />
-                <Range label="Field of view" value={draft.fovDeg} min={35} max={120} step={1} unit="°" onChange={(fovDeg) => update({ fovDeg })} />
-                <div className="phone-calibration__hint">Physical estimate from screen/lens values: ~{estimatedFov.toFixed(0)}° per eye. Software cannot provide a true optical diopter adjustment; convergence trim is the safe digital equivalent.</div>
-              </section>
-
-              <section>
-                <h3>Phone / headset fit</h3>
-                <Range label="Screen width" value={draft.screenWidthMm} min={90} max={220} step={1} unit=" mm" onChange={(screenWidthMm) => update({ screenWidthMm })} />
-                <Range label="Screen-to-lens distance" value={draft.screenToLensMm} min={20} max={80} step={0.5} unit=" mm" onChange={(screenToLensMm) => update({ screenToLensMm })} />
-                <Range label="Rendered screen size" value={draft.renderWidthPercent} min={55} max={100} step={1} unit="%" onChange={(renderWidthPercent) => update({ renderWidthPercent })} />
-                <Range label="Stereo split" value={draft.stereoSplitPercent} min={42} max={58} step={0.25} unit="% left" onChange={(stereoSplitPercent) => update({ stereoSplitPercent })} />
-                <Range label="Center gap" value={draft.centerGapPx} min={0} max={80} step={1} unit=" px" onChange={(centerGapPx) => update({ centerGapPx })} />
-                <Range label="Lens center offset" value={draft.lensCenterOffsetPercent} min={-12} max={12} step={0.25} unit="%" onChange={(lensCenterOffsetPercent) => update({ lensCenterOffsetPercent })} />
-              </section>
-            </>
-          )}
-
-          {draft.mode === PHONE_VIEW_MODES.DOLLHOUSE && (
             <section>
-              <h3>Dollhouse</h3>
-              <Range label="Miniature size" value={draft.dollhouseScale} min={0.35} max={2} step={0.05} onChange={(dollhouseScale) => update({ dollhouseScale })} />
-              <div className="phone-calibration__hint">Dollhouse is a phone-only inspection preview of the Blender room. It is not used for panorama viewing or tracked VR.</div>
+              <details className="phone-calibration__advanced">
+                <summary>Advanced phone viewer settings</summary>
+                <h4>Depth and rendering</h4>
+                <label className="phone-calibration__check">
+                  <input type="checkbox" checked={draft.stereoscopic}
+                    onChange={(event) => update({ stereoscopic: event.target.checked })} />
+                  Render separate views for each eye
+                </label>
+                <Range label="Focus distance" value={draft.focusDistanceM} min={0.25} max={30} step={0.25} unit=" m" onChange={(focusDistanceM) => update({ focusDistanceM })} />
+                <Range label="Eye alignment trim" value={draft.convergenceTrim} min={-1} max={1} step={0.05} onChange={(convergenceTrim) => update({ convergenceTrim })} />
+                <h4>Screen and lens alignment</h4>
+                <Range label="Physical screen width" value={draft.screenWidthMm} min={90} max={220} step={1} unit=" mm" onChange={(screenWidthMm) => update({ screenWidthMm })} />
+                <Range label="Screen-to-lens distance" value={draft.screenToLensMm} min={20} max={80} step={0.5} unit=" mm" onChange={(screenToLensMm) => update({ screenToLensMm })} />
+                <p className="phone-calibration__hint">Estimated field of view from these measurements: {Math.round(opticalFovEstimateDeg(draft))}° per eye.</p>
+                <Range label="Left-eye share of screen" value={draft.stereoSplitPercent} min={42} max={58} step={0.25} unit="%" onChange={(stereoSplitPercent) => update({ stereoSplitPercent })} />
+                <Range label="Gap between views" value={draft.centerGapPx} min={0} max={80} step={1} unit=" px" onChange={(centerGapPx) => update({ centerGapPx })} />
+                <Range label="Lens center offset" value={draft.lensCenterOffsetPercent} min={-12} max={12} step={0.25} unit="%" onChange={(lensCenterOffsetPercent) => update({ lensCenterOffsetPercent })} />
+              </details>
             </section>
           )}
+
         </div>
 
         <footer>
-          <button
-            type="button"
-            onClick={() => {
-              const reset = normalizePhoneViewProfile(DEFAULT_PHONE_VIEW_PROFILE)
-              setDraft(reset)
-              onPreview?.(reset)
-            }}
-          >Reset defaults</button>
-          <span>Live preview is active</span>
-          <button type="button" className="primary" onClick={() => onSave?.(draft)}>Save profile</button>
+          <button type="button" onClick={() => apply(resetPhoneViewProfile(latest.current))}>Reset settings</button>
+          <button type="button" className="primary" onClick={() => onSave?.(latest.current)}>Save settings</button>
         </footer>
       </section>
     </div>

@@ -16,7 +16,10 @@ export default function LoginModal({ onClose }) {
   return (
     <div className="modal-backdrop">
       <form className="modal editor-login" role="dialog" aria-modal="true" aria-labelledby="editor-login-title" onSubmit={submit}>
-        <div className="editor-eyebrow">3DVR · Tour editor</div>
+        <div className="editor-eyebrow">
+          <img src="/brand/3dvr-portal-v2.svg" alt="" width="40" height="40" />
+          <span>Atria 3DVR · Tour editor</span>
+        </div>
         <h2 id="editor-login-title">Let’s build your tour.</h2>
         <p>Sign in to arrange scenes, add hotspots and publish your visitor experience.</p>
         <label htmlFor="editor-password">Editor password</label>

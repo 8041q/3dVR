@@ -1,5 +1,6 @@
-import React, { useMemo, useRef, useState } from 'react'
-import { ACTION_TYPES, normalizeHotspotActions } from '../../actions/actionTypes'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
+import { hotspotDestination } from '../../actions/actionTypes'
 
 const CARD_WIDTH = 174
 const CARD_HEIGHT = 72
@@ -28,13 +29,12 @@ function sceneConnections(scenes) {
 
   for (const scene of scenes) {
     for (const hotspot of scene.hotspots || []) {
-      for (const action of normalizeHotspotActions(hotspot)) {
-        if (action.type !== ACTION_TYPES.NAVIGATE_SCENE || !validIds.has(action.sceneId)) continue
-        const key = `${scene.id}->${action.sceneId}`
-        if (seen.has(key)) continue
-        seen.add(key)
-        connections.push({ from: scene.id, to: action.sceneId })
-      }
+      const to = hotspotDestination(hotspot, scene.id, validIds)
+      if (!to) continue
+      const key = `${scene.id}->${to}`
+      if (seen.has(key)) continue
+      seen.add(key)
+      connections.push({ from: scene.id, to })
     }
   }
 
@@ -50,11 +50,18 @@ export default function SceneMapDialog({
   onClose,
 }) {
   const dragRef = useRef(null)
-  const [draggingId, setDraggingId] = useState(null)
+  const [dragPosition, setDragPosition] = useState(null)
+  const dialog = useRef(null)
   const positions = useMemo(() => new Map(
-    scenes.map((scene, index) => [scene.id, positionFor(scene, index)]),
-  ), [scenes])
+    scenes.map((scene, index) => [scene.id, dragPosition?.id === scene.id ? dragPosition : positionFor(scene, index)]),
+  ), [scenes, dragPosition])
   const connections = useMemo(() => sceneConnections(scenes), [scenes])
+
+  useEffect(() => {
+    const previous = document.activeElement
+    dialog.current.showModal()
+    return () => { previous?.focus?.() }
+  }, [])
 
   const bounds = useMemo(() => {
     let maxX = 900
@@ -67,7 +74,7 @@ export default function SceneMapDialog({
   }, [positions])
 
   function patchScenePosition(sceneId, position) {
-    onScenesChange(scenes.map((scene) => (
+    onScenesChange((current) => current.map((scene) => (
       scene.id === sceneId
         ? { ...scene, editorMapPosition: position }
         : scene
@@ -75,14 +82,22 @@ export default function SceneMapDialog({
   }
 
   function resetLayout() {
-    onScenesChange(scenes.map((scene, index) => ({
+    onScenesChange((current) => current.map((scene, index) => ({
       ...scene,
       editorMapPosition: fallbackPosition(index),
     })))
   }
 
-  return (
-    <div className="scene-map-dialog" role="dialog" aria-modal="true" aria-label="Scene map">
+  function finishDrag(event, commit) {
+    const drag = dragRef.current
+    if (drag?.pointerId !== event.pointerId) return
+    dragRef.current = null
+    setDragPosition(null)
+    if (commit && drag.position) patchScenePosition(drag.sceneId, drag.position)
+  }
+
+  return createPortal(
+    <dialog ref={dialog} className="scene-map-dialog studio-scene-map" aria-label="Scene map" onCancel={(event) => { event.preventDefault(); onClose() }}>
       <header className="scene-map-dialog__header">
         <div>
           <div className="editor-eyebrow">Navigation map</div>
@@ -140,7 +155,7 @@ export default function SceneMapDialog({
             return (
               <article
                 key={scene.id}
-                className={`scene-map-node${isCurrent ? ' active' : ''}${draggingId === scene.id ? ' dragging' : ''}`}
+                className={`scene-map-node${isCurrent ? ' active' : ''}${dragPosition?.id === scene.id ? ' dragging' : ''}`}
                 style={{ left: position.x, top: position.y, width: CARD_WIDTH, height: CARD_HEIGHT }}
               >
                 <button
@@ -159,7 +174,7 @@ export default function SceneMapDialog({
                   className="scene-map-node__drag"
                   title="Drag to organise the map"
                   onPointerDown={(event) => {
-                    if (event.button !== 0) return
+                    if (event.button !== 0 || dragRef.current) return
                     event.stopPropagation()
                     const node = event.currentTarget.closest('.scene-map-node')
                     const rect = node?.getBoundingClientRect()
@@ -170,25 +185,23 @@ export default function SceneMapDialog({
                       offsetX: event.clientX - rect.left,
                       offsetY: event.clientY - rect.top,
                     }
-                    setDraggingId(scene.id)
                     event.currentTarget.setPointerCapture?.(event.pointerId)
                   }}
                   onPointerMove={(event) => {
                     const drag = dragRef.current
-                    if (!drag || drag.sceneId !== scene.id) return
+                    if (drag?.pointerId !== event.pointerId || drag.sceneId !== scene.id) return
                     const canvas = event.currentTarget.closest('.scene-map-canvas')
                     const rect = canvas?.getBoundingClientRect()
                     if (!rect) return
-                    patchScenePosition(scene.id, {
+                    drag.position = {
                       x: Math.max(16, event.clientX - rect.left - drag.offsetX),
                       y: Math.max(16, event.clientY - rect.top - drag.offsetY),
-                    })
+                    }
+                    setDragPosition({ id: scene.id, ...drag.position })
                   }}
-                  onPointerUp={(event) => {
-                    event.currentTarget.releasePointerCapture?.(event.pointerId)
-                    dragRef.current = null
-                    setDraggingId(null)
-                  }}
+                  onPointerUp={(event) => finishDrag(event, true)}
+                  onPointerCancel={(event) => finishDrag(event, false)}
+                  onLostPointerCapture={(event) => finishDrag(event, false)}
                 >
                   Move
                 </button>
@@ -204,6 +217,6 @@ export default function SceneMapDialog({
         <span>{connections.length} navigation connections</span>
         <span>Drag scene cards to make large projects easier to read.</span>
       </footer>
-    </div>
+    </dialog>, document.body,
   )
 }

@@ -1,0 +1,87 @@
+.studio-app:has(.studio-workspace-view--product) { height: 100dvh; overflow: hidden; }
+.studio-app .editor-studio:has(> .studio-workspace-view--product) { height: 100%; min-height: 0; overflow: hidden; }
+.studio-app .studio-workspace-view--product { min-height: 0; overflow: hidden; }
+.studio-workspace-view--product > .studio-workspace-header { flex: 0 0 auto; }
+.studio-app .studio-workspace-view--product > .studio-workspace-body { display: flex; overflow: hidden; padding: 0; }
+.studio-app .model-authoring { display: flex; flex-direction: column; flex: 1; gap: 0; width: 100%; height: 100%; min-width: 0; min-height: 0; container: model-authoring / inline-size; }
+.studio-app .studio-product-toolbar { flex: 0 0 auto; margin: 0; padding: 16px 20px; border-bottom: 1px solid var(--studio-line); }
+.studio-product-step-content { display: flex; flex-direction: column; flex: 1; min-height: 0; gap: 20px; padding: 20px; overflow-y: auto; overscroll-behavior: contain; }
+.studio-product-step-content > * { flex-shrink: 0; }
+.studio-app .studio-product-nav { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 8px; width: 100%; }
+.studio-app .studio-product-nav > button { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 72px; padding: 12px; border: 1px solid var(--studio-line); background: var(--studio-panel); color: var(--studio-text); text-align: left; }
+.studio-app .studio-product-nav > button[aria-current="step"] { border-color: var(--studio-accent); background: var(--studio-selection); }
+.studio-product-step-number { display: grid; place-items: center; flex: 0 0 28px; height: 28px; border-radius: 50%; background: var(--studio-subtle); color: var(--studio-muted); font-size: 12px; font-weight: 650; }
+.studio-product-nav > button[aria-current="step"] .studio-product-step-number { background: var(--studio-accent); color: #fff; }
+.studio-product-nav > button > span:last-child { display: grid; gap: 3px; min-width: 0; }
+.studio-product-nav strong { font-size: 13px; }
+.studio-product-nav small { color: var(--studio-muted); font-size: 11px; line-height: 1.4; }
+.studio-app .studio-product-step-heading { display: grid; justify-items: start; gap: 6px; padding: 0; }
+.studio-product-step-heading > span { font-size: 11px; font-weight: 600; color: var(--studio-muted); }
+.studio-app .model-authoring .studio-product-step-heading > h3 { margin: 0; color: var(--studio-text); font-size: 20px; line-height: 1.3; letter-spacing: 0; text-transform: none; }
+.studio-app .studio-product-step-heading > p { max-width: 85ch; margin: 0; font-size: 13px; line-height: 1.5; color: var(--studio-muted); }
+.studio-product-step-heading > button:first-child { margin-bottom: 8px; }
+.studio-app .model-authoring .studio-product-section { flex: 0 0 auto; width: 100%; min-width: 0; margin: 0; padding: 0; border: 0; }
+.studio-app .studio-product-section:not([hidden]), .studio-app .studio-product-item { display: grid; gap: 16px; }
+.studio-app .studio-product-section :is(h3,p,label,.button-row) { margin: 0; }
+.studio-app .studio-product-section .button-row { flex-wrap: wrap; gap: 8px; }
+.studio-app :is(.studio-product-section,.studio-product-item) > button { justify-self: start; }
+.studio-app .studio-product-section .action-card__grid { gap: 16px; grid-template-columns: repeat(auto-fit,minmax(min(100%,200px),1fr)); }
+.studio-app .studio-product-item { padding: 16px; border: 1px solid var(--studio-line); border-radius: 8px; background: var(--studio-panel); }
+.studio-app .studio-product-fields { min-width: 0; margin: 0; padding: 0; border: 0; }
+.studio-app .studio-product-fields > legend { margin-bottom: 12px; padding: 0; font-weight: 600; }
+.studio-app .studio-product-item .annotation-position-grid { grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; margin-top: 12px; }
+.studio-app .studio-product-source { display: flex; align-items: end; flex-wrap: wrap; gap: 8px; }
+.studio-app .studio-product-source label { flex: 1 1 230px; }
+.studio-app .studio-product-file { display: grid; gap: 4px; padding: 16px; border: 1px solid var(--studio-line); border-radius: 8px; overflow-wrap: anywhere; }
+.studio-product-file span { color: var(--studio-muted); font-size: 12px; }
+.studio-app .studio-product-setting-group { width: 100%; margin: 0; padding: 0; border: 1px solid var(--studio-line); border-radius: 8px; }
+.studio-product-setting-group > summary { padding: 14px 16px; cursor: pointer; font-weight: 600; }
+.studio-product-setting-group[open] > summary { border-bottom: 1px solid var(--studio-line); }
+.studio-app .studio-product-setting-body { display: grid; gap: 16px; padding: 16px; }
+.studio-app .studio-product-features { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 16px; }
+.studio-app .studio-product-feature { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: start; gap: 12px; min-height: 132px; padding: 20px; border: 1px solid var(--studio-line); border-radius: 10px; background: var(--studio-panel); color: var(--studio-text); text-align: left; }
+.studio-app .studio-product-feature:hover { border-color: var(--studio-accent); background: var(--studio-selection); }
+.studio-product-feature-body { display: grid; gap: 8px; }
+.studio-product-feature strong { font-size: 15px; }
+.studio-product-feature-body > span { font-size: 12px; line-height: 1.5; color: var(--studio-muted); }
+.studio-product-feature small { color: var(--studio-accent); font-size: 11px; }
+.studio-app .studio-product-step-footer { display: grid; grid-template-columns: auto minmax(0,1fr) auto; align-items: center; gap: 16px; flex: 0 0 auto; margin: 0; padding: 12px 20px; border-top: 1px solid var(--studio-line); background: var(--studio-panel); }
+.studio-product-step-footer > span { color: var(--studio-muted); text-align: center; font-size: 11px; line-height: 1.4; }
+.studio-app .studio-product-step-footer > button { min-height: 40px; padding: 8px 14px; }
+.studio-app .studio-product-review-card { display: grid; justify-items: start; gap: 12px; padding: 20px; border: 1px solid var(--studio-line); border-radius: 10px; }
+.studio-product-review-card > strong { font-size: 16px; }
+.studio-product-review-card > span { color: var(--studio-muted); font-size: 12px; overflow-wrap: anywhere; }
+.studio-product-review-card > ul { display: grid; gap: 8px; margin: 0; padding-left: 20px; color: var(--studio-muted); font-size: 13px; }
+.studio-app .studio-product-notice { margin: 0; }
+.studio-app .studio-product-notice > p { margin: 0 0 8px; }
+.studio-app .annotation-placement-fields { display: grid; flex: 1; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px 12px; }
+.studio-app .annotation-placement-fields label { display: grid; gap: 4px; margin: 0; }
+.studio-app .annotation-placement-fields input { margin: 0; }
+.annotation-placement-fields > span { grid-column: 1 / -1; }
+.annotation-placement-fit { position: absolute; top: 12px; right: 12px; }
+.studio-app .annotation-placement-dialog { width: min(860px,calc(100vw - 32px)); height: min(720px,calc(100dvh - 32px)); padding: 0; border: 1px solid var(--studio-border); border-radius: var(--ui-panel-radius); background: var(--studio-panel); color: var(--studio-text); }
+.studio-app .annotation-placement-dialog::backdrop { background: var(--ui-scrim); }
+.studio-app .annotation-placement-dialog:not([open]) { display: none; }
+.studio-app .annotation-placement-dialog :is(header,footer) { border-color: var(--studio-line); }
+.studio-app .annotation-placement-dialog header p { color: var(--studio-muted); }
+.studio-app .annotation-placement-dialog button:not(.primary) { padding: 6px 10px; border: 1px solid transparent; border-radius: var(--studio-radius); background: var(--studio-subtle); color: var(--studio-text); }
+@container model-authoring (max-width: 800px) {
+  .studio-app .studio-product-features { grid-template-columns: minmax(0,1fr); }
+  .studio-app .studio-product-feature { min-height: 0; padding: 16px; }
+  .studio-product-nav small { display: none; }
+  .studio-app .studio-product-nav > button { min-height: 56px; padding: 10px; }
+}
+@container model-authoring (max-width: 500px) {
+  .studio-app .studio-product-nav { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .studio-app .studio-product-step-footer { grid-template-columns: auto minmax(0,1fr); gap: 8px; }
+  .studio-product-step-footer > span { grid-column: 1 / -1; grid-row: 2; }
+  .studio-product-step-footer > button:last-child { justify-self: end; }
+  .studio-product-step-footer > button { font-size: 12px; }
+  .product-inspection--setup { height: 380px; }
+}
+@media (max-width: 600px) {
+  .studio-app .annotation-placement-fields { width: 100%; grid-template-columns: minmax(0,1fr); }
+  .studio-app .annotation-placement-dialog.annotation-placement-dialog { height: calc(100dvh - 16px); width: calc(100vw - 16px); }
+  .studio-app .annotation-placement-dialog header { padding: 12px; }
+  .studio-app .annotation-placement-dialog footer { padding: 12px; gap: 8px; }
+}

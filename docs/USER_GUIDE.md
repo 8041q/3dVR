@@ -18,27 +18,15 @@ http://localhost:5173/editor/default
 
 Use your editor password when asked. In development the default is `admin` unless `EDITOR_PASSWORD` was changed.
 
-## 2. Use the Tool rail
+## 2. Edit a scene
 
-The editor opens on **Start here**, with four steps: build scenes, connect hotspots, optionally add guides, then preview and publish. The checklist below those steps points directly to unfinished scenes, actions and guide steps.
+Select a scene from the list on the left. The center shows its panorama and the inspector on the right shows its image, hotspots, and settings. Select a hotspot on the canvas or in the inspector to edit what it does. **Back to scene** returns to the scene inspector.
 
-The left side has a **Tool rail** grouped by the job you are doing:
+Use the workspace bar to switch between **Scenes**, **Guides**, **Assets**, and **Project**. The **Project** tab holds project metadata and settings; the project name menu also provides **Project details** and **Manage projects**. The header holds **Save draft**, **Preview**, **Review & publish**, **Undo**, and **Redo**.
 
-- **Scenes** — build the rooms/locations in the presentation.
-- **Hotspots** — place clickable points and decide how they look and what they do.
-- **Guides** — build the visitor journey step by step.
-- **Assets** — upload/reuse panoramas, models, audio and video.
-- **Project** — project name, create/switch/duplicate projects and project-level settings.
+Drag the panorama to look around and scroll to zoom. **Reset view** restores the default direction and zoom. Use **Hide inspector** when you need a wider canvas. While placing or moving a hotspot, drag to look around and click once to place it. **Esc** cancels placement.
 
-Only one tool opens at a time. Each tool also shows a short explanation at the top, so you can tell what it is for before changing anything.
-
-Use **Hide** at the bottom of the rail when you want more space to inspect the panorama. Select any tool to open the panel again.
-
-The top bar keeps **Save draft**, **Preview**, **Review & publish**, **Undo** and **Redo** available even when the panel is hidden. The scene switcher above the panorama works from every tool. Use **Reset view** to return to the default direction and zoom.
-
-Drag to look around; scroll to zoom. Movement and zoom ease smoothly into place. While placing or moving a hotspot, dragging still looks around and a single click confirms its position. **Esc** cancels placement.
-
-Use **Ctrl+S** (or **Cmd+S**) to save, **Ctrl+Z** to undo and **Ctrl+Shift+Z** to redo. Text fields keep their normal text undo behavior. Leaving a page with unsaved edits shows a browser reminder.
+Use **Ctrl+S** (or **Cmd+S**) to save, **Ctrl+Z** to undo, and **Ctrl+Shift+Z** to redo. Text fields retain their normal text undo behavior. Leaving the editor with unsaved edits triggers a browser reminder.
 
 ## 3. Draft vs published
 
@@ -50,28 +38,22 @@ Every project has two states:
 The top of the editor can show:
 
 - **Unsaved changes**
-- **Draft saved — not published**
+- **Draft saved**
 - **Published**
 
 ### Save
 
-Use **Save** while working. Saving does not change the public presentation.
+Use **Save draft** while working. Saving does not change the public presentation.
 
-### Preview the draft
+### Test the draft
 
-Use **Preview** to test the exact draft you currently have open, including unsaved changes.
+Choose **Preview** to try the current draft, including unsaved changes, from the starting scene. Use **Preview scene** above the canvas to start in the selected scene. **Restart** returns to the scene where the preview began.
 
-Preview opens in a new tab and is clearly marked:
-
-```text
-Draft preview — Not published
-```
-
-This is for testing, not for sending to customers. It does not replace the published version.
+Choose **Back to editing** to return to your scene, selection, and draft.
 
 ### Publish and share
 
-Use **Review & publish** when the presentation is ready. The review lists missing panoramas, unfinished actions and broken guide references. Select an item to open its editor. When the checklist is clear, use **Publish & get link** to save the draft and update the public version.
+Use **Review & publish** when the presentation is ready. The review checks required settings, local panorama sources, and local model files. Resolve the blockers and review any warnings about external media, disconnected scenes, or existing multi-action hotspots. Select an item to open its editor. Use **Publish & get link** to save the draft and update the public version.
 
 After publishing, a compact share window appears with:
 
@@ -86,46 +68,21 @@ The QR code is generated locally by 3DVR; it does not use an external QR website
 
 ## 4. Create or duplicate a project
 
-Open **Project**.
+Open **Manage projects** from the project name menu or the **Project** tab. Enter a name and select **Create project**, or use **Duplicate current draft** to copy the current project, including unsaved edits and metadata. The copy has its own link and can be opened in a new tab.
 
-To create a new project:
+In **Project**, describe the experience with a title, description, content language, and comma-separated keywords. Record the author, organization, contributors, license, and copyright or usage notes. All metadata is optional and follows the same **Save draft**, **Undo**, and **Review & publish** workflow as scene edits. Metadata is included in published manifests, offline copies, and project exports. Content language describes the project; it does not translate the interface.
 
-1. Enter a project name.
-2. Select **Create**.
-3. The new project opens automatically.
-
-To reuse an existing presentation:
-
-1. Open the project you want to copy.
-2. Select **Duplicate current project**.
-3. Edit the copy.
-
-A new/duplicated project is not public until you publish it.
+The **Starting scene** setting chooses the visitor’s entry point. **Project information** shows the project ID, creation date, last saved date, publication date, and published revision. These values are maintained automatically.
 
 ## 5. Scenes
 
-Open **Scenes**. A scene is one 360-degree location.
+Select **Add scene** and give it a name in the inspector. Upload a 2:1 panorama or choose an existing image to give the scene a view.
 
-Give the scene a name and choose **Add scene**. New scenes begin empty, with a prompt to add their view. Use **Upload panorama** or **Choose from assets** directly in the selected scene. The optional **Image URL & high-resolution processing** section handles manually entered URLs and large, tiled panoramas. Blender room imports are under **Tracked VR room**.
-
-Choose **Next: add hotspots** to continue. Pick what a new hotspot does; for scene navigation, choose its destination before placing it. Select **Place in scene**, then click in the panorama. Select a hotspot in the list to bring it into view and open its action settings. Its **Setup** tab includes **Move in scene** and **Find in scene**.
-
-In **Guides**, selecting a step displays its scene. Enable **Guide the view toward a direction**, frame the panorama with the mouse, then choose **Use current view** to capture the direction without entering angles.
-
-To add one:
-
-1. Enter a scene name.
-2. Select **Add**.
-3. Select the new scene.
-4. Add its panorama.
-
-Use **Group / area** when a project starts getting large. Good examples are `Ground floor`, `Bedrooms`, `Pavilion A` or `Outdoor`. The scene filters at the top then let you focus on one area.
-
-You can drag scene cards up or down to change the editor order. This does not change which scene is the starting scene. Use **Set as start scene** for the scene visitors should see first.
+Assign a group in the scene inspector. Use the options menu on a scene row to choose **Set as starting scene**, **Move up**, or **Move down**. You can also drag scene rows to reorder them. The scene search matches both names and groups.
 
 ### Scene map
 
-Select **Open map** to see the project as a navigation diagram.
+Select **Scene map** to see the project as a navigation diagram.
 
 - Each card is a scene.
 - Lines are created automatically from **Go to scene** hotspot actions.
@@ -138,39 +95,22 @@ Moving cards in the Scene map only changes the editor diagram; it does not chang
 
 ## 6. Add a normal 360 panorama
 
-Open **Assets**.
+Select a scene and choose **Choose from assets** in its inspector. Upload an image in the asset picker or choose **Use image** on an existing asset. Choosing another asset replaces the scene’s panorama. Use a JPEG, PNG or WebP with a 2:1 equirectangular projection.
 
-For a normal-sized panorama:
+## 7. Add a large panorama or tracked VR room
 
-1. Select **Upload asset** in the asset library.
-2. Upload a JPEG, PNG or WebP.
-3. Find it in the asset library.
-4. Select **Use in scene**.
+In **Panorama source**, open **Process a large panorama** to upload a master image. If an upload stops, reselect the same file and choose **Resume upload**. **Stop watching** leaves the server processing. Return to the same scene to check the job and choose **Apply panorama** when the tiles are ready.
 
-The image should be a proper 2:1 equirectangular 360 render.
-
-## 7. Add a very large / maximum-quality panorama
-
-Open **Assets** and use **High-resolution panorama** (the Master panorama upload workflow).
-
-1. Choose the original 2:1 equirectangular render.
-2. Select **Upload master**.
-3. Wait for upload and processing.
-4. Select **Use in current scene**.
-
-Large masters are converted into multiresolution tiles so the headset does not need the complete full-resolution render in GPU memory at once.
+Open **Tracked VR room** in the same inspector to import a Blender room.
 
 ## 8. Place a hotspot
 
-Open **Hotspots**.
+1. Select a scene with a panorama and choose **Add hotspot** in its inspector.
+2. Choose what visitors should be able to do. For scene navigation, pick the destination scene.
+3. Select **Place on panorama**, then click the position on the canvas.
+4. Edit the hotspot name and configure its action in the inspector. Expand **Appearance** to adjust the marker.
 
-1. Choose what the hotspot should do, choose its destination if needed, then select **Place in scene**.
-2. Click the desired position in the panorama.
-3. Select the new hotspot in the list.
-4. Give it a useful label.
-5. Choose its appearance and actions.
-
-You can also select an existing hotspot directly in the panorama while editing.
+To move an existing hotspot, select it and choose **Move hotspot**. **Center in view** turns the canvas toward the selected hotspot.
 
 ## 9. Hotspot appearance
 
@@ -224,30 +164,33 @@ Starts one of the project's guided tours.
 
 Use when a product should open as an interactive GLB model.
 
+Choose **Edit product**, then follow the four steps. The step bar stays visible; use **Back** and **Continue** at the bottom to move through setup.
+
+1. **Model** — upload a GLB or choose one from Assets. Animations and materials are detected automatically.
+2. **Starting view** — drag to rotate, scroll or pinch to zoom, then choose **Save view & continue**. **Views** provides camera presets; **Fit model** shows the full object. Model orientation, visitor navigation, zoom limits, lighting and VR placement each have their own settings group.
+3. **Interactions** — choose Animations, Finishes or Detail points. Each opens its own form with a preview button. Choose **Done with…** to return to the interaction list. These features are optional.
+4. **Preview** — test the visitor experience in a full-size dialog. Close it to return to setup, then choose **Return to hotspot**. Use the editor’s **Save draft** to keep your changes.
+
+On computers and phones, products open in a dedicated model view. Camera controls stay beneath the model, while animations, finishes and details have a separate panel with scrolling options. Shift-drag, right-drag or use two fingers to pan. Keyboard users can focus the model and use arrow keys to rotate, plus/minus to zoom, F to fit, and 0 to reset. VR retains gaze/controller controls in the scene.
+
 ## 11. Asset library
 
-Open **Assets** to see reusable files already stored on the server.
+Open **Assets** to upload, browse, and preview reusable files.
 
-You can filter by:
-
-- Image
-- Model
-- Audio
-- Video
-
-Useful actions include:
-
-- **Use in scene** — use an image for the current scene.
-- **Add to hotspot** — add a GLB product inspection to the selected hotspot.
-- **Copy URL** — reuse the asset in narration or another field.
+- Drop multiple files onto the upload area or choose **Upload files**. The queue shows each result; **Retry failed** retries only failed uploads.
+- Switch between **Grid** and **List**, search by name or format, and sort by date, name, or size.
+- Filter by file type or choose **Used in this project** / **Not used in this project**. A file unused here may still be used in other projects or saved revisions.
+- Select a file to preview an image, interactive 3D model, audio, or video. The preview lists where this project uses the file.
+- **Use image** is available in a scene’s panorama picker; **Use model** is available in the product model picker.
+- **More** includes **Copy link**, **Download**, and **Delete file**. Used files cannot be deleted until their references are removed.
 
 ## 12. Product animations
 
 For a GLB with animations:
 
-1. Open its **Inspect 3D model** action.
-2. Select **Scan model**.
-3. Add the animation clips visitors should control.
+1. Choose **Edit product** on the hotspot's **Inspect product** action.
+2. Choose the model, then open **Interactions → Animations**.
+3. Clips are available automatically. Add a custom animation label to rename a clip, or turn off unlabelled clips to expose only selected animations.
 4. Rename them to simple visitor-facing labels.
 
 Example:
@@ -259,7 +202,7 @@ Headrest_Up_Final    -> Raise headrest
 
 ## 13. Finish presets
 
-Use **Finish presets** when one product has several fabrics, woods, metals or colours. A finish can now change more than just colour.
+Use **Interactions → Finishes** in **Edit product** when one product has several fabrics, woods, metals or colours.
 
 For each finish:
 
@@ -267,8 +210,8 @@ For each finish:
 2. Give it a visitor-facing label such as `Walnut`, `Sand fabric` or `Brushed steel`.
 3. Choose the GLB material that should change. Use `*` only when the whole model should receive the same finish.
 4. Choose a tint colour.
-5. Optionally **Upload texture** or paste a texture URL from Assets.
-6. Open **Surface settings** when you need to adjust roughness, metalness or how often the texture repeats.
+5. Open **Texture and surface settings** to upload a texture or paste a texture URL from Assets.
+6. In the same group, adjust roughness, metalness or how often the texture repeats when needed.
 
 Useful examples:
 
@@ -284,12 +227,10 @@ Annotations are detail points attached to an inspected 3D product.
 
 The normal workflow is visual:
 
-1. Open the product's **Inspect 3D model** action.
-2. Add an annotation and give it a short label/details.
-3. Select **Place visually**.
-4. Drag the model to rotate it.
-5. Click the exact point on the model.
-6. Select **Use this point**.
+1. Choose **Edit product → Interactions → Detail points**.
+2. Choose **Add detail point**. Rotate and zoom the model to reach the surface you need.
+3. Tap or click the surface, then enter a point name and description in the same dialog.
+4. Select **Save detail point**. Visitors can select its numbered marker or choose it under Details. Points attached to named parts follow their animations.
 
 You can still open **Precise coordinates** when you need exact X/Y/Z values.
 
@@ -297,30 +238,19 @@ Good uses include hidden storage, mechanisms, material details, controls and con
 
 ## 15. Create a Guide
 
-Open **Guides**.
+Open **Guides** and choose **New guide**. A first step is added automatically when scenes are available. Name the guide, then select a step in the left column.
 
-The top of the Guide editor is a **Storyboard**. Each card is one visitor step. Select a card to edit only that step, or drag cards to reorder them. This keeps long Guides manageable.
+Each step has three parts:
 
-Use **Earlier/Later** if you prefer buttons instead of dragging. You can also duplicate a step when the next one is similar.
+1. **Scene and message** — choose its scene, title, and the message visitors see.
+2. **What visitors see** — drag the panorama and choose **Save starting view**. Select a hotspot in the panorama or under **Emphasize a hotspot** to make it stand out. **Start facing this hotspot** saves a starting view aimed directly at it.
+3. **What happens next** — show the message and panorama, or automatically open a product/information hotspot. Choose whether visitors continue with **Next**, a hotspot selection, a delay, or whichever happens first. Product animations and finishes appear when a product is selected.
 
-A Guide is a sequence of steps. Steps can:
+The left column contains only the ordered steps. Drag to reorder them or use **Move up / Move down**. Use **Duplicate step** for similar stops.
 
-- move to a scene
-- point toward something
-- flash/highlight a hotspot
-- wait for that hotspot to be selected
-- open a product inspection
-- play a product animation
-- switch a material variant
-- play narration
+## 16. Test a guide
 
-A simple exhibition Guide is usually better than a long one. Aim for one clear visitor instruction per step.
-
-## 16. Narration
-
-A Guide step can use MP3/WAV/OGG narration.
-
-Upload the file through the asset tools and assign it to the step. The viewer also includes a manual **Narration** control because some browsers/headsets block automatic playback.
+Choose **Play from this step** to test the selected step and continue through the rest of the guide. **Play guide** starts at the beginning. In the last step, continuing finishes the guide. Return to editing to adjust the draft before publishing.
 
 ## 17. Recommended testing order
 
@@ -336,11 +266,11 @@ Before publishing:
 
 ## 18. Download a project to the headset
 
-Open the published viewer on the headset and select **Download project**.
+Open the published viewer on the headset, open **Offline Mode**, and select **Save for offline**.
 
 The offline copy includes the published project and its required assets, including multiresolution panorama tiles and referenced models/media.
 
-After download, turn Wi-Fi off and test the presentation once before the exhibition.
+Wait for **Ready offline**. Then turn Wi-Fi off, reopen the published viewer, and test the presentation on that device before the exhibition.
 
 ## 19. Production server
 
@@ -490,7 +420,7 @@ Phone and phone-headset modes require browser orientation-sensor data. In Phone 
 
 - **Motion active** — orientation data is arriving.
 - **HTTPS required** — open the project through HTTPS. Mobile browsers may block orientation sensors on a normal LAN `http://` address.
-- **Motion permission denied** — use **Enable motion** and accept the browser permission prompt.
+- **Motion permission denied** — allow motion sensors in the browser’s site settings, then select **Phone VR** again. There is no separate enable step.
 - **Waiting for phone motion** — the browser has not delivered a usable orientation event yet.
 
 Use **Recenter view** whenever you want the phone's current heading to become the center of the panorama. This is especially useful immediately after putting the phone into a plastic headset.
@@ -523,15 +453,13 @@ For tracked VR, do not create a duplicate standalone GLB just to inspect furnitu
 
 In the web editor:
 
-1. select/create the Blender-authored hotspot near the object;
-2. open **Actions**;
-3. add **Play room movement**;
-4. choose the exported Blender animation clip;
-5. choose whether selection toggles, restarts, or plays/resumes the clip.
+1. Select the hotspot imported from Blender near the object.
+2. Choose **Play a VR room animation** and select the exported clip.
+3. Choose whether selection toggles, restarts, or resumes the clip.
 
 The object remains at its real Blender position and physical size while it moves. The visitor can lean/crouch around the same object during and after the animation.
 
-Because desktop/phone use a rendered panorama, the room movement itself is tracked-VR-only. If the hotspot also needs to be useful in panorama modes, add another action after it such as **Show information**, **Start guide**, or **Go to scene**.
+Use **Add panorama fallback** if the hotspot also needs a visitor action in panorama mode. The fallback runs only when the room action is unavailable.
 
 For the complete Blender preparation/export walkthrough, read:
 
@@ -539,44 +467,59 @@ For the complete Blender preparation/export walkthrough, read:
 docs/BLENDER_SPATIAL_SCENES.md
 ```
 
-## Calibrating Phone and Phone Headset view
+## Phone VR calibration and dedicated VR headsets
 
-Open **Phone**, then choose **Calibrate view**. The calibration panel is intentionally translucent so the scene remains visible while you change values.
+Use **Drag** for mouse or touch navigation, or **Phone VR** to look around by moving your phone. Selecting **Phone VR** asks for motion permission when required. Its display selector offers **Single view** for handheld viewing and **Split screen** for placing the phone in a plastic/cardboard viewer.
 
-Changes are a live preview. **Save profile** stores the calibration on that phone. Closing the panel without saving restores the previously saved profile. **Reset defaults** returns the preview to the standard values.
+Choose **Calibrate phone** in either layout. Single view offers field of view, motion status, and recentering; Split screen adds optical fit controls. Adjustments preview live. **Save settings** keeps them on this phone. **Cancel**, changing layout, or changing mode restores the settings from before calibration. **Reset settings** keeps the layout; in Single view it resets only FOV and preserves optical settings.
 
-### Magic Window
+**VR Headset** is a separate WebXR mode for dedicated headsets of any brand supported by the browser and runtime. The button stays visible with a status explanation when unavailable. Availability refreshes when devices change or you return to the page; a click is still required to enter VR, and entry can fail if the device/runtime is busy. **Exit VR** returns to Drag.
 
-Use this for normal handheld phone viewing. Device motion controls where you look. You may also enable touch drag as a small manual correction. The 2-second center crosshair remains available for selecting hotspots.
+Dedicated headset tracking, per-eye projection, and rendering parameters come from WebXR automatically. Use the headset system for fit, physical lens/IPD adjustment, room/floor setup, and recentering; how much setup is automatic varies by device. Phone calibration does not apply to dedicated headsets. A hardware connection alone does not guarantee browser support; WebXR requires HTTPS (or localhost).
 
-### Headset Stereo
+### Handheld
 
-Use this before placing the phone into a plastic/cardboard-style headset. The scene is split into left and right eyes and the center crosshair is used for interaction.
+Choose **Phone VR** for handheld phone viewing. Device motion controls where you look, and touch drag allows a manual correction. The 2-second center crosshair selects hotspots. Choose **Drag** at any time to return to mouse or touch navigation.
 
-Useful controls:
+### Phone split screen
 
-- **IPD / lens spacing** — separation between the virtual left and right eyes.
+Select **Phone VR → Split screen** before placing the phone into a plastic/cardboard-style headset. The scene is split into left and right eyes and the center crosshair is used for interaction.
+
+Choose **Drag** to stop motion and return to a single view. Choose **Single view** to leave split-screen while keeping motion navigation. Both release fullscreen and landscape lock.
+
+Start with lens spacing, field of view, and visible screen width. Open **Advanced phone viewer settings** for depth, rendering, and screen alignment.
+
+- **Lens spacing (IPD)** — separation between the virtual left and right eyes.
 - **Focus distance** — stereo convergence distance.
-- **Focus / convergence trim** — a digital comfort adjustment. This is not a real optical diopter control; physical diopter correction requires adjustable headset lenses.
+- **Eye alignment trim** — a digital adjustment to how the left and right views line up.
 - **Field of view** — virtual camera FOV.
 - **Screen width** — physical phone display width used as a calibration reference.
 - **Screen-to-lens distance** — physical spacing between display and headset lens; the panel shows an estimated optical FOV from this value.
-- **Rendered screen size** — shrinks the stereo render symmetrically from both outside edges. This is useful when a headset does not expose the entire phone screen through its lenses.
-- **Stereo split** — moves the left/right division.
-- **Center gap** — leaves a blank strip between both eye images if the headset requires it.
+- **Visible screen width** — shrinks the stereo render symmetrically from both outside edges.
+- **Left-eye share of screen** — moves the left/right division.
+- **Gap between views** — leaves a blank strip between both eye images if the headset requires it.
 - **Lens center offset** — moves both eye images toward or away from the optical lens centers.
-- **Stereoscopic rendering** — disable this to duplicate the same mono camera into both halves for troubleshooting.
+- **Render separate views for each eye** — turn this off to show the same view in both halves for troubleshooting.
 
 The left/right output is now centered mathematically around the screen. The renderer also uses the correct half-screen stereo projection rather than rendering a full-screen projection into two half-width viewports.
 
-### Re-center / orientation reset
+### Recenter
 
-Hold the phone in the position that should be considered forward and choose **Re-center / orientation reset**. Do this again after mounting the phone if the headset changed the phone's angle.
-
-### Dollhouse
-
-Dollhouse appears only when the current scene has an imported Blender spatial room. It shows that room as a miniature phone preview. It is useful for checking room geometry and Blender-authored hotspots; it is not used by the normal panorama or tracked-VR presentation.
+Hold the phone in the position that should be considered forward and choose **Recenter** beside the display selector. Do this again after mounting the phone if the headset changed the phone's angle.
 
 ### Gaze timer
 
 When the center crosshair rests on an interactive target, a circular progress ring grows around it. A full ring equals the 2-second dwell and triggers the selection. Looking away clears the ring immediately.
+
+
+## Viewer controls and overlay visibility
+
+Viewer and editor dropdowns use the same styled menu. Use arrow keys, Home/End, type to find an option, Enter to select, and Escape to dismiss.
+
+Tour controls slide out after five seconds of inactivity. Top controls leave toward the top; bottom controls leave toward the bottom. Move the mouse near either viewer edge to bring them back. On a phone, tap an empty area of the panorama to toggle the controls. Swiping, pinching, and selecting hotspots do not toggle them. Keyboard activity reveals the controls as well.
+
+Open menus, calibration, information dialogs, and offline downloads keep the interface available while in use. New scenes and guide steps reveal the controls again. Reduced-motion preferences replace sliding with a short fade.
+
+In immersive VR and phone-headset display, controls remain stable for gaze and controller selection; they do not time out or move away during targeting.
+
+The tour’s top-left watermark shows the 3DVR logo, brand, and project title without a button background.

@@ -121,7 +121,6 @@ function manifestFor({ job, assetId, revision, tileSize, quality, levelInfo }) {
 
 export async function processPanoramaJob(job, onProgress = async () => {}) {
   if (!job?.source?.storagePath) throw new Error('Invalid panorama job.')
-  await assertPanoramaProcessorAvailable()
   const tileSize = Number(job.output?.tileSize) || DEFAULT_TILE_SIZE
   const quality = Math.max(1, Math.min(100, Number(job.output?.quality || DEFAULT_WEBP_QUALITY)))
   const levelInfo = buildPyramidLevels(job.source.width, tileSize)
@@ -129,6 +128,18 @@ export async function processPanoramaJob(job, onProgress = async () => {}) {
   const revision = job.id
   const finalRoot = path.join(PANORAMA_ROOT, assetId)
   const workRoot = path.join(WORK_ROOT, `.processing-${job.id}`)
+  // A worker may have published the complete output just before it stopped.
+  // Reuse that output when recovering the job.
+  try {
+    const manifest = JSON.parse(await fs.readFile(path.join(finalRoot, 'manifest.json'), 'utf8'))
+    if (manifest.revision === revision && manifest.assetIndexUrl) {
+      await fs.access(path.join(finalRoot, 'asset-index.json'))
+      return { assetId, revision, manifestUrl: `/media/panoramas/${assetId}/manifest.json`, assetIndexUrl: manifest.assetIndexUrl, outputPath: finalRoot }
+    }
+  } catch (error) {
+    if (error.code !== 'ENOENT' && !(error instanceof SyntaxError)) throw error
+  }
+  await assertPanoramaProcessorAvailable()
   await fs.mkdir(PANORAMA_ROOT, { recursive: true }); await fs.mkdir(WORK_ROOT, { recursive: true })
   await fs.rm(workRoot, { recursive: true, force: true }); await fs.mkdir(workRoot, { recursive: true })
   const totalSteps = levelInfo.levels.length * FACES.length

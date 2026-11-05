@@ -2,50 +2,36 @@ import React, { useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { useInteraction } from '../../contexts/InteractionContext'
 import { INTERACTION_LAYER } from '../../input/interactionLayers'
+import { drawWorldSurface, worldAppearance } from '../../theme/worldAppearance'
 
-function makeLabelTexture(label, selected, disabled, tone) {
+function makeLabelTexture(label, selected, disabled, tone, marker) {
   const canvas = document.createElement('canvas')
-  canvas.width = 768
-  canvas.height = 180
+  canvas.width = marker ? 256 : 768
+  canvas.height = marker ? 256 : 180
   const context = canvas.getContext('2d')
+  const colors = worldAppearance()
+  const danger = tone === 'danger'
+  drawWorldSurface(context, {
+    fill: selected ? colors.accent : danger ? colors['danger-surface'] : colors.surface,
+    stroke: selected ? colors.accent : colors.line,
+    radius: marker ? 128 : 32,
+    border: 3,
+  })
 
-  const palette = tone === 'danger'
-    ? {
-        fill: selected ? 'rgba(111, 31, 39, 0.96)' : 'rgba(54, 16, 22, 0.90)',
-        stroke: selected ? 'rgba(255, 196, 199, 0.90)' : 'rgba(255, 188, 193, 0.38)',
-      }
-    : {
-        fill: selected ? 'rgba(46, 69, 96, 0.97)' : 'rgba(10, 14, 21, 0.88)',
-        stroke: selected ? 'rgba(215, 233, 255, 0.92)' : 'rgba(255, 255, 255, 0.35)',
-      }
-
-  context.clearRect(0, 0, canvas.width, canvas.height)
-  context.globalAlpha = disabled ? 0.42 : 1
-  context.fillStyle = palette.fill
-  context.strokeStyle = palette.stroke
-  context.lineWidth = selected ? 7 : 4
-  context.beginPath()
-  context.roundRect(6, 6, canvas.width - 12, canvas.height - 12, 28)
-  context.fill()
-  context.stroke()
-
-  let fontSize = 58
-  context.font = `600 ${fontSize}px system-ui, sans-serif`
+  let fontSize = marker ? 120 : 58
+  context.font = `500 ${fontSize}px ${colors.font}`
   while (context.measureText(label).width > canvas.width - 80 && fontSize > 28) {
     fontSize -= 2
-    context.font = `600 ${fontSize}px system-ui, sans-serif`
+    context.font = `500 ${fontSize}px ${colors.font}`
   }
 
-  context.fillStyle = '#ffffff'
+  context.fillStyle = disabled ? colors.muted : selected ? colors['on-accent'] : danger ? colors.danger : colors.ink
   context.textAlign = 'center'
   context.textBaseline = 'middle'
   context.fillText(label, canvas.width / 2, canvas.height / 2)
 
   const texture = new THREE.CanvasTexture(canvas)
   texture.colorSpace = THREE.SRGBColorSpace
-  texture.minFilter = THREE.LinearFilter
-  texture.magFilter = THREE.LinearFilter
-  texture.generateMipmaps = false
   texture.needsUpdate = true
   return texture
 }
@@ -58,12 +44,13 @@ export default function WorldButton({
   selected = false,
   disabled = false,
   tone = 'normal',
+  marker = false,
 }) {
   const interaction = useInteraction()
   const meshRef = useRef(null)
   const texture = useMemo(
-    () => makeLabelTexture(label, selected, disabled, tone),
-    [disabled, label, selected, tone],
+    () => makeLabelTexture(label, selected, disabled, tone, marker),
+    [disabled, label, selected, tone, marker],
   )
 
   useEffect(() => () => texture.dispose(), [texture])
@@ -85,7 +72,7 @@ export default function WorldButton({
       }}
       renderOrder={60}
     >
-      <planeGeometry args={[width, width / 4.25]} />
+      <planeGeometry args={[width, marker ? width : width / 4.25]} />
       <meshBasicMaterial
         map={texture}
         transparent

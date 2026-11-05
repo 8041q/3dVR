@@ -2,12 +2,16 @@ import crypto from 'node:crypto'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { normalizeProjectMetadata } from '../src/projectMetadata.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const DATA_ROOT = path.join(__dirname, 'data')
 const PROJECTS_ROOT = path.join(DATA_ROOT, 'projects')
 const LEGACY_SCENES_PATH = path.join(DATA_ROOT, 'scenes.json')
 const LEGACY_GUIDES_PATH = path.join(DATA_ROOT, 'guides.json')
+const projectOperations = new Map()
+const DEFAULT_PROJECT_INIT = Symbol('default project initialization')
+const CREATE_PROJECT = Symbol('project creation')
 
 const ASSET_KEYS = new Set([
   'src',
@@ -87,9 +91,24 @@ async function readJson(filePath, fallback = null) {
 
 async function writeJsonAtomic(filePath, value) {
   await fs.mkdir(path.dirname(filePath), { recursive: true })
-  const temp = `${filePath}.${process.pid}.${Date.now()}.tmp`
-  await fs.writeFile(temp, JSON.stringify(value, null, 2))
-  await fs.rename(temp, filePath)
+  const temp = `${filePath}.${crypto.randomUUID()}.tmp`
+  try {
+    await fs.writeFile(temp, JSON.stringify(value, null, 2))
+    await fs.rename(temp, filePath)
+  } catch (error) {
+    await fs.rm(temp, { force: true }).catch(() => {})
+    throw error
+  }
+}
+
+function runProjectOperation(key, operation) {
+  const previous = projectOperations.get(key) || Promise.resolve()
+  const result = previous.then(operation)
+  const tail = result.catch(() => {})
+  projectOperations.set(key, tail)
+  return result.finally(() => {
+    if (projectOperations.get(key) === tail) projectOperations.delete(key)
+  })
 }
 
 function collectAssets(value, assets) {
@@ -120,6 +139,7 @@ function normalizeSnapshot(projectId, value = {}) {
     schemaVersion: 3,
     id: projectId,
     title: String(value.title || 'Untitled project').trim() || 'Untitled project',
+    metadata: normalizeProjectMetadata(value.metadata),
     startSceneId,
     scenes,
     guides,
@@ -134,6 +154,9 @@ function revisionForSnapshot(snapshot) {
       startSceneId: snapshot.startSceneId,
       scenes: snapshot.scenes,
       guides: snapshot.guides,
+      // Keep existing revision identifiers stable until metadata is added.
+      ...(Object.keys(normalizeProjectMetadata(snapshot.metadata)).length
+        ? { metadata: normalizeProjectMetadata(snapshot.metadata) } : {}),
     }))
     .digest('hex')
     .slice(0, 16)
@@ -157,7 +180,11 @@ async function ensureProjectDirectory(projectId) {
   await fs.mkdir(versionsDir(projectId), { recursive: true })
 }
 
-async function ensureDefaultProject() {
+function ensureDefaultProject() {
+  return runProjectOperation(DEFAULT_PROJECT_INIT, initializeDefaultProject)
+}
+
+async function initializeDefaultProject() {
   await fs.mkdir(PROJECTS_ROOT, { recursive: true })
 
   const existing = await readJson(metaPath('default'))
@@ -193,8 +220,8 @@ async function ensureDefaultProject() {
     writeJsonAtomic(draftPath('default'), snapshot),
     writeJsonAtomic(publishedPath('default'), published),
     writeJsonAtomic(versionPath('default', revision), published),
-    writeJsonAtomic(metaPath('default'), meta),
   ])
+  await writeJsonAtomic(metaPath('default'), meta)
 
   return meta
 }
@@ -222,6 +249,32 @@ function withStatus(meta) {
   }
 }
 
+async function readProjectState(meta) {
+  const [savedDraft, published] = await Promise.all([
+    readJson(draftPath(meta.id)),
+    readJson(publishedPath(meta.id)),
+  ])
+  const draft = savedDraft ? normalizeSnapshot(meta.id, savedDraft) : null
+  return {
+    draft,
+    published,
+    meta: {
+      ...meta,
+      title: draft?.title || meta.title,
+      draftRevision: draft ? revisionForSnapshot(draft) : null,
+      publishedRevision: published?.revision || null,
+      publishedAt: published?.publishedAt || null,
+    },
+  }
+}
+
+function checkDraftRevision(current, expected, submitted) {
+  if (expected === undefined || current === expected || current === submitted) return
+  const error = new Error('This draft changed in another tab or session. Your edits are still here. Open the latest draft in a new tab to compare them before reloading.')
+  error.status = 409
+  throw error
+}
+
 async function uniqueProjectId(title) {
   const base = slugify(title)
   let candidate = base
@@ -244,8 +297,11 @@ export async function listProjects() {
 
   for (const entry of entries) {
     if (!entry.isDirectory()) continue
-    const meta = await readJson(metaPath(entry.name))
-    if (meta) projects.push(withStatus(meta))
+    const meta = await runProjectOperation(entry.name, async () => {
+      const stored = await readJson(metaPath(entry.name))
+      return stored ? withStatus((await readProjectState(stored)).meta) : null
+    })
+    if (meta) projects.push(meta)
   }
 
   return projects.sort((a, b) => (
@@ -254,68 +310,68 @@ export async function listProjects() {
 }
 
 export async function getProjectMeta(projectId) {
-  return withStatus(await ensureProject(projectId))
+  const id = sanitizeProjectId(projectId)
+  return runProjectOperation(id, async () => {
+    const { meta } = await readProjectState(await ensureProject(id))
+    return withStatus(meta)
+  })
 }
 
 export async function getProjectDraft(projectId) {
-  const meta = await ensureProject(projectId)
-  const draft = await readJson(draftPath(meta.id))
-  if (!draft) throw new Error('Project draft is missing')
-
-  return {
-    ...normalizeSnapshot(meta.id, draft),
-    meta: withStatus(meta),
-  }
+  const id = sanitizeProjectId(projectId)
+  return runProjectOperation(id, async () => {
+    const { draft, meta } = await readProjectState(await ensureProject(id))
+    if (!draft) throw new Error('Project draft is missing')
+    return { ...draft, meta: withStatus(meta) }
+  })
 }
 
-export async function saveProjectDraft(projectId, value) {
-  const meta = await ensureProject(projectId)
-  const snapshot = normalizeSnapshot(meta.id, value)
-  const revision = revisionForSnapshot(snapshot)
-  const timestamp = nowIso()
-  const nextMeta = {
-    ...meta,
-    title: snapshot.title,
-    updatedAt: timestamp,
-    draftRevision: revision,
-  }
+export async function saveProjectDraft(projectId, value = {}) {
+  const id = sanitizeProjectId(projectId)
+  return runProjectOperation(id, async () => {
+    const { meta } = await readProjectState(await ensureProject(id))
+    const snapshot = normalizeSnapshot(id, value)
+    const revision = revisionForSnapshot(snapshot)
+    checkDraftRevision(meta.draftRevision, value.expectedDraftRevision, revision)
+    if (revision === meta.draftRevision) return { ...snapshot, meta: withStatus(meta) }
 
-  await Promise.all([
-    writeJsonAtomic(draftPath(meta.id), snapshot),
-    writeJsonAtomic(metaPath(meta.id), nextMeta),
-  ])
-
-  return {
-    ...snapshot,
-    meta: withStatus(nextMeta),
-  }
+    const nextMeta = { ...meta, title: snapshot.title, updatedAt: nowIso(), draftRevision: revision }
+    // Draft and published files determine revisions on read, even after an interrupted write.
+    await writeJsonAtomic(metaPath(id), nextMeta)
+    await writeJsonAtomic(draftPath(id), snapshot)
+    return { ...snapshot, meta: withStatus(nextMeta) }
+  })
 }
 
-export async function publishProject(projectId) {
-  const meta = await ensureProject(projectId)
-  const draft = normalizeSnapshot(meta.id, await readJson(draftPath(meta.id), {}))
-  const revision = revisionForSnapshot(draft)
-  const timestamp = nowIso()
-  const published = manifestFromSnapshot(draft, revision, timestamp)
-  const nextMeta = {
-    ...meta,
-    title: draft.title,
-    updatedAt: timestamp,
-    draftRevision: revision,
-    publishedRevision: revision,
-    publishedAt: timestamp,
-  }
+export async function publishProject(projectId, { draft: submitted, expectedDraftRevision, validate } = {}) {
+  const id = sanitizeProjectId(projectId)
+  return runProjectOperation(id, async () => {
+    const { draft, published, meta } = await readProjectState(await ensureProject(id))
+    const snapshot = submitted ? normalizeSnapshot(id, submitted) : draft
+    if (!snapshot) throw new Error('Project draft is missing')
+    const revision = revisionForSnapshot(snapshot)
+    checkDraftRevision(meta.draftRevision, expectedDraftRevision, submitted ? revision : undefined)
+    validate?.(snapshot)
+    const timestamp = nowIso()
+    const manifest = published?.revision === revision ? published : manifestFromSnapshot(snapshot, revision, timestamp)
+    const draftChanged = revision !== meta.draftRevision
+    if (!draftChanged && manifest === published) return { manifest, meta: withStatus(meta) }
 
-  await Promise.all([
-    writeJsonAtomic(publishedPath(meta.id), published),
-    writeJsonAtomic(versionPath(meta.id, revision), published),
-    writeJsonAtomic(metaPath(meta.id), nextMeta),
-  ])
+    const nextMeta = {
+      ...meta,
+      title: snapshot.title,
+      updatedAt: timestamp,
+      draftRevision: revision,
+      publishedRevision: revision,
+      publishedAt: manifest.publishedAt,
+    }
 
-  return {
-    manifest: published,
-    meta: withStatus(nextMeta),
-  }
+    if (!await readJson(versionPath(id, revision))) await writeJsonAtomic(versionPath(id, revision), manifest)
+    await writeJsonAtomic(metaPath(id), nextMeta)
+    if (draftChanged) await writeJsonAtomic(draftPath(id), snapshot)
+    if (manifest !== published) await writeJsonAtomic(publishedPath(id), manifest)
+    return { manifest, meta: withStatus(nextMeta) }
+  })
 }
 
 export async function getPublishedManifest(projectId) {
@@ -331,7 +387,11 @@ export async function getPublishedManifest(projectId) {
   return manifest
 }
 
-export async function createProject({ title, duplicateFrom = null } = {}) {
+export async function createProject({ title, duplicateFrom = null, draft = null } = {}) {
+  return runProjectOperation(CREATE_PROJECT, () => createProjectSnapshot(title, duplicateFrom, draft))
+}
+
+async function createProjectSnapshot(title, duplicateFrom, draft) {
   await ensureDefaultProject()
 
   const projectTitle = String(title || '').trim() || 'Untitled project'
@@ -339,7 +399,10 @@ export async function createProject({ title, duplicateFrom = null } = {}) {
   const timestamp = nowIso()
   let source = null
 
-  if (duplicateFrom) {
+  if (duplicateFrom && draft) {
+    await ensureProject(duplicateFrom)
+    source = draft
+  } else if (duplicateFrom) {
     source = await getProjectDraft(duplicateFrom)
   }
 
@@ -353,7 +416,7 @@ export async function createProject({ title, duplicateFrom = null } = {}) {
       {
         id: 'scene-1',
         title: 'Scene 1',
-        image: '/demo/lobby.jpg',
+        image: '',
         hotspots: [],
       },
     ],
@@ -372,10 +435,8 @@ export async function createProject({ title, duplicateFrom = null } = {}) {
   }
 
   await ensureProjectDirectory(id)
-  await Promise.all([
-    writeJsonAtomic(draftPath(id), snapshot),
-    writeJsonAtomic(metaPath(id), meta),
-  ])
+  await writeJsonAtomic(draftPath(id), snapshot)
+  await writeJsonAtomic(metaPath(id), meta)
 
   return {
     ...snapshot,

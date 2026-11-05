@@ -1,6 +1,9 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { JOB_ROOT } from './storagePaths.js'
+import { requireEditor } from './auth.js'
+
+const retryOperations = new Map()
 
 function assertJobId(jobId) {
   if (!/^[0-9a-f-]{36}$/i.test(jobId)) {
@@ -44,12 +47,38 @@ export async function listPanoramaJobs() {
   return result
 }
 
+function jobForEditor(job) {
+  const { id, status, progress, result, error } = job
+  return { id, status, progress, result, error }
+}
+
+function retryJob(id) {
+  if (retryOperations.has(id)) return retryOperations.get(id)
+  const operation = (async () => {
+    const job = await readPanoramaJob(id)
+    if (job.status !== 'failed') return job
+    return patchPanoramaJob(id, {
+      status: 'queued', error: null, failedAt: null, startedAt: null, progress: null,
+    })
+  })().finally(() => retryOperations.delete(id))
+  retryOperations.set(id, operation)
+  return operation
+}
+
 export function createPanoramaJobsRouter(express) {
   const router = express.Router()
-  router.get('/:jobId', async (req, res) => {
+  router.get('/:jobId', requireEditor, async (req, res) => {
     try {
       res.set('Cache-Control', 'no-store')
-      res.json(await readPanoramaJob(req.params.jobId))
+      res.json(jobForEditor(await readPanoramaJob(req.params.jobId)))
+    } catch (error) {
+      if (error.code === 'ENOENT') return res.status(404).json({ error: 'Job not found' })
+      res.status(error.status || 500).json({ error: error.message })
+    }
+  })
+  router.post('/:jobId/retry', requireEditor, async (req, res) => {
+    try {
+      res.set('Cache-Control', 'no-store').json(jobForEditor(await retryJob(req.params.jobId)))
     } catch (error) {
       if (error.code === 'ENOENT') return res.status(404).json({ error: 'Job not found' })
       res.status(error.status || 500).json({ error: error.message })

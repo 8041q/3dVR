@@ -5,7 +5,7 @@ import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { clamp, damp, nearestAngle, PITCH_LIMIT, pointerSensitivity, wheelPixels } from '../src/input/lookMotion.js'
 import { projectChecks } from '../src/editor/projectChecks.js'
-import { removeProjectScene, removeProjectHotspot } from '../src/editor/projectEdits.js'
+import { removeProjectScene, removeProjectHotspot, replaceSpatialRoom } from '../src/editor/projectEdits.js'
 import { contentSignature, mergeSavedDraft } from '../src/editor/draftState.js'
 
 const info = { id: 'info', type: 'show-info', title: 'Hello', body: 'Welcome' }
@@ -23,6 +23,23 @@ const project = () => ({
     { id: 's1', sceneId: 'a', highlightHotspotId: 'legacy', advanceOnHotspotId: 'legacy', autoActivateHotspotId: 'legacy' },
     { id: 's2', sceneId: 'b' },
   ] }],
+})
+
+test('detaching a tracked room preserves panorama actions and clears removed guide targets', () => {
+  const draft = project()
+  const room = { id: 'room', type: 'play-room-animation', clip: 'Open' }
+  draft.scenes[0].spatial = { roomUrl: '/room.glb' }
+  draft.scenes[0].hotspots.push({ id: 'room-only', spatialPosition: [0, 1, 0], actions: [room] })
+  draft.scenes[0].hotspots.push({ id: 'fallback', spatialPosition: [0, 2, 0], actions: [room, info] })
+  draft.guides[0].steps[0].highlightHotspotId = 'room-only'
+  const next = replaceSpatialRoom(draft, 'a', { spatial: null })
+  assert.equal(next.scenes[0].spatial, null)
+  assert.equal(next.scenes[0].hotspots.some((hotspot) => hotspot.id === 'room-only'), false)
+  const kept = next.scenes[0].hotspots.find((hotspot) => hotspot.id === 'fallback')
+  assert.deepEqual(kept.actions, [info])
+  assert.equal(kept.spatialPosition, undefined)
+  assert.equal(next.guides[0].steps[0].highlightHotspotId, '')
+  assert.equal(draft.scenes[0].spatial.roomUrl, '/room.glb')
 })
 
 test('look damping has the same response across frame rates', () => {
@@ -110,11 +127,13 @@ test('unconfigured actions produce actionable links to their hotspot', () => {
   assert.ok(issues.every((issue) => issue.tool === 'hotspots' && issue.sceneId === 'a' && issue.hotspotId === 'broken'))
 })
 
-test('inert hotspots and empty tours are reported', () => {
+test('inert hotspots block release while unreferenced empty guides only warn', () => {
   const draft = project()
   draft.scenes[1].hotspots.push({ id: 'empty', actions: [] })
   draft.guides.push({ id: 'empty', title: 'Empty tour', steps: [] })
-  assert.equal(projectChecks(draft).length, 2)
+  assert.equal(projectChecks(draft).length, 1)
+  assert.ok(projectChecks(draft, { includeWarnings: true }).some((issue) =>
+    issue.guideId === 'empty' && issue.severity === 'warning'))
 })
 
 test('broken tour scenes and hotspot references are reported', () => {

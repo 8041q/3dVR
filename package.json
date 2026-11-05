@@ -13,11 +13,8 @@
     "start": "node scripts/start.mjs",
     "start:web": "node server/index.js",
     "preview": "vite preview --host 0.0.0.0",
-    "test": "npm run test:repo && npm run test:assets && npm run test:migration",
+    "test": "node --test",
     "test:editor": "node --test tests/editor.test.mjs",
-    "test:repo": "node scripts/repo-check.mjs",
-    "test:assets": "node scripts/asset-portability-smoke.mjs",
-    "test:migration": "node scripts/migration-smoke.mjs",
     "export:project": "node scripts/export-project.mjs",
     "import:project": "node scripts/import-project.mjs"
   },

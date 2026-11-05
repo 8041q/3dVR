@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo } from 'react'
 import * as THREE from 'three'
+import { drawWorldSurface, worldAppearance } from '../../theme/worldAppearance'
 
 function wrapText(context, text, maxWidth, maxLines = 2) {
   const words = String(text || '').split(/\s+/).filter(Boolean)
@@ -24,45 +25,34 @@ function wrapText(context, text, maxWidth, maxLines = 2) {
 function makeTexture(title, detail, tone) {
   const canvas = document.createElement('canvas')
   canvas.width = 1024
-  canvas.height = detail ? 280 : 180
+  canvas.height = detail ? 230 : 180
   const context = canvas.getContext('2d')
 
-  const palettes = {
-    normal: ['rgba(8, 12, 19, 0.82)', 'rgba(255,255,255,0.30)'],
-    quiet: ['rgba(8, 12, 19, 0.58)', 'rgba(255,255,255,0.18)'],
-    error: ['rgba(48, 12, 16, 0.90)', 'rgba(255,170,175,0.55)'],
-  }
-  const [fill, stroke] = palettes[tone] || palettes.normal
-
-  context.clearRect(0, 0, canvas.width, canvas.height)
-  context.fillStyle = fill
-  context.strokeStyle = stroke
-  context.lineWidth = 4
-  context.beginPath()
-  context.roundRect(6, 6, canvas.width - 12, canvas.height - 12, 32)
-  context.fill()
-  context.stroke()
+  const colors = worldAppearance()
+  const error = tone === 'error'
+  drawWorldSurface(context, {
+    fill: error ? colors['danger-surface'] : colors.surface,
+    stroke: error ? colors.danger : colors.line,
+    radius: 36,
+  })
 
   context.textAlign = 'center'
   context.textBaseline = 'middle'
-  context.fillStyle = '#ffffff'
-  context.font = '700 58px system-ui, sans-serif'
-  context.fillText(title || '', canvas.width / 2, detail ? 88 : canvas.height / 2, canvas.width - 90)
+  context.fillStyle = error ? colors.danger : colors.ink
+  context.font = `650 58px ${colors.font}`
+  context.fillText(title || '', canvas.width / 2, detail ? 70 : canvas.height / 2, canvas.width - 90)
 
   if (detail) {
-    context.fillStyle = '#cbd5e1'
-    context.font = '400 34px system-ui, sans-serif'
+    context.fillStyle = colors.muted
+    context.font = `400 34px ${colors.font}`
     const lines = wrapText(context, detail, canvas.width - 110, 2)
     lines.forEach((line, index) => {
-      context.fillText(line, canvas.width / 2, 170 + index * 44, canvas.width - 110)
+      context.fillText(line, canvas.width / 2, 142 + index * 39, canvas.width - 110)
     })
   }
 
   const texture = new THREE.CanvasTexture(canvas)
   texture.colorSpace = THREE.SRGBColorSpace
-  texture.minFilter = THREE.LinearFilter
-  texture.magFilter = THREE.LinearFilter
-  texture.generateMipmaps = false
   texture.needsUpdate = true
   return texture
 }
@@ -75,7 +65,7 @@ export default function WorldLabel({
   tone = 'normal',
 }) {
   const texture = useMemo(() => makeTexture(title, detail, tone), [detail, title, tone])
-  const height = detail ? width * 0.273 : width * 0.176
+  const height = detail ? width * (230 / 1024) : width * (180 / 1024)
 
   useEffect(() => () => texture.dispose(), [texture])
 

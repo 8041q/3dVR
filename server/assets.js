@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { requireEditor } from './auth.js'
 import { assetRegistryByUrl, removeAssetFromRegistry } from './assetRegistry.js'
 import { findAssetReferences } from './assetReferences.js'
+import { assetThumbnail } from './assetThumbnails.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const repoRoot = path.join(__dirname, '..')
@@ -82,6 +83,18 @@ async function walk(directory, source) {
 
 export function createAssetsRouter(express) {
   const router = express.Router()
+
+  router.get('/thumbnail', async (req, res) => {
+    try {
+      const thumbnail = await assetThumbnail(req.query.url, publicRoot, path.join(__dirname, 'data', 'asset-thumbnails'))
+      if (!thumbnail) return res.sendStatus(404)
+      res.set('Cache-Control', 'public, max-age=86400')
+      return res.sendFile(thumbnail)
+    } catch {
+      res.set('Cache-Control', 'no-store')
+      return res.type('svg').send('<svg xmlns="http://www.w3.org/2000/svg" width="480" height="320"><rect width="100%" height="100%" fill="#f3f4f6"/><text x="50%" y="50%" text-anchor="middle" fill="#667085" font-family="sans-serif" font-size="18">Open file to preview</text></svg>')
+    }
+  })
 
   router.get('/', async (_req, res) => {
     try {

@@ -15,6 +15,9 @@ COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/server ./server
+COPY --from=build /app/src/actions/actionTypes.js ./src/actions/actionTypes.js
+COPY --from=build /app/src/editor/projectChecks.js ./src/editor/projectChecks.js
+COPY --from=build /app/src/guides/guidePlayback.js ./src/guides/guidePlayback.js
 COPY --from=build /app/public ./public
 COPY --from=build /app/scripts ./scripts
 COPY --from=build /app/.env.example ./.env.example

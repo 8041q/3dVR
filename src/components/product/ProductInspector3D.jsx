@@ -2,6 +2,7 @@ import React, {
   forwardRef,
   useCallback,
   useEffect,
+  useEffectEvent,
   useImperativeHandle,
   useMemo,
   useRef,
@@ -19,40 +20,19 @@ import WorldButton from './WorldButton'
 import WorldInfoPanel from './WorldInfoPanel'
 import WorldLabel from './WorldLabel'
 import { damp, wheelPixels } from '../../input/lookMotion'
+import { worldAppearance } from '../../theme/worldAppearance'
+import { normalizeInspectionModel, inspectionBounds, inspectionFitDistance, INSPECTION_VIEWS } from '../../product/modelPresentation'
 import {
   applyMaterialVariant,
   resetObjectMaterials,
   resolveAnimationControls,
 } from '../../product/productControls'
 
-const MODEL_TARGET_SIZE = 1.45
 const PAGE_SIZE = 6
 const SPEEDS = [0.5, 0.75, 1, 1.5, 2]
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value))
-}
-
-function normalizeModel(object, requestedScale = 1) {
-  object.updateMatrixWorld(true)
-  const box = new THREE.Box3().setFromObject(object)
-  const size = box.getSize(new THREE.Vector3())
-  const center = box.getCenter(new THREE.Vector3())
-  const maxDimension = Math.max(size.x, size.y, size.z, 0.0001)
-  const fit = (MODEL_TARGET_SIZE / maxDimension) * Math.max(0.01, Number(requestedScale) || 1)
-
-  object.position.sub(center)
-  object.scale.setScalar(fit)
-  object.updateMatrixWorld(true)
-
-  const fittedBox = new THREE.Box3().setFromObject(object)
-  const fittedCenter = fittedBox.getCenter(new THREE.Vector3())
-  object.position.x -= fittedCenter.x
-  object.position.z -= fittedCenter.z
-  object.position.y -= fittedBox.min.y
-  object.updateMatrixWorld(true)
-
-  return object
 }
 
 function cloneModelMaterials(object) {
@@ -109,7 +89,7 @@ function activeCamera(camera, gl) {
   return gl.xr.isPresenting ? gl.xr.getCamera(camera) : camera
 }
 
-function captureAnchor(camera, gl, distance, keepLevel = false) {
+function captureAnchor(camera, gl, distance, keepLevel = false, fitControls = true) {
   const viewCamera = activeCamera(camera, gl)
   const direction = new THREE.Vector3()
   const position = new THREE.Vector3()
@@ -120,7 +100,7 @@ function captureAnchor(camera, gl, distance, keepLevel = false) {
     // Fit the full control grid at the current zoom and viewport aspect ratio.
     const vertical = Math.tan(THREE.MathUtils.degToRad(viewCamera.fov || 75) / 2)
     const horizontal = vertical * (viewCamera.aspect || 1)
-    const fittedDistance = Math.max(distance, 0.9 + Math.max(1.95 / horizontal, 1.55 / vertical))
+    const fittedDistance = fitControls ? Math.max(distance, 0.9 + Math.max(1.95 / horizontal, 1.55 / vertical)) : distance
     position.add(new THREE.Vector3(0, -0.375, -fittedDistance).applyQuaternion(orientation))
     return { position: position.toArray(), rotation: new THREE.Euler().setFromQuaternion(orientation, 'YXZ').toArray() }
   }
@@ -140,20 +120,20 @@ function captureAnchor(camera, gl, distance, keepLevel = false) {
 }
 
 function optionPosition(index) {
-  return [1.34, 0.78 - index * 0.30, 0.86]
+  return [-0.8 + (index % 3) * 0.8, -0.55 - Math.floor(index / 3) * 0.28, 0.86]
 }
 
 function tabPosition(index) {
-  return [-1.34, 0.66 - index * 0.34, 0.86]
+  return [-0.96 + index * 0.64, -0.25, 0.86]
 }
 
-function AnimatedAnnotationButton({ model, modelRotation, annotation, onActivate }) {
+function AnimatedAnnotationButton({ model, annotation, onActivate, number }) {
   const { camera, gl } = useThree()
   const anchorRef = useRef(null)
 
   useFrame(() => {
     const anchor = anchorRef.current
-    const rotationRoot = modelRotation.current
+    const rotationRoot = anchor?.parent
     if (!anchor || !rotationRoot) return
 
     let worldPoint = null
@@ -176,9 +156,10 @@ function AnimatedAnnotationButton({ model, modelRotation, annotation, onActivate
   return (
     <group ref={anchorRef}>
       <WorldButton
-        label={annotation.label || 'Detail'}
+        label={number ? String(number) : annotation.label || 'Detail'}
         position={[0, 0, 0]}
-        width={0.58}
+        width={number ? 0.13 : 0.58}
+        marker={Boolean(number)}
         onActivate={onActivate}
       />
     </group>
@@ -189,23 +170,30 @@ const ProductInspector3D = forwardRef(function ProductInspector3D({
   inspection,
   immersive = false,
   directManipulation = true,
+  showControls = true,
+  showAnnotations = true,
+  standalone = false,
+  inputHint,
   onClose,
   onAnimationsChange,
   onStatusChange,
+  onControlsChange,
 }, ref) {
-  const { camera, gl, scene } = useThree()
+  const { camera, gl, scene, size } = useThree()
   const modelRotation = useRef(null)
   const modelZoom = useRef(null)
   const mixerRef = useRef(null)
   const actionsRef = useRef(new Map())
   const activeActionRef = useRef(null)
   const modelRef = useRef(null)
+  const finishRequest = useRef(null)
   const pointersRef = useRef(new Map())
   const pinchDistanceRef = useRef(null)
   const viewRef = useRef({
     yaw: THREE.MathUtils.degToRad(Number(inspection.rotationY) || 0),
-    pitch: 0,
-    zoom: 1,
+    pitch: THREE.MathUtils.degToRad(Number(inspection.viewer?.startPitch) || 0),
+    zoom: Number(inspection.viewer?.startZoom) || 1,
+    panX: 0, panY: 0,
   })
 
   const settings = inspection.viewer || {}
@@ -215,12 +203,14 @@ const ProductInspector3D = forwardRef(function ProductInspector3D({
   const backdropOpacity = clamp(Number(settings.backdropOpacity ?? 0.10), 0, 0.45)
   const initialSpeed = Math.max(0.05, Number(settings.animationSpeed) || 1)
 
-  const [anchorTransform, setAnchorTransform] = useState(() => captureAnchor(camera, gl, anchorDistance, immersive))
+  const [anchorTransform, setAnchorTransform] = useState(() => captureAnchor(camera, gl, anchorDistance, immersive, showControls))
   const [model, setModel] = useState(null)
+  const [bounds, setBounds] = useState(null)
   const [animations, setAnimations] = useState([])
   const [status, setStatus] = useState({ state: 'loading', progress: 0, error: '' })
   const [activeAnnotation, setActiveAnnotation] = useState(null)
   const [activeVariantId, setActiveVariantId] = useState('')
+  const [finishStatus, setFinishStatus] = useState(null)
   const [activeTab, setActiveTab] = useState('view')
   const [page, setPage] = useState(0)
   const [autoRotate, setAutoRotate] = useState(Boolean(settings.autoRotate))
@@ -233,10 +223,12 @@ const ProductInspector3D = forwardRef(function ProductInspector3D({
 
   const shadowTexture = useMemo(() => createShadowTexture(), [])
 
+  const notifyStatus = useEffectEvent((next) => onStatusChange?.(next))
+  const notifyAnimations = useEffectEvent((names) => onAnimationsChange?.(names))
   const setStatusAndNotify = useCallback((next) => {
     setStatus(next)
-    onStatusChange?.(next)
-  }, [onStatusChange])
+    notifyStatus(next)
+  }, [])
 
   const syncViewTransform = useCallback((delta = null) => {
     const rotation = modelRotation.current
@@ -245,19 +237,23 @@ const ProductInspector3D = forwardRef(function ProductInspector3D({
       rotation.rotation.x = delta == null ? viewRef.current.pitch : damp(rotation.rotation.x, viewRef.current.pitch, delta, 22)
       rotation.rotation.y = delta == null ? viewRef.current.yaw : damp(rotation.rotation.y, viewRef.current.yaw, delta, 22)
     }
-    if (zoomRoot) zoomRoot.scale.setScalar(delta == null ? viewRef.current.zoom : damp(zoomRoot.scale.x, viewRef.current.zoom, delta))
-  }, [])
+    if (zoomRoot) {
+      zoomRoot.scale.setScalar(delta == null ? viewRef.current.zoom : damp(zoomRoot.scale.x, viewRef.current.zoom, delta))
+      if (standalone) zoomRoot.position.set(viewRef.current.panX || 0, viewRef.current.panY || 0, 0)
+    }
+  }, [standalone])
 
   const resetView = useCallback(() => {
     viewRef.current = {
       yaw: THREE.MathUtils.degToRad(Number(inspection.rotationY) || 0),
-      pitch: 0,
-      zoom: 1,
+      pitch: THREE.MathUtils.degToRad(Number(settings.startPitch) || 0),
+      zoom: Number(settings.startZoom) || 1,
+      panX: 0, panY: 0,
     }
     setAutoRotate(Boolean(settings.autoRotate))
     syncViewTransform()
     return true
-  }, [inspection.rotationY, settings.autoRotate, syncViewTransform])
+  }, [inspection.rotationY, settings.startPitch, settings.startZoom, settings.autoRotate, syncViewTransform])
 
   const adjustZoom = useCallback((factor) => {
     viewRef.current.zoom = clamp(viewRef.current.zoom * factor, minZoom, maxZoom)
@@ -266,27 +262,51 @@ const ProductInspector3D = forwardRef(function ProductInspector3D({
 
   const rotateBy = useCallback((yaw, pitch = 0) => {
     viewRef.current.yaw += yaw
-    viewRef.current.pitch = clamp(viewRef.current.pitch + pitch, -0.65, 0.65)
+    const limit = settings.orbitMode === 'turntable' ? 0 : Math.PI * 0.495
+    viewRef.current.pitch = clamp(viewRef.current.pitch + pitch, -limit, limit)
+    return true
+  }, [settings.orbitMode])
+
+  const fitView = useCallback(() => {
+    viewRef.current.zoom = 1
+    viewRef.current.panX = 0
+    viewRef.current.panY = 0
     return true
   }, [])
 
-  const recenter = useCallback(() => {
-    setAnchorTransform(captureAnchor(camera, gl, anchorDistance, immersive))
+  const setView = useCallback((name) => {
+    const angles = INSPECTION_VIEWS[name]
+    if (!angles) return false
+    viewRef.current.yaw = THREE.MathUtils.degToRad(angles[0])
+    viewRef.current.pitch = THREE.MathUtils.degToRad(angles[1])
+    setAutoRotate(false)
+    fitView()
     return true
-  }, [anchorDistance, camera, gl, immersive])
+  }, [fitView])
+
+  const recenter = useCallback(() => {
+    setAnchorTransform(captureAnchor(camera, gl, anchorDistance, immersive, showControls))
+    return true
+  }, [anchorDistance, camera, gl, immersive, showControls])
 
   const resetMaterials = useCallback(() => {
+    finishRequest.current = null
     resetObjectMaterials(modelRef.current)
     setActiveVariantId('')
+    setFinishStatus(null)
     return true
   }, [])
 
   const applyVariant = useCallback(async (variantId) => {
     if (!variantId) return resetMaterials()
     const variant = (inspection.materialVariants || []).find((item) => item.id === variantId)
-    if (!variant) return false
+    const request = {}
+    finishRequest.current = request
+    setFinishStatus({ loading: true, message: 'Applying finish…' })
     const ok = await applyMaterialVariant(modelRef.current, variant)
-    if (ok !== false) setActiveVariantId(variantId)
+    if (finishRequest.current !== request) return false
+    if (ok) setActiveVariantId(variantId)
+    setFinishStatus(ok ? null : { loading: false, message: 'Couldn’t apply this finish. The previous finish is still active.' })
     return ok
   }, [inspection.materialVariants, resetMaterials])
 
@@ -342,16 +362,28 @@ const ProductInspector3D = forwardRef(function ProductInspector3D({
   useEffect(() => {
     viewRef.current = {
       yaw: THREE.MathUtils.degToRad(Number(inspection.rotationY) || 0),
-      pitch: 0,
-      zoom: 1,
+      pitch: THREE.MathUtils.degToRad(Number(settings.startPitch) || 0),
+      zoom: Number(settings.startZoom) || 1,
+      panX: 0, panY: 0,
     }
-    setAnchorTransform(captureAnchor(camera, gl, anchorDistance, immersive))
+    setAnchorTransform(captureAnchor(camera, gl, anchorDistance, immersive, showControls))
     setActiveAnnotation(null)
     setActiveVariantId('')
+    setFinishStatus(null)
     setPage(0)
     setAutoRotate(Boolean(settings.autoRotate))
     syncViewTransform()
-  }, [anchorDistance, camera, gl, immersive, inspection.id, inspection.rotationY, settings.autoRotate, syncViewTransform])
+  }, [anchorDistance, camera, gl, immersive, inspection.id, inspection.rotationY, settings.startPitch, settings.startZoom, settings.autoRotate, showControls, syncViewTransform])
+
+  useEffect(() => {
+    if (!standalone || !bounds) return
+    const distance = inspectionFitDistance(bounds.radius, camera.fov, size.width / Math.max(1, size.height))
+    camera.position.set(0, 0, distance)
+    camera.near = Math.max(0.001, bounds.radius / 100)
+    camera.far = Math.max(100, distance + bounds.radius * 20)
+    camera.lookAt(0, 0, 0)
+    camera.updateProjectionMatrix()
+  }, [bounds, camera, size.width, size.height, standalone])
 
   useEffect(() => {
     const previousEnvironment = scene.environment
@@ -385,11 +417,12 @@ const ProductInspector3D = forwardRef(function ProductInspector3D({
     let mixer = null
 
     setModel(null)
+    setBounds(null)
     setAnimations([])
     modelRef.current = null
     actionsRef.current.clear()
     activeActionRef.current = null
-    onAnimationsChange?.([])
+    notifyAnimations([])
     setAnimationState({ activeClip: '', paused: false, playing: false, speed: initialSpeed })
     setStatusAndNotify({ state: 'loading', progress: 0, loaded: 0, total: 0, error: '' })
 
@@ -417,9 +450,14 @@ const ProductInspector3D = forwardRef(function ProductInspector3D({
       (gltf) => {
         if (disposed) return
 
-        loadedScene = cloneSkeleton(gltf.scene)
+        try {
+          loadedScene = normalizeInspectionModel(cloneSkeleton(gltf.scene), inspection.modelScale, settings.upAxis)
+        } catch (error) {
+          setStatusAndNotify({ state: 'error', progress: 0, error: error.message })
+          return
+        }
         cloneModelMaterials(loadedScene)
-        normalizeModel(loadedScene, inspection.modelScale)
+        setBounds(inspectionBounds(loadedScene))
 
         loadedScene.traverse((child) => {
           if (!child.isMesh) return
@@ -428,7 +466,7 @@ const ProductInspector3D = forwardRef(function ProductInspector3D({
           child.frustumCulled = true
         })
 
-        mixer = new THREE.AnimationMixer(loadedScene)
+        mixer = new THREE.AnimationMixer(loadedScene.children[0].children[0])
         mixer.timeScale = initialSpeed
         mixer.addEventListener('finished', () => {
           setAnimationState((current) => ({ ...current, playing: false, paused: false }))
@@ -440,7 +478,7 @@ const ProductInspector3D = forwardRef(function ProductInspector3D({
 
         const names = (gltf.animations || []).map((clip) => clip.name).filter(Boolean)
         setAnimations(names)
-        onAnimationsChange?.(names)
+        notifyAnimations(names)
         modelRef.current = loadedScene
         setModel(loadedScene)
         window.setTimeout(syncViewTransform, 0)
@@ -471,11 +509,13 @@ const ProductInspector3D = forwardRef(function ProductInspector3D({
       actionsRef.current.clear()
       activeActionRef.current = null
       modelRef.current = null
+      finishRequest.current = null
+      resetObjectMaterials(loadedScene)
       disposeModel(loadedScene)
       dracoLoader.dispose()
       ktx2Loader.dispose()
     }
-  }, [gl, initialSpeed, inspection.modelScale, inspection.modelUrl, onAnimationsChange, setStatusAndNotify, syncViewTransform])
+  }, [gl, initialSpeed, inspection.modelScale, inspection.modelUrl, settings.upAxis, setStatusAndNotify, syncViewTransform])
 
   useEffect(() => () => shadowTexture.dispose(), [shadowTexture])
 
@@ -494,6 +534,11 @@ const ProductInspector3D = forwardRef(function ProductInspector3D({
     },
     resetRotation: resetView,
     resetView,
+    fitView,
+    setView,
+    getView() {
+      return { rotationY: Number(THREE.MathUtils.radToDeg(viewRef.current.yaw).toFixed(1)), startPitch: Number(THREE.MathUtils.radToDeg(viewRef.current.pitch).toFixed(1)), startZoom: Number(viewRef.current.zoom.toFixed(2)) }
+    },
     zoomIn() { return adjustZoom(1.12) },
     zoomOut() { return adjustZoom(0.89) },
     rotateLeft() { return rotateBy(-THREE.MathUtils.degToRad(15)) },
@@ -507,6 +552,8 @@ const ProductInspector3D = forwardRef(function ProductInspector3D({
     recenter,
     resetMaterials,
     resetView,
+    fitView,
+    setView,
     rotateBy,
     setAnimationSpeed,
     toggleAnimation,
@@ -599,12 +646,19 @@ const ProductInspector3D = forwardRef(function ProductInspector3D({
     }
 
     return [
+      ...(standalone ? [
+        { id: 'view:fit', label: 'Fit model', activate: fitView },
+        { id: 'view:front', label: 'Front', activate: () => setView('front') },
+        { id: 'view:back', label: 'Back', activate: () => setView('back') },
+        ...(settings.orbitMode !== 'turntable' ? [{ id: 'view:top', label: 'Top', activate: () => setView('top') }] : []),
+        { id: 'view:angle', label: '3D angle', activate: () => setView('angle') },
+      ] : []),
       { id: 'view:left', label: 'Rotate left', activate: () => rotateBy(-THREE.MathUtils.degToRad(15)) },
       { id: 'view:right', label: 'Rotate right', activate: () => rotateBy(THREE.MathUtils.degToRad(15)) },
       { id: 'view:closer', label: 'Closer', activate: () => adjustZoom(1.12) },
       { id: 'view:further', label: 'Further', activate: () => adjustZoom(0.89) },
       { id: 'view:reset', label: 'Reset view', activate: resetView },
-      { id: 'view:recenter', label: 'Recenter', activate: recenter },
+      ...(!standalone ? [{ id: 'view:recenter', label: 'Recenter', activate: recenter }] : []),
       {
         id: 'view:auto',
         label: autoRotate ? 'Stop rotation' : 'Auto rotate',
@@ -633,12 +687,80 @@ const ProductInspector3D = forwardRef(function ProductInspector3D({
     resetView,
     rotateBy,
     toggleAnimation,
+    standalone, fitView, setView, settings.orbitMode,
   ])
+
+  const notifyControls = useEffectEvent((next) => onControlsChange?.(next))
+  useEffect(() => {
+    notifyControls({ status, tabs, activeTab, selectTab: setActiveTab, options, activeAnnotation,
+      closeAnnotation: () => setActiveAnnotation(null), finishStatus, animationState, autoRotate })
+  }, [status, tabs, activeTab, options, activeAnnotation, finishStatus, animationState, autoRotate])
+
+  // Bind to the whole stage so dragging and pinching also work beside a thin model.
+  const stageInput = useEffectEvent((type, event) => {
+    if (type === 'down') {
+      if (event.pointerType !== 'touch' && ![0, 1, 2].includes(event.button)) return
+      pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY })
+      pinchDistanceRef.current = null
+      gl.domElement.setPointerCapture?.(event.pointerId)
+      setAutoRotate(false)
+    } else if (type === 'move' && pointersRef.current.has(event.pointerId)) {
+      const before = pointersRef.current.get(event.pointerId)
+      const next = { x: event.clientX, y: event.clientY }
+      const other = [...pointersRef.current.entries()].find(([id]) => id !== event.pointerId)?.[1]
+      if (other) {
+        const oldDistance = Math.hypot(before.x - other.x, before.y - other.y)
+        const newDistance = Math.hypot(next.x - other.x, next.y - other.y)
+        if (oldDistance > 8) adjustZoom(newDistance / oldDistance)
+      }
+      const panning = settings.allowPan !== false && (other || event.shiftKey || event.buttons === 2 || event.buttons === 4)
+      if (panning) {
+        const unit = 2 * camera.position.z * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2) / Math.max(1, size.height)
+        const limit = Math.max(0.5, bounds?.radius || 1) * 3
+        viewRef.current.panX = clamp((viewRef.current.panX || 0) + (next.x - before.x) * unit * (other ? 0.5 : 1), -limit, limit)
+        viewRef.current.panY = clamp((viewRef.current.panY || 0) - (next.y - before.y) * unit * (other ? 0.5 : 1), -limit, limit)
+      } else if (!other) rotateBy((next.x - before.x) * 0.008, (next.y - before.y) * 0.008)
+      pointersRef.current.set(event.pointerId, next)
+    } else if (type === 'end') {
+      pointersRef.current.delete(event.pointerId)
+      try { gl.domElement.releasePointerCapture?.(event.pointerId) } catch { /* pointer already released */ }
+    } else if (type === 'wheel') {
+      event.preventDefault()
+      setAutoRotate(false)
+      adjustZoom(Math.exp(-wheelPixels(event, size.height) * 0.0015))
+    }
+  })
+  useEffect(() => {
+    if (!standalone || !directManipulation) return
+    const stage = gl.domElement
+    const down = (event) => stageInput('down', event)
+    const move = (event) => stageInput('move', event)
+    const end = (event) => stageInput('end', event)
+    const wheel = (event) => stageInput('wheel', event)
+    const context = (event) => event.preventDefault()
+    stage.addEventListener('pointerdown', down)
+    stage.addEventListener('pointermove', move)
+    stage.addEventListener('pointerup', end)
+    stage.addEventListener('pointercancel', end)
+    stage.addEventListener('lostpointercapture', end)
+    stage.addEventListener('wheel', wheel, { passive: false })
+    stage.addEventListener('contextmenu', context)
+    return () => {
+      stage.removeEventListener('pointerdown', down)
+      stage.removeEventListener('pointermove', move)
+      stage.removeEventListener('pointerup', end)
+      stage.removeEventListener('pointercancel', end)
+      stage.removeEventListener('lostpointercapture', end)
+      stage.removeEventListener('wheel', wheel)
+      stage.removeEventListener('contextmenu', context)
+      pointersRef.current.clear()
+    }
+  }, [directManipulation, gl, standalone])
 
   const maxPage = Math.max(0, Math.ceil(options.length / PAGE_SIZE) - 1)
   const safePage = Math.min(page, maxPage)
   const visibleOptions = options.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE)
-  const buttonWidth = immersive ? 0.98 : 0.90
+  const buttonWidth = 0.74
 
   function pointerDown(event) {
     if (!directManipulation || (event.pointerType !== 'touch' && event.button !== 0)) return
@@ -682,26 +804,26 @@ const ProductInspector3D = forwardRef(function ProductInspector3D({
     try { event.target?.releasePointerCapture?.(event.pointerId) } catch { /* optional */ }
   }
 
-  const hint = immersive || !directManipulation
+  const hint = inputHint || (immersive || !directManipulation
     ? 'Look at a control and hold the crosshair, or point and select with a controller.'
-    : 'Scroll to zoom. Choose Motion, Finishes or Details to explore.'
+    : 'Drag to rotate. Scroll to zoom.')
 
   return (
     <>
       <group
-        position={anchorTransform.position}
-        rotation={anchorTransform.rotation}
+        position={standalone ? [0, 0, 0] : anchorTransform.position}
+        rotation={standalone ? [0, 0, 0] : anchorTransform.rotation}
         renderOrder={20}
       >
         <ambientLight intensity={1.1} />
         <directionalLight position={[1.8, 2.8, 2.2]} intensity={2.5} />
         <directionalLight position={[-1.8, 1.2, 1.4]} intensity={0.9} />
 
-        {backdropOpacity > 0 && (
+        {!standalone && backdropOpacity > 0 && (
           <mesh position={[0, 0.20, -0.62]} renderOrder={8}>
             <planeGeometry args={[3.65, 2.85]} />
             <meshBasicMaterial
-              color="#07101a"
+              color={worldAppearance()['marker-outline']}
               transparent
               opacity={backdropOpacity}
               side={THREE.DoubleSide}
@@ -712,7 +834,7 @@ const ProductInspector3D = forwardRef(function ProductInspector3D({
         )}
 
         {settings.showGround !== false && (
-          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, immersive ? 0.045 : -0.335, 0]} renderOrder={9}>
+          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, standalone ? -(bounds?.size[1] || 1.45) / 2 - 0.015 : immersive ? 0.045 : -0.335, 0]} renderOrder={9}>
             <planeGeometry args={[2.3, 2.3]} />
             <meshBasicMaterial
               map={shadowTexture}
@@ -724,38 +846,42 @@ const ProductInspector3D = forwardRef(function ProductInspector3D({
           </mesh>
         )}
 
+        {showControls && <>
         <WorldLabel
           title={inspection.title || 'Product'}
-          position={[0, 1.47, 0.83]}
+          position={[-0.2, 1.82, 0.83]}
           width={1.55}
         />
-        <WorldLabel
-          title={status.state === 'loading'
+        {status.state !== 'ready' || finishStatus ? <WorldLabel
+          title={finishStatus
+            ? finishStatus.loading ? 'Applying finish' : 'Finish unavailable'
+            : status.state === 'loading'
             ? `Loading ${Math.round((status.progress || 0) * 100)}%`
             : status.state === 'error'
               ? 'Model unavailable'
-              : directManipulation ? 'Drag to rotate' : 'Explore the product'}
-          detail={status.state === 'error' ? status.error : hint}
-          position={[0, 1.17, 0.82]}
-          width={1.72}
-          tone={status.state === 'error' ? 'error' : 'quiet'}
-        />
+              : 'Explore the product'}
+          detail={status.state === 'error' ? status.error : finishStatus?.message || hint}
+          position={[0, 1.52, 0.82]}
+          width={1.55}
+          tone={status.state === 'error' || (finishStatus && !finishStatus.loading) ? 'error' : 'quiet'}
+        /> : null}
         <WorldButton
           label="Back"
-          position={[1.35, 1.47, 0.87]}
-          width={0.66}
+          position={[1.02, 1.82, 0.87]}
+          width={0.50}
           tone="danger"
           onActivate={onClose}
         />
+        </>}
 
         <group
           ref={modelZoom}
-          position={[0, immersive ? 0.08 : -0.3, 0]}
-          onPointerDown={directManipulation ? pointerDown : undefined}
-          onPointerMove={directManipulation ? pointerMove : undefined}
-          onPointerUp={directManipulation ? pointerEnd : undefined}
-          onPointerCancel={directManipulation ? pointerEnd : undefined}
-          onWheel={directManipulation ? (event) => {
+          position={[0, standalone ? 0 : immersive ? 0.08 : -0.3, 0]}
+          onPointerDown={directManipulation && !standalone ? pointerDown : undefined}
+          onPointerMove={directManipulation && !standalone ? pointerMove : undefined}
+          onPointerUp={directManipulation && !standalone ? pointerEnd : undefined}
+          onPointerCancel={directManipulation && !standalone ? pointerEnd : undefined}
+          onWheel={directManipulation && !standalone ? (event) => {
             event.stopPropagation()
             setAutoRotate(false)
             adjustZoom(Math.exp(-wheelPixels(event, gl.domElement.clientHeight) * 0.0015))
@@ -765,29 +891,31 @@ const ProductInspector3D = forwardRef(function ProductInspector3D({
             ref={modelRotation}
             rotation={[0, THREE.MathUtils.degToRad(Number(inspection.rotationY) || 0), 0]}
           >
+            <group position={standalone ? [0, -(bounds?.size[1] || 0) / 2, 0] : [0, 0, 0]}>
             {model && <primitive object={model} />}
 
-            {annotations.map((annotation) => (
+            {showAnnotations && annotations.map((annotation, index) => (
               <AnimatedAnnotationButton
                 key={annotation.id}
                 model={model}
-                modelRotation={modelRotation}
                 annotation={annotation}
+                number={standalone ? index + 1 : undefined}
                 onActivate={() => {
                   setActiveAnnotation(annotation)
                   setActiveTab('details')
                 }}
               />
             ))}
+            </group>
           </group>
         </group>
 
-        {status.state === 'ready' && tabs.map((tab, index) => (
+        {showControls && status.state === 'ready' && tabs.map((tab, index) => (
           <WorldButton
             key={tab.id}
             label={tab.label}
             position={tabPosition(index)}
-            width={immersive ? 0.86 : 0.78}
+            width={0.60}
             selected={activeTab === tab.id}
             onActivate={() => {
               setActiveTab(tab.id)
@@ -796,7 +924,7 @@ const ProductInspector3D = forwardRef(function ProductInspector3D({
           />
         ))}
 
-        {status.state === 'ready' && visibleOptions.map((option, index) => (
+        {showControls && status.state === 'ready' && visibleOptions.map((option, index) => (
           <WorldButton
             key={option.id}
             label={option.label}
@@ -807,18 +935,18 @@ const ProductInspector3D = forwardRef(function ProductInspector3D({
           />
         ))}
 
-        {status.state === 'ready' && maxPage > 0 && (
+        {showControls && status.state === 'ready' && maxPage > 0 && (
           <>
             <WorldButton
               label="Previous"
-              position={[1.08, -1.04, 0.86]}
+              position={[-0.35, -1.14, 0.86]}
               width={0.52}
               disabled={safePage <= 0}
               onActivate={() => setPage((value) => Math.max(0, value - 1))}
             />
             <WorldButton
               label="Next"
-              position={[1.61, -1.04, 0.86]}
+              position={[0.35, -1.14, 0.86]}
               width={0.52}
               disabled={safePage >= maxPage}
               onActivate={() => setPage((value) => Math.min(maxPage, value + 1))}
@@ -827,7 +955,7 @@ const ProductInspector3D = forwardRef(function ProductInspector3D({
         )}
       </group>
 
-      {activeAnnotation && (
+      {showControls && activeAnnotation && (
         <WorldInfoPanel
           info={{
             title: activeAnnotation.label || 'Detail',

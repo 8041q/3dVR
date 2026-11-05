@@ -1,4 +1,5 @@
 import { requireEditor } from './auth.js'
+import { projectChecks } from '../src/editor/projectChecks.js'
 import {
   createProject,
   getProjectDraft,
@@ -16,6 +17,14 @@ function sendError(res, error) {
   return res.status(status).json({ error: error.message || 'Project operation failed' })
 }
 
+function validateRelease(snapshot) {
+  const issues = projectChecks(snapshot)
+  if (issues.length) {
+    const extra = issues.length > 1 ? ` (${issues.length} items to resolve)` : ''
+    throw Object.assign(new Error(`${issues[0].message}${extra}`), { status: 422 })
+  }
+}
+
 export function createProjectsRouter(express) {
   const router = express.Router()
 
@@ -30,9 +39,14 @@ export function createProjectsRouter(express) {
 
   router.post('/', requireEditor, async (req, res) => {
     try {
+      const { title, duplicateFrom, draft } = req.body || {}
+      if (draft && (!duplicateFrom || !Array.isArray(draft.scenes) || !Array.isArray(draft.guides))) {
+        return res.status(400).json({ error: 'Choose a project and provide its draft to create a copy.' })
+      }
       const project = await createProject({
-        title: req.body?.title,
-        duplicateFrom: req.body?.duplicateFrom || null,
+        title,
+        duplicateFrom,
+        draft,
       })
       return res.status(201).json(project)
     } catch (error) {
@@ -68,7 +82,19 @@ export function createProjectsRouter(express) {
 
   router.post('/:projectId/publish', requireEditor, async (req, res) => {
     try {
-      return res.json(await publishProject(req.params.projectId))
+      return res.json(await publishProject(req.params.projectId, { validate: validateRelease }))
+    } catch (error) {
+      return sendError(res, error)
+    }
+  })
+
+  router.post('/:projectId/publish-draft', requireEditor, async (req, res) => {
+    const { draft, expectedDraftRevision } = req.body || {}
+    if (!Array.isArray(draft?.scenes) || !Array.isArray(draft?.guides) || typeof expectedDraftRevision !== 'string') {
+      return res.status(400).json({ error: 'Publishing requires the reviewed draft and the revision it was based on.' })
+    }
+    try {
+      return res.json(await publishProject(req.params.projectId, { draft, expectedDraftRevision, validate: validateRelease }))
     } catch (error) {
       return sendError(res, error)
     }

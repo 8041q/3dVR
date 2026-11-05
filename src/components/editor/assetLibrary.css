@@ -1,0 +1,93 @@
+.studio-app .studio-asset-browser { margin: 0; padding: 0; border: 0; min-width: 0; container-type: inline-size; }
+.studio-app .asset-library__heading { align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
+.studio-app .asset-library__heading .button-row { margin: 0; }
+.studio-app .studio-asset-dropzone {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  width: 100%; min-height: 108px; padding: 20px; border: 1px dashed var(--studio-border);
+  background: var(--studio-panel); color: var(--studio-text);
+}
+.studio-asset-dropzone span { color: var(--studio-muted); font-size: 12px; }
+.studio-app .studio-asset-dropzone:hover, .studio-app .is-dragging .studio-asset-dropzone { border-color: var(--studio-accent); background: var(--studio-selection); }
+.studio-asset-toolbar { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; margin-top: 20px; }
+.studio-asset-toolbar > input { flex: 1 1 240px; margin: 0 !important; min-width: 0; }
+.studio-app .studio-asset-toolbar > label { flex: 1 1 140px; margin: 0; min-width: 0; font-size: 11px; }
+.studio-asset-toolbar > [role="group"] { display: flex; gap: 4px; }
+.studio-app .studio-asset-browser button[aria-pressed="true"] { background: var(--studio-selection); color: var(--studio-accent); }
+.studio-app .studio-asset-browser .asset-library__filters { display: flex; gap: 4px; margin: 16px 0 0; padding-bottom: 12px; border-bottom: 1px solid var(--studio-line); }
+.studio-app .asset-library__filters button { min-height: 36px; padding: 6px 10px; border: 0; font-size: 12px; }
+.asset-library__filters span { opacity: .6; margin-left: 3px; }
+.studio-asset-feedback { margin: 12px 0; color: var(--studio-muted); font-size: 12px; }
+.studio-asset-list { display: grid; gap: 12px; margin: 0; padding: 0 0 100px; list-style: none; }
+.studio-asset-list--grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); }
+.studio-asset-row { min-width: 0; position: relative; border: 1px solid var(--studio-line); border-radius: var(--studio-radius); background: var(--studio-panel); }
+.studio-app .studio-asset-thumbnail { position: relative; display: grid; place-items: center; width: 100%; height: 144px; padding: 0; border-radius: var(--studio-radius) var(--studio-radius) 0 0; overflow: hidden; background: var(--studio-subtle); }
+.studio-asset-thumbnail img { width: 100%; height: 100%; object-fit: contain; }
+.studio-asset-thumbnail > span { font-size: 22px; font-weight: 600; color: var(--studio-muted); }
+.studio-asset-thumbnail > small { position: absolute; bottom: 8px; right: 8px; padding: 2px 5px; background: var(--studio-panel); border: 1px solid var(--studio-line); border-radius: 4px; font-size: 10px; }
+.studio-asset-info { min-width: 0; padding: 12px 12px 0; }
+.studio-app .studio-asset-info > button { display: block; width: 100%; min-height: 0; padding: 0; background: transparent; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.studio-asset-info > span { display: block; margin-top: 4px; font-size: 11px; color: var(--studio-muted); }
+.studio-asset-info .studio-asset-used { color: var(--studio-accent); }
+.studio-asset-controls { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px; }
+.studio-asset-controls details { position: relative; }
+.studio-asset-controls summary { padding: 6px 8px; min-height: 32px; cursor: pointer; list-style: none; font-size: 12px; }
+.studio-asset-controls summary::-webkit-details-marker { display: none; }
+.studio-asset-controls summary::after { content: ' ▾'; }
+.studio-asset-menu { position: absolute; top: 100%; right: 0; z-index: 5; display: grid; min-width: 140px; gap: 4px; padding: 6px; border: 1px solid var(--studio-line); border-radius: var(--studio-radius); background: var(--studio-panel); box-shadow: var(--ui-shadow); }
+.studio-app .studio-asset-menu :is(button, .button-link) { text-align: left; background: transparent; color: var(--studio-text); border-color: transparent; font-size: 12px; }
+.studio-app .studio-asset-menu .danger { color: var(--studio-danger); }
+.studio-asset-list--list .studio-asset-row { display: grid; grid-template-columns: 64px minmax(0,1fr) auto; align-items: center; padding: 8px; }
+.studio-app .studio-asset-list--list .studio-asset-thumbnail { height: 56px; border-radius: 4px; }
+.studio-asset-list--list .studio-asset-thumbnail small { display: none; }
+.studio-asset-list--list .studio-asset-info { padding: 0 12px; }
+.studio-asset-list--list .studio-asset-controls { padding: 0; }
+.studio-asset-empty { padding: 40px 16px; text-align: center; border: 1px dashed var(--studio-line); border-radius: var(--studio-radius); }
+.studio-asset-empty p { color: var(--studio-muted); }
+.studio-app .studio-upload-queue { margin-top: 16px; padding: 12px; border: 1px solid var(--studio-line); border-radius: var(--studio-radius); }
+.studio-upload-queue header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; }
+.studio-upload-queue .button-row { margin: 0; }
+.studio-upload-queue ul { list-style: none; margin: 8px 0 0; padding: 0; max-height: 160px; overflow: auto; }
+.studio-upload-queue li { display: flex; justify-content: space-between; gap: 16px; padding: 5px 0; font-size: 12px; }
+.studio-upload-queue li > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.studio-upload-queue small { color: var(--studio-muted); }
+.studio-upload-queue progress { width: 100%; }
+.studio-asset-preview { width: min(900px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); padding: 0; overflow: auto; color: var(--studio-text); background: var(--studio-panel); border: 1px solid var(--studio-line); border-radius: var(--studio-radius); }
+.studio-asset-preview::backdrop { background: #10182899; }
+.studio-asset-preview header, .studio-asset-preview footer { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 16px; }
+.studio-asset-preview h2 { margin: 0 0 4px; overflow-wrap: anywhere; font-size: 18px; }
+.studio-asset-preview header span { color: var(--studio-muted); text-transform: capitalize; font-size: 12px; }
+.studio-asset-preview footer { border-top: 1px solid var(--studio-line); flex-wrap: wrap; font-size: 12px; }
+.studio-asset-preview footer p { margin: 4px 0 0; color: var(--studio-muted); }
+.studio-asset-preview .button-row { margin: 0; flex-wrap: wrap; }
+.studio-asset-preview__media { display: grid; place-items: center; min-height: 180px; padding: 16px; background: var(--studio-subtle); }
+.studio-asset-preview__media--model { position: relative; display: block; height: min(50dvh, 440px); min-height: 260px; padding: 0; background: var(--ui-stage); }
+.studio-asset-preview__media :is(img,video) { display: block; max-width: 100%; max-height: 55dvh; object-fit: contain; }
+.studio-asset-preview__media audio { max-width: 100%; }
+@media (max-width: 600px) {
+  .studio-asset-list--grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+  .studio-asset-list--list .studio-asset-row { grid-template-columns: 48px minmax(0,1fr); }
+  .studio-asset-list--list .studio-asset-controls { grid-column: 2; justify-content: flex-start; padding: 8px 12px 0; }
+  .studio-asset-preview header { align-items: flex-start; }
+}
+.studio-workspace-view--assets .studio-workspace-body > .studio-asset-browser { width: 100%; max-width: none; }
+.studio-asset-preview__hint { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 16px; font-size: 12px; color: var(--studio-muted); }
+
+/* Match the baseline and height of every control in the filter row. */
+.studio-asset-toolbar { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 180px) minmax(0, 160px) auto; align-items: end; }
+.studio-app :is(.editor-panel, .studio-asset-picker, .studio-workspace-view) .studio-asset-toolbar > label { display: flex; flex-direction: column; gap: 6px; margin: 0; min-width: 0; }
+.studio-app :is(.editor-panel, .studio-asset-picker, .studio-workspace-view) .studio-asset-toolbar :is(input, select) { height: 38px; min-height: 38px; margin: 0; }
+.studio-asset-toolbar > [role="group"] { height: 38px; align-items: stretch; }
+.studio-app .studio-asset-toolbar > [role="group"] button { height: 38px; }
+.studio-app .studio-asset-browser .asset-library__heading { min-height: 38px; }
+.studio-app .studio-asset-browser .asset-library__heading .button-row { align-items: center; }
+@container (max-width: 760px) {
+  .studio-asset-toolbar { grid-template-columns: minmax(0,1fr) minmax(0,1fr) auto; }
+  .studio-asset-toolbar > input { grid-column: 1 / -1; }
+}
+@container (max-width: 420px) {
+  .studio-asset-toolbar { grid-template-columns: minmax(0,1fr) minmax(0,1fr); }
+  .studio-asset-toolbar > [role="group"] { grid-column: 1 / -1; justify-self: end; }
+  .studio-asset-list--grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 150px), 1fr)); }
+  .studio-asset-list--list .studio-asset-row { grid-template-columns: 48px minmax(0,1fr); }
+  .studio-asset-list--list .studio-asset-controls { grid-column: 2; justify-content: flex-start; padding: 8px 12px 0; }
+}

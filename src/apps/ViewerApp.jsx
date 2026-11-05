@@ -1,19 +1,17 @@
-import React, { useEffect, useState } from 'react'
+import React, { useState } from 'react'
 import Viewer from '../components/Viewer'
 import ProjectOfflineControl from '../components/ProjectOfflineControl'
+import ProjectWatermark from '../components/ProjectWatermark'
 import { useProject } from '../hooks/useProject'
+import { resolveSceneId } from '../viewer/sceneSelection'
 
 export default function ViewerApp({ projectId = 'default' }) {
   const { project, loading, error, source, reload } = useProject(projectId)
-  const [sceneId, setSceneId] = useState(null)
+  const [selectedSceneId, setSceneId] = useState(null)
   const scenes = project?.scenes || []
   const guides = project?.guides || []
 
-  useEffect(() => {
-    if (project && scenes.length && (!sceneId || !scenes.some((scene) => scene.id === sceneId))) {
-      setSceneId(project.startSceneId || scenes[0].id)
-    }
-  }, [project, scenes, sceneId])
+  const sceneId = resolveSceneId(scenes, selectedSceneId, project?.startSceneId)
 
   if (loading) return <div className="app-loading">Loading project...</div>
 
@@ -26,7 +24,7 @@ export default function ViewerApp({ projectId = 'default' }) {
     )
   }
 
-  if (!sceneId) return null
+  if (!sceneId) return <div className="app-loading">This tour has no scenes yet.</div>
 
   return (
     <div className="app">
@@ -35,11 +33,11 @@ export default function ViewerApp({ projectId = 'default' }) {
         onNavigate={setSceneId}
         scenes={scenes}
         guides={guides}
+        overlayChildren={<>
+          <ProjectOfflineControl project={project} source={source} />
+          <ProjectWatermark title={project.title || project.id} offline={source === 'offline'} />
+        </>}
       />
-      <ProjectOfflineControl project={project} source={source} />
-      <div className="project-badge">
-        {project.title || project.id}{source === 'offline' ? ' · offline copy' : ''}
-      </div>
     </div>
   )
 }

@@ -2,6 +2,7 @@ node_modules/
 dist/
 .env
 storage/
+server/data/asset-thumbnails/
 public/uploads/*
 !public/uploads/.gitkeep
 .DS_Store

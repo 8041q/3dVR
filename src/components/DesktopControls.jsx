@@ -3,7 +3,7 @@ import * as THREE from 'three'
 import { useFrame, useThree } from '@react-three/fiber'
 import { clamp, damp, nearestAngle, PITCH_LIMIT, pointerSensitivity, wheelPixels } from '../input/lookMotion'
 
-export default function DesktopControls({ enabled = true, invertX = true, invertY = true, focusRequest = null, viewRef = null }) {
+export default function DesktopControls({ enabled = true, invertX = true, invertY = true, focusRequest = null, viewRef = null, controlledFov = null }) {
   const { camera, gl } = useThree()
   const state = useRef({ yaw: 0, pitch: 0, targetYaw: 0, targetPitch: 0, fov: 75, pointerId: null, focusId: null })
 
@@ -42,6 +42,7 @@ export default function DesktopControls({ enabled = true, invertX = true, invert
     }
     const wheel = (event) => {
       event.preventDefault()
+      if (controlledFov != null) return
       current.fov = clamp(current.fov + wheelPixels(event, element.clientHeight) * 0.045, 35, 95)
     }
     element.addEventListener('pointerdown', down)
@@ -62,7 +63,7 @@ export default function DesktopControls({ enabled = true, invertX = true, invert
       element.removeEventListener('wheel', wheel)
       window.removeEventListener('blur', stop)
     }
-  }, [enabled, camera, gl, invertX, invertY])
+  }, [enabled, camera, gl, invertX, invertY, controlledFov])
 
   useEffect(() => {
     const current = state.current
@@ -81,8 +82,8 @@ export default function DesktopControls({ enabled = true, invertX = true, invert
     current.yaw = damp(current.yaw, current.targetYaw, delta, speed)
     current.pitch = damp(current.pitch, current.targetPitch, delta, speed)
     camera.rotation.set(current.pitch, current.yaw, 0, 'YXZ')
-    if (viewRef) viewRef.current = { yaw: THREE.MathUtils.radToDeg(-current.yaw), pitch: THREE.MathUtils.radToDeg(current.pitch) }
-    const fov = damp(camera.fov, current.fov, delta)
+    const fov = controlledFov ?? damp(camera.fov, current.fov, delta)
+    if (viewRef) viewRef.current = { yaw: THREE.MathUtils.radToDeg(-current.yaw), pitch: THREE.MathUtils.radToDeg(current.pitch), fov }
     if (fov !== camera.fov) {
       camera.fov = fov
       camera.updateProjectionMatrix()

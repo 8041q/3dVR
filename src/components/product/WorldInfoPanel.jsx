@@ -2,6 +2,7 @@ import React, { useEffect, useMemo } from 'react'
 import * as THREE from 'three'
 import { useThree } from '@react-three/fiber'
 import WorldButton from './WorldButton'
+import { drawWorldSurface, worldAppearance } from '../../theme/worldAppearance'
 
 function wrapText(context, text, maxWidth) {
   const words = String(text || '').split(/\s+/).filter(Boolean)
@@ -28,20 +29,19 @@ function createInfoTexture(title, body) {
   canvas.height = 760
   const context = canvas.getContext('2d')
 
-  context.fillStyle = 'rgba(8, 12, 19, 0.96)'
-  context.fillRect(0, 0, canvas.width, canvas.height)
-  context.strokeStyle = 'rgba(255,255,255,0.35)'
-  context.lineWidth = 5
-  context.strokeRect(4, 4, canvas.width - 8, canvas.height - 8)
+  const colors = worldAppearance()
+  drawWorldSurface(context, { fill: colors.surface, stroke: colors.line, radius: 40 })
 
-  context.fillStyle = '#ffffff'
-  context.font = '700 64px system-ui, sans-serif'
+  context.fillStyle = colors.ink
+  context.font = `650 64px ${colors.font}`
   context.textAlign = 'left'
   context.textBaseline = 'top'
   context.fillText(title || 'Information', 70, 62, 1060)
 
-  context.fillStyle = '#dce3ec'
-  context.font = '400 40px system-ui, sans-serif'
+  context.fillStyle = colors.line
+  context.fillRect(70, 145, 1060, 3)
+  context.fillStyle = colors.ink
+  context.font = `400 40px ${colors.font}`
   const lines = wrapText(context, body || '', 1060).slice(0, 11)
   lines.forEach((line, index) => {
     context.fillText(line, 70, 170 + index * 50)
@@ -49,9 +49,6 @@ function createInfoTexture(title, body) {
 
   const texture = new THREE.CanvasTexture(canvas)
   texture.colorSpace = THREE.SRGBColorSpace
-  texture.minFilter = THREE.LinearFilter
-  texture.magFilter = THREE.LinearFilter
-  texture.generateMipmaps = false
   texture.needsUpdate = true
   return texture
 }

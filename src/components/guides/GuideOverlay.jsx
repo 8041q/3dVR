@@ -1,12 +1,12 @@
 import React from 'react'
 
-export default function GuideOverlay({ guide, step, stepIndex, onPrevious, onNext, onExit, onPlayNarration }) {
+export default function GuideOverlay({ guide, step, stepIndex, onPrevious, onNext, onExit }) {
   if (!guide || !step) return null
 
   const total = guide.steps?.length || 0
 
   return (
-    <section className="guide-overlay" aria-label="Guided tour">
+    <section className="guide-overlay" data-viewer-chrome="bottom" aria-label="Guided tour">
       <header>
         <div>
           <div className="guide-overlay__eyebrow">
@@ -24,9 +24,6 @@ export default function GuideOverlay({ guide, step, stepIndex, onPrevious, onNex
       </div>
 
       <div className="guide-overlay__actions">
-        {step.narrationUrl && (
-          <button type="button" onClick={onPlayNarration}>Narration</button>
-        )}
         <button type="button" onClick={onPrevious} disabled={stepIndex === 0}>Previous</button>
         <button type="button" onClick={onNext}>
           {stepIndex >= total - 1 ? 'Finish' : 'Next'}

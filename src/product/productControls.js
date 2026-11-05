@@ -1,8 +1,11 @@
 import * as THREE from 'three'
 
+const variantGenerations = new WeakMap()
+
 export function resolveAnimationControls(inspection, animations = []) {
+  const available = new Set(animations)
   const configured = (inspection?.animationControls || [])
-    .filter((control) => control?.clip)
+    .filter((control) => control?.clip && available.has(control.clip))
     .map((control) => ({
       id: control.id || control.clip,
       label: control.label || control.clip,
@@ -12,7 +15,7 @@ export function resolveAnimationControls(inspection, animations = []) {
   if (inspection?.exposeAnimations === false) return configured
 
   const mapped = new Set(configured.map((control) => control.clip))
-  const automatic = animations
+  const automatic = [...available]
     .filter((name) => !mapped.has(name))
     .map((name) => ({ id: `auto-${name}`, label: name, clip: name }))
 
@@ -32,7 +35,7 @@ function ensureBaseMaterialState(material) {
 }
 
 function targetMaterials(object, materialName = '*') {
-  const result = []
+  const result = new Set()
   const targetName = String(materialName || '*').trim() || '*'
 
   object?.traverse?.((child) => {
@@ -41,47 +44,46 @@ function targetMaterials(object, materialName = '*') {
 
     for (const material of materials) {
       if (!material) continue
-      ensureBaseMaterialState(material)
       if (targetName !== '*' && material.name !== targetName) continue
-      result.push(material)
+      result.add(material)
     }
   })
 
   return result
 }
 
-export function resetObjectMaterials(object) {
-  if (object?.userData) {
-    object.userData.__3dvrVariantGeneration = Number(object.userData.__3dvrVariantGeneration || 0) + 1
+function nextVariantGeneration(object) {
+  const next = (variantGenerations.get(object) || 0) + 1
+  variantGenerations.set(object, next)
+  return next
+}
+
+function restoreBaseMaterials(object) {
+  const variantTextures = new Set()
+  const materials = targetMaterials(object)
+  for (const material of materials) {
+    ensureBaseMaterialState(material)
+    const base = material.userData.__3dvrBaseMaterialState
+    const variantTexture = material.userData.__3dvrVariantTexture
+
+    if (variantTexture && variantTexture !== base.map) variantTextures.add(variantTexture)
+    delete material.userData.__3dvrVariantTexture
+
+    if (base.color && material.color) material.color.copy(base.color)
+    if ('map' in material) material.map = base.map || null
+    if (base.roughness != null && 'roughness' in material) material.roughness = base.roughness
+    if (base.metalness != null && 'metalness' in material) material.metalness = base.metalness
+    material.needsUpdate = true
   }
 
-  const variantTextures = new Set()
-  let changed = 0
-
-  object?.traverse?.((child) => {
-    if (!child.isMesh) return
-    const materials = Array.isArray(child.material) ? child.material : [child.material]
-
-    for (const material of materials) {
-      if (!material) continue
-      ensureBaseMaterialState(material)
-      const base = material.userData.__3dvrBaseMaterialState
-      const variantTexture = material.userData.__3dvrVariantTexture
-
-      if (variantTexture && variantTexture !== base.map) variantTextures.add(variantTexture)
-      delete material.userData.__3dvrVariantTexture
-
-      if (base.color && material.color) material.color.copy(base.color)
-      if ('map' in material) material.map = base.map || null
-      if (base.roughness != null && 'roughness' in material) material.roughness = base.roughness
-      if (base.metalness != null && 'metalness' in material) material.metalness = base.metalness
-      material.needsUpdate = true
-      changed += 1
-    }
-  })
-
   for (const texture of variantTextures) texture.dispose?.()
-  return changed
+  return materials.size
+}
+
+export function resetObjectMaterials(object) {
+  if (!object) return 0
+  nextVariantGeneration(object)
+  return restoreBaseMaterials(object)
 }
 
 // Backwards-compatible name used by earlier phases. It now restores the full
@@ -113,12 +115,12 @@ function loadTexture(url, repeat = [1, 1]) {
 }
 
 export async function applyMaterialVariant(object, variant) {
-  resetObjectMaterials(object)
-  if (!object || !variant) return false
-  const generation = Number(object.userData?.__3dvrVariantGeneration || 0)
+  if (!object) return false
+  const generation = nextVariantGeneration(object)
+  if (!variant) return false
 
   const materials = targetMaterials(object, variant.materialName)
-  if (materials.length === 0) return false
+  if (!materials.size || (variant.textureUrl && ![...materials].some((material) => 'map' in material))) return false
 
   const color = variant.color ? new THREE.Color(variant.color) : null
   const roughness = variant.roughness === '' || variant.roughness == null
@@ -132,16 +134,17 @@ export async function applyMaterialVariant(object, variant) {
   if (variant.textureUrl) {
     try {
       texture = await loadTexture(variant.textureUrl, variant.textureRepeat)
-      if (Number(object.userData?.__3dvrVariantGeneration || 0) !== generation) {
-        texture.dispose?.()
-        return false
-      }
     } catch (error) {
       console.warn('[product] finish texture failed', variant.textureUrl, error)
       return false
     }
   }
 
+  if (variantGenerations.get(object) !== generation) {
+    texture?.dispose?.()
+    return false
+  }
+  restoreBaseMaterials(object)
   for (const material of materials) {
     if (color && material.color) material.color.copy(color)
     if (texture && 'map' in material) {

@@ -1,4 +1,4 @@
-# 3DVR self-hosted viewer/editor
+# Atria 3DVR self-hosted viewer/editor
 
 Self-hosted 360 panorama, WebXR, guided-tour and product-inspection platform intended for company presentations and exhibitions.
 
@@ -23,7 +23,7 @@ For normal editor use, start with [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md). Fo
 - Offline byte-range responses for downloaded audio/video media.
 - Hotspots with ordered reusable actions.
 - Scene navigation, information, external-link, model-inspection and start-guide actions.
-- First-class guided experiences with ordered steps, scene changes, focus cues, hotspot highlights, narration, hotspot-driven completion and timed progression.
+- First-class guided experiences with ordered steps, scene changes, focus cues, hotspot highlights, hotspot-driven completion and timed progression.
 - GLB product inspection with designer-friendly animation controls.
 - Finish presets targeting named GLB materials, with color, textures, roughness and metalness.
 - Selectable model annotations.
@@ -115,15 +115,7 @@ Expose the application through trusted HTTPS for WebXR. A minimal Caddy example 
 npm test
 ```
 
-The test suite now contains two checks that are present in this repository:
-
-```bash
-npm run test:repo
-npm run test:assets
-npm run test:migration
-```
-
-`test:repo` checks local imports, package-script targets and project upload references. `test:assets` verifies portable upload naming, numeric collision handling, safe deletion/reference guards and the Blender-room filename mapping. `test:migration` validates export identity and import preflight behavior without copying the large room asset.
+This runs the editor and project persistence tests. The persistence tests use a temporary project store. Run `npm run test:editor` to run just the editor tests.
 
 
 ### Asset filenames and deletion
@@ -163,7 +155,6 @@ A guide contains ordered steps. Each step can:
 - highlight a hotspot;
 - advance when a specific hotspot is selected;
 - auto-open a hotspot on entry;
-- play/replay narration audio;
 - auto-advance after a configured delay;
 - trigger an animation or material variant on an already-open product inspection.
 
@@ -205,7 +196,7 @@ A later infrastructure phase can move these snapshots and asset metadata to Post
 
 ## Current editor workflow
 
-The editor opens with **Start here**, a guided scene → hotspot → guide → preview/publish workflow and an actionable completeness checklist. The Scenes / Hotspots / Guides / Assets / Project rail exposes each task. Panorama uploads are available directly in scene settings; hotspot creation includes purpose and destination, with click-to-place, repositioning and camera focus. Save, preview, undo/redo and publication review remain in the top bar. **Preview** tests the current draft; **Review & publish** checks unfinished items before updating the public URL and generating its QR code. See `docs/USER_GUIDE.md` for the operator workflow. Run `npm run test:editor` for camera-motion, project-check and reference-cleanup regression tests.
+The editor keeps a scene list, panorama canvas, and contextual inspector in one workspace. Select a scene to manage its panorama and hotspots, or open **Guides**, **Assets**, and **Project** from the workspace bar. **Project** holds metadata (including author and credits), rights, and starting scene settings; **Manage projects** handles switching, creation, and duplication. See [project metadata](docs/PROJECT_METADATA.md) for the field model. **Preview** runs the current draft in the editor and returns to the same selection. **Review & publish** links unfinished items to their settings and publishes the reviewed revision. See [the editor guide](docs/USER_GUIDE.md) for the full workflow.
 
 See `PHASE10.md` for the scene/action/finish-authoring changes and `PHASE12.md` for the current product-inspection architecture.
 
@@ -216,4 +207,4 @@ Product inspection now stays inside the current panorama on every device instead
 
 ## Phase 15
 
-Phone viewing now includes a live calibration overlay for Magic Window, Headset Stereo and Blender-room Dollhouse preview, with corrected centered stereo projection and a visible 2-second gaze progress ring. See `PHASE15.md` and `docs/USER_GUIDE.md`.
+The viewer offers Drag, Phone VR, and VR Headset. Phone VR starts motion directly and offers Single view or Split screen, with manual phone calibration and a 2-second gaze progress ring. VR Headset starts a WebXR session; its runtime supplies tracking and per-eye rendering. Headset fit and room setup use the headset system. See `docs/USER_GUIDE.md` for the current controls.

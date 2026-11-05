@@ -1,10 +1,10 @@
-import React, { useEffect, useState } from 'react'
-import { cacheCurrentAppShell } from '../offline/serviceWorker'
+import React, { useCallback, useEffect, useState } from 'react'
+import { cacheCurrentAppShell, supportsOfflineViewer, verifyCachedAppShell } from '../offline/serviceWorker'
 import {
   downloadProject,
   getDownloadedProjectRecord,
-  getStorageEstimate,
   removeDownloadedProject,
+  verifyDownloadedAssets,
 } from '../offline/projectStore'
 
 const formatBytes = (value = 0) => (
@@ -18,29 +18,51 @@ export default function ProjectOfflineControl({ project, source }) {
   const [busy, setBusy] = useState(false)
   const [progress, setProgress] = useState(null)
   const [error, setError] = useState('')
-  const [storage, setStorage] = useState(null)
+  const [checking, setChecking] = useState(true)
+  const [verified, setVerified] = useState(false)
+  const supported = supportsOfflineViewer()
 
-  async function refresh() {
-    setRecord(await getDownloadedProjectRecord(project.id).catch(() => null))
-    setStorage(await getStorageEstimate())
-  }
+  const refresh = useCallback(async (isCurrent = () => true) => {
+    setChecking(true)
+    const download = await getDownloadedProjectRecord(project.id).catch(() => null)
+    const ready = download && await Promise.all([
+      verifyDownloadedAssets(download),
+      verifyCachedAppShell(download.shell),
+    ]).then((results) => results.every(Boolean)).catch(() => false)
+    if (!isCurrent()) return
+    setRecord(download)
+    setVerified(Boolean(ready))
+    setChecking(false)
+  }, [project.id])
 
   useEffect(() => {
-    refresh()
-  }, [project.id, project.revision])
+    let active = true
+    const check = () => { void refresh(() => active) }
+    check()
+    navigator.serviceWorker?.addEventListener('controllerchange', check)
+    return () => {
+      active = false
+      navigator.serviceWorker?.removeEventListener('controllerchange', check)
+    }
+  }, [refresh, project.revision])
 
   const current = record?.revision === project.revision
+  const ready = current && verified && !checking
+  const needsUpdate = record && !current
+  const status = busy ? 'Saving…' : checking ? 'Checking…' : ready ? 'Ready offline' : needsUpdate ? 'Update available' : record ? 'Save again' : 'Not saved'
 
   async function save() {
     setBusy(true)
     setError('')
+    setProgress(null)
     try {
-      await cacheCurrentAppShell()
-      const result = await downloadProject(project, setProgress)
+      const shell = await cacheCurrentAppShell()
+      const result = await downloadProject(project, { shell, onProgress: setProgress })
       setProgress({ completed: result.assetCount, total: result.assetCount, bytes: result.bytes })
       await refresh()
     } catch (saveError) {
-      setError(saveError.message)
+      setProgress(null)
+      setError(saveError.message || 'Could not prepare the offline copy.')
     } finally {
       setBusy(false)
     }
@@ -48,34 +70,54 @@ export default function ProjectOfflineControl({ project, source }) {
 
   async function remove() {
     setBusy(true)
+    setError('')
     try {
       await removeDownloadedProject(project.id)
+      setProgress(null)
       await refresh()
+    } catch (removeError) {
+      setError(removeError.message || 'Could not remove the offline copy.')
     } finally {
       setBusy(false)
     }
   }
 
   return (
-    <details className="floating-card offline-control">
-      <summary>Offline project{current ? ' - ready' : ''}</summary>
-      <div className="muted">
-        {source === 'offline'
-          ? 'Currently using the local copy.'
-          : current
-            ? `Downloaded - ${formatBytes(record.bytes)}`
-            : 'Download this project explicitly for exhibition/offline use.'}
-      </div>
-      {progress && <div>Files {progress.completed}/{progress.total} - {formatBytes(progress.bytes)}</div>}
-      {storage?.quota && (
-        <div className="muted">Device storage: {formatBytes(storage.usage)} / {formatBytes(storage.quota)}</div>
-      )}
-      {error && <div className="error-text">{error}</div>}
-      <div className="button-row">
-        <button disabled={busy || current} onClick={save}>
-          {record ? 'Update offline copy' : 'Download project'}
-        </button>
-        {record && <button disabled={busy} onClick={remove}>Remove</button>}
+    <details className="floating-card offline-control" data-viewer-chrome="top" onKeyDown={(event) => {
+      if (event.key !== 'Escape') return
+      event.stopPropagation()
+      event.currentTarget.open = false
+      event.currentTarget.querySelector('summary')?.focus()
+    }}>
+      <summary>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M12 3v12m-5-5 5 5 5-5M5 16v5h14v-5" />
+        </svg>
+        <span>Offline Mode</span>
+        {ready && <span className="offline-control__ready" role="img" aria-label="Ready offline">✓</span>}
+      </summary>
+      <div className="offline-control__panel" aria-busy={busy}>
+        <strong className="offline-control__title">{project.title || 'Tour'}</strong>
+        <dl className="offline-control__metadata">
+          <div><dt>Status</dt><dd role="status">{source === 'offline' && ready ? 'Viewing offline' : status}</dd></div>
+          <div><dt>Scenes</dt><dd>{project.scenes?.length || 0}</dd></div>
+          {record && <div><dt>Saved size</dt><dd>{formatBytes(record.bytes)} · {record.assetCount} files</dd></div>}
+          {record?.downloadedAt && <div><dt>Saved</dt><dd>{new Date(record.downloadedAt).toLocaleDateString()}</dd></div>}
+          {!supported && <div><dt>Availability</dt><dd>Published tours only</dd></div>}
+        </dl>
+        {busy && progress && (
+          <div className="offline-control__progress" role="status">
+            <progress aria-label="Saving tour" value={progress.completed} max={Math.max(1, progress.total)} />
+            <span>{progress.completed} / {progress.total} files · {formatBytes(progress.bytes)}</span>
+          </div>
+        )}
+        {error && <div className="error-text" role="alert">{error}</div>}
+        <div className="button-row">
+          {!ready && <button className="primary" disabled={!supported || busy || checking} onClick={save}>
+            {busy ? 'Saving…' : needsUpdate ? 'Update saved tour' : record ? 'Save again' : 'Save for offline'}
+          </button>}
+          {record && <button disabled={busy || checking} onClick={remove}>Remove saved tour</button>}
+        </div>
       </div>
     </details>
   )

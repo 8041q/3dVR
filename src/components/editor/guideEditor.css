@@ -1,0 +1,136 @@
+.guide-layout {
+  display: grid;
+  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+  align-items: start;
+  gap: var(--studio-space-4);
+  margin-top: var(--studio-space-3);
+}
+
+.guide-sequence { min-width: 0; }
+.studio-app .guide-layout > .guide-step-inspector {
+  min-width: 0;
+  padding-inline-start: var(--studio-space-4);
+  border-inline-start: 1px solid var(--studio-line);
+}
+
+.studio-app .guide-editor__topline { align-items: center; gap: var(--studio-space-2); }
+.guide-editor__topline button, .guide-storyboard-header button { flex: none; white-space: nowrap; }
+.studio-app .guide-storyboard-header { align-items: center; margin-top: var(--studio-space-3); }
+.studio-app .guide-storyboard-header strong { font-size: 13px; }
+.studio-app .guide-picker-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--studio-space-2);
+  margin-top: var(--studio-space-2);
+}
+.studio-app .guide-picker-row > label {
+  flex: 0 1 280px;
+  min-width: min(100%, 160px);
+  margin: 0;
+}
+
+.studio-app .guide-storyboard {
+  display: grid;
+  gap: 0;
+  margin: var(--studio-space-2) 0 0;
+  padding: 0;
+  overflow: visible;
+  scroll-snap-type: none;
+}
+
+/* The legacy stylesheet gives storyboard buttons fixed card dimensions. */
+.studio-app .guide-story-card {
+  width: 100%;
+  min-width: 0;
+  height: auto;
+  min-height: 44px;
+  gap: var(--studio-space-2);
+  padding: 8px !important;
+  border: 0 !important;
+  border-bottom: 1px solid var(--studio-line) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: var(--studio-text);
+}
+.studio-app .guide-story-card:hover { background: var(--studio-subtle) !important; }
+.studio-app .guide-story-card.active { background: var(--studio-selection) !important; color: var(--studio-accent); }
+.studio-app .guide-story-card:focus-visible { outline: 2px solid var(--studio-accent) !important; outline-offset: -2px; }
+
+.guide-editor .guide-story-card__number {
+  width: 20px;
+  height: 20px;
+  flex-basis: 20px;
+  border-radius: 6px;
+  background: var(--studio-subtle);
+  color: var(--studio-muted);
+  font-weight: 600;
+}
+.guide-editor .guide-story-card__body strong { font-size: 13px; }
+.guide-editor .guide-story-card__body small { margin-top: 0; color: var(--studio-muted); font-size: 11px; }
+.guide-editor .guide-story-card__badges:not(:empty) { gap: var(--studio-space-2); margin-top: var(--studio-space-1); }
+.guide-editor .guide-story-card__badges em { padding: 0; background: transparent; color: var(--studio-muted); font-size: 10px; }
+
+.studio-app .guide-step-inspector__header { align-items: center; gap: var(--studio-space-2); }
+.studio-app .guide-step-inspector__header strong { font-size: 14px; }
+.studio-app .guide-step-inspector__header .compact-actions { width: auto; }
+.studio-app .guide-step-section { margin-top: var(--studio-space-3); padding-top: var(--studio-space-3); border-top-color: var(--studio-line); }
+.studio-app .guide-step-footer-actions { gap: var(--studio-space-2); margin-top: var(--studio-space-3); }
+
+.guide-viewfinder { margin-block: var(--studio-space-3); }
+.guide-viewfinder-canvas {
+  position: relative;
+  height: 260px;
+  overflow: hidden;
+  background: var(--ui-stage);
+}
+
+@media (max-width: 680px) {
+  .guide-layout { grid-template-columns: minmax(0, 1fr); }
+  .studio-app .guide-layout > .guide-step-inspector {
+    padding-block-start: var(--studio-space-3);
+    padding-inline-start: 0;
+    border-block-start: 1px solid var(--studio-line);
+    border-inline-start: 0;
+  }
+  .guide-viewfinder-canvas { height: 220px; }
+}
+
+/* Keep guide navigation focused on the ordered steps. */
+.studio-app .guide-picker-row { gap: 12px; padding: 12px 0 20px; border-bottom: 1px solid var(--studio-line); }
+.studio-app .guide-picker-row > label { flex: 1 1 180px; }
+.studio-app .guide-settings { flex-basis: 100%; margin: 0; }
+.guide-settings > label { width: 100%; }
+.studio-app .guide-sequence { position: sticky; top: 0; }
+.studio-app .guide-sequence > p { font-size: 11px; }
+.studio-app .guide-storyboard { max-height: 65dvh; overflow: auto; }
+.studio-app .guide-step-inspector__header h3 { margin: 0; font-size: 15px; }
+.studio-app .guide-step-inspector .guide-step-section { margin: 20px 0 0; padding: 20px 0 0; border: 0; border-top: 1px solid var(--studio-line); }
+.studio-app .guide-step-section h3 { margin: 0 0 8px; font-size: 15px; }
+.studio-app .guide-step-section > p { font-size: 12px; line-height: 1.6; }
+.studio-app .guide-viewfinder { margin: 0 0 16px; }
+.guide-viewfinder > p { margin-top: 0; font-size: 12px; line-height: 1.6; }
+.guide-viewfinder-canvas { height: 300px; border: 1px solid var(--studio-line); border-radius: var(--studio-radius); }
+.guide-product-settings { padding: 12px; margin: 12px 0; background: var(--studio-subtle); border-radius: var(--studio-radius); }
+.guide-product-settings > strong { font-size: 12px; }
+.studio-app .guide-step-footer-actions { display: flex; flex-wrap: wrap; padding-top: 20px; border-top: 1px solid var(--studio-line); }
+@media (max-width: 680px) {
+  .studio-app .guide-sequence { position: static; }
+  .studio-app .guide-storyboard { max-height: 180px; }
+  .guide-viewfinder-canvas { height: 240px; }
+}
+.studio-workspace-view--guides .studio-workspace-body > .guide-editor { width: 100%; max-width: none; }
+.guide-layout { grid-template-columns: minmax(200px, 240px) minmax(0, 1fr); }
+@media (max-width: 680px) { .guide-layout { grid-template-columns: minmax(0, 1fr); } }
+
+.studio-app .guide-picker-row { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr) auto; align-items: end; }
+.studio-app .editor-panel .guide-picker-row > label { display: flex; flex-direction: column; gap: 6px; margin: 0; min-width: 0; }
+.studio-app .editor-panel .guide-picker-row > label :is(input, select) { height: 38px; min-height: 38px; margin: 0; }
+.studio-app .guide-picker-row > button { height: 38px; }
+.studio-app .guide-picker-row > .guide-settings { grid-column: 1 / -1; }
+.studio-app .guide-storyboard-header { margin-top: 0; min-height: 38px; }
+.studio-app .guide-step-inspector__header { min-height: 38px; margin: 0; padding: 0; }
+@media (max-width: 680px) {
+  .studio-app .guide-picker-row { grid-template-columns: minmax(0,1fr) auto; }
+  .studio-app .guide-picker-row > label:first-child { grid-column: 1 / -1; }
+}

@@ -1,42 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react'
-import { ACTION_TYPES, createAction, normalizeHotspotActions } from '../../actions/actionTypes'
-import ModelAuthoringEditor from './ModelAuthoringEditor'
-
-const ACTION_CHOICES = [
-  {
-    type: ACTION_TYPES.NAVIGATE_SCENE,
-    label: 'Go to scene',
-    description: 'Move the visitor into another 360 scene.',
-  },
-  {
-    type: ACTION_TYPES.PLAY_ROOM_ANIMATION,
-    label: 'Play room movement',
-    description: 'Run an animation already contained in the Blender spatial room.',
-  },
-  {
-    type: ACTION_TYPES.INSPECT_MODEL,
-    label: 'Open a 3D product',
-    description: 'Let visitors rotate, inspect and customize a 3D model.',
-  },
-  {
-    type: ACTION_TYPES.SHOW_INFO,
-    label: 'Show information',
-    description: 'Display a short title and explanation.',
-  },
-  {
-    type: ACTION_TYPES.START_GUIDE,
-    label: 'Start guide',
-    description: 'Begin one of the guided visitor experiences.',
-  },
-  {
-    type: ACTION_TYPES.OPEN_URL,
-    label: 'Open link',
-    description: 'Open a website or other web resource.',
-  },
-]
+import Select from '../ui/Select'
+import React, { useEffect, useId, useState } from 'react'
+import { ACTION_CHOICES, ACTION_TYPES, createAction, isPanoramaFallback, isRoomFallbackPair, normalizeHotspotActions, withHotspotActions } from '../../actions/actionTypes'
 
 function labelForType(type) {
-  return ACTION_CHOICES.find((choice) => choice.type === type)?.label || 'Action'
+  return ACTION_CHOICES.find((choice) => choice.type === type)?.label || 'Unsupported action'
 }
 
 function summaryForAction(action, scenes, guides) {
@@ -52,7 +19,7 @@ function summaryForAction(action, scenes, guides) {
   }
 
   if (action.type === ACTION_TYPES.INSPECT_MODEL) {
-    return action.title || (action.modelUrl ? 'Separate 3D model' : 'Choose a GLB model')
+    return action.modelUrl ? action.title || '3D model' : 'Choose a GLB model'
   }
 
   if (action.type === ACTION_TYPES.SHOW_INFO) {
@@ -71,12 +38,8 @@ function summaryForAction(action, scenes, guides) {
   return ''
 }
 
-function replaceAction(actions, index, nextAction) {
-  return actions.map((action, actionIndex) => actionIndex === index ? nextAction : action)
-}
-
 function moveAction(actions, fromIndex, toIndex) {
-  if (toIndex < 0 || toIndex >= actions.length || fromIndex === toIndex) return actions
+  if (fromIndex < 0 || toIndex < 0 || toIndex >= actions.length || fromIndex === toIndex) return actions
   const next = [...actions]
   const [item] = next.splice(fromIndex, 1)
   next.splice(toIndex, 0, item)
@@ -88,216 +51,189 @@ export default function HotspotActionEditor({
   scenes,
   guides = [],
   currentSceneId,
-  uploadAsset,
   onUpdate,
+  onEditActions,
+  onEditProduct,
+  selectionRequest,
 }) {
   const actions = normalizeHotspotActions(hotspot)
   const currentScene = scenes.find((scene) => scene.id === currentSceneId)
   const roomAnimations = Array.isArray(currentScene?.spatial?.animations) ? currentScene.spatial.animations : []
-  const [selectedActionId, setSelectedActionId] = useState(actions[0]?.id || '')
-  const [showAddPicker, setShowAddPicker] = useState(actions.length === 0)
+  const readyGuides = guides.filter((guide) => guide.steps?.length)
+  const [selectedActionId, setSelectedActionId] = useState(selectionRequest?.actionId || '')
+  const [newActionType, setNewActionType] = useState('')
+  const [addingAction, setAddingAction] = useState(false)
+  const addActionId = useId()
+  const selectedIndex = Math.max(0, actions.findIndex((action) => action.id === selectedActionId))
+  const selectedAction = actions[selectedIndex]
+  const fallbackPair = isRoomFallbackPair(actions)
+  const addingFallback = actions.length === 1 && actions[0].type === ACTION_TYPES.PLAY_ROOM_ANIMATION
+  const fallbackSelected = fallbackPair && selectedIndex === 1
+  const choices = ACTION_CHOICES.filter(({ type }) => {
+    if (type === ACTION_TYPES.NAVIGATE_SCENE) return scenes.some((scene) => scene.id !== currentSceneId)
+    if (type === ACTION_TYPES.START_GUIDE) return readyGuides.length > 0
+    if (type === ACTION_TYPES.PLAY_ROOM_ANIMATION) return Boolean(currentScene?.spatial?.roomUrl && Array.isArray(hotspot.spatialPosition))
+    return true
+  })
+  const addChoices = addingFallback ? choices.filter(({ type }) => isPanoramaFallback(type)) : choices
+  const typeChoices = fallbackSelected ? choices.filter(({ type }) => isPanoramaFallback(type)) : choices
 
   useEffect(() => {
-    if (actions.length === 0) {
-      setSelectedActionId('')
-      return
-    }
+    if (selectionRequest?.actionId) setSelectedActionId(selectionRequest.actionId)
+  }, [selectionRequest])
 
-    if (!actions.some((action) => action.id === selectedActionId)) {
-      setSelectedActionId(actions[0].id)
-    }
-  }, [actions, selectedActionId])
+  function editActions(update) {
+    if (onEditActions) return onEditActions(update)
+    return onUpdate(withHotspotActions(hotspot, update(actions)))
+  }
 
-  const selectedIndex = useMemo(
-    () => actions.findIndex((action) => action.id === selectedActionId),
-    [actions, selectedActionId],
-  )
-  const selectedAction = selectedIndex >= 0 ? actions[selectedIndex] : null
+  function patchAction(patch) {
+    // An upload may finish after the action was moved, deleted or replaced.
+    editActions((current) => current.map((action) => {
+      if (action.id !== selectedAction.id || action.type !== selectedAction.type) return action
+      const change = typeof patch === 'function' ? patch(action) : patch
+      return change ? { ...action, ...change } : action
+    }))
+  }
 
-  function updateActions(nextActions) {
-    const navigation = nextActions.find((action) => action.type === ACTION_TYPES.NAVIGATE_SCENE)
-    onUpdate({
-      ...hotspot,
-      actions: nextActions,
-      targetSceneId: navigation?.sceneId || '',
+  function addAction() {
+    if (!newActionType) return
+    const action = createAction(newActionType)
+    editActions((current) => !current.length || (current.length === 1
+      && current[0].type === ACTION_TYPES.PLAY_ROOM_ANIMATION && isPanoramaFallback(action.type))
+      ? [...current, action] : current)
+    setSelectedActionId(action.id)
+    setNewActionType('')
+    setAddingAction(false)
+  }
+
+  function reorderAction(delta) {
+    editActions((current) => {
+      const index = current.findIndex((action) => action.id === selectedAction.id)
+      return moveAction(current, index, index + delta)
     })
   }
 
-  function patchAction(index, patch) {
-    updateActions(replaceAction(actions, index, { ...actions[index], ...patch }))
-  }
-
-  function addAction(type) {
-    const action = createAction(type)
-    updateActions([...actions, action])
-    setSelectedActionId(action.id)
-    setShowAddPicker(false)
-  }
-
-  function removeAction(index) {
-    const next = actions.filter((_, itemIndex) => itemIndex !== index)
-    updateActions(next)
-    const nextSelected = next[Math.min(index, next.length - 1)]
-    setSelectedActionId(nextSelected?.id || '')
-  }
+  const addActionFields = (
+    <>
+      <label>
+        {addingFallback ? 'Panorama fallback' : 'What should this hotspot do?'}
+        <Select value={newActionType} onChange={(event) => setNewActionType(event.target.value)}>
+          <option value="">Choose an action</option>
+          {addChoices.map((choice) => (
+            <option key={choice.type} value={choice.type}>{choice.label}</option>
+          ))}
+        </Select>
+      </label>
+      <button type="button" onClick={addAction} disabled={!newActionType}>
+        {addingFallback ? 'Add fallback' : 'Set action'}
+      </button>
+    </>
+  )
 
   return (
     <div className="action-editor action-editor--builder">
-      <div className="action-editor__heading">
-        <div>
-          <strong>What happens when selected</strong>
-          <div className="muted">Actions run from top to bottom. Select one card to edit it.</div>
-        </div>
-        <button type="button" onClick={() => setShowAddPicker((value) => !value)}>
-          Add action
-        </button>
-      </div>
-
-      {showAddPicker && (
-        <div className="action-picker">
-          {ACTION_CHOICES.map((choice) => (
-            <button type="button" key={choice.type} onClick={() => addAction(choice.type)}>
-              <strong>{choice.label}</strong>
-              <span>{choice.description}</span>
-            </button>
-          ))}
-        </div>
+      {!selectedAction && <div>{addActionFields}</div>}
+      {actions.length > 1 && (
+        <label>
+          {fallbackPair ? 'Room action and fallback' : 'Existing actions in run order'}
+          <Select value={selectedAction.id} onChange={(event) => setSelectedActionId(event.target.value)}>
+            {actions.map((action, index) => (
+              <option key={action.id} value={action.id}>
+                {fallbackPair ? (index === 0 ? 'Tracked VR' : 'Panorama fallback') : index + 1}. {labelForType(action.type)} · {summaryForAction(action, scenes, guides)}
+              </option>
+            ))}
+          </Select>
+        </label>
       )}
-
-      {actions.length === 0 && (
-        <div className="editor-empty-state">
-          This hotspot does nothing yet. Add the first action visitors should trigger.
-        </div>
-      )}
-
-      <div className="action-sequence">
-        {actions.map((action, index) => (
-          <article
-            key={action.id || `${action.type}-${index}`}
-            className={`action-sequence-card${action.id === selectedActionId ? ' active' : ''}`}
-          >
-            <button
-              type="button"
-              className="action-sequence-card__select"
-              onClick={() => setSelectedActionId(action.id)}
-            >
-              <span className="action-sequence-card__number">{index + 1}</span>
-              <span className="action-sequence-card__text">
-                <strong>{labelForType(action.type)}</strong>
-                <small>{summaryForAction(action, scenes, guides)}</small>
-              </span>
-            </button>
-            <div className="action-sequence-card__controls">
-              <button
-                type="button"
-                title="Move earlier"
-                disabled={index === 0}
-                onClick={() => updateActions(moveAction(actions, index, index - 1))}
-              >
-                Earlier
-              </button>
-              <button
-                type="button"
-                title="Move later"
-                disabled={index === actions.length - 1}
-                onClick={() => updateActions(moveAction(actions, index, index + 1))}
-              >
-                Later
-              </button>
-            </div>
-          </article>
-        ))}
-      </div>
+      {actions.length > 1 && !fallbackPair && <p className="muted">This hotspot runs several actions. For a clear visitor outcome, use one action per hotspot.</p>}
 
       {selectedAction && (
-        <div className="action-inspector">
-          <div className="action-inspector__header">
-            <div>
-              <div className="editor-eyebrow">Action {selectedIndex + 1}</div>
-              <strong>{labelForType(selectedAction.type)}</strong>
-            </div>
-            <button type="button" className="danger" onClick={() => removeAction(selectedIndex)}>
-              Remove
-            </button>
-          </div>
-
+        <div className="action-inspector" key={selectedAction.id}>
           <label>
-            Action type
-            <select
+            {fallbackSelected ? 'Fallback action' : 'What should it do?'}
+            <Select
               value={selectedAction.type}
+              disabled={fallbackPair && !fallbackSelected}
               onChange={(event) => {
-                const fresh = createAction(event.target.value)
-                fresh.id = selectedAction.id || fresh.id
-                updateActions(replaceAction(actions, selectedIndex, fresh))
+                const replacement = createAction(event.target.value)
+                editActions((current) => current.map((action) => action.id === selectedAction.id ? replacement : action))
+                setSelectedActionId(replacement.id)
               }}
             >
-              {ACTION_CHOICES.map((choice) => (
-                <option key={choice.type} value={choice.type}>{choice.label}</option>
-              ))}
-            </select>
+              {!typeChoices.some((choice) => choice.type === selectedAction.type) && (
+                <option value={selectedAction.type}>{labelForType(selectedAction.type)}</option>
+              )}
+              {typeChoices.map((choice) => <option key={choice.type} value={choice.type}>{choice.label}</option>)}
+            </Select>
           </label>
 
           {selectedAction.type === ACTION_TYPES.NAVIGATE_SCENE && (
             <label>
               Destination scene
-              <select
+              <Select
                 value={selectedAction.sceneId || ''}
-                onChange={(event) => patchAction(selectedIndex, { sceneId: event.target.value })}
+                onChange={(event) => patchAction({ sceneId: event.target.value })}
               >
                 <option value="">Choose a scene</option>
                 {scenes
-                  .filter((scene) => scene.id !== currentSceneId)
+                  .filter((scene) => scene.id !== currentSceneId || scene.id === selectedAction.sceneId)
                   .map((scene) => (
                     <option key={scene.id} value={scene.id}>{scene.title || scene.id}</option>
                   ))}
-              </select>
+              </Select>
+              {!scenes.some((scene) => scene.id !== currentSceneId) && (
+                <span className="muted">Add another scene to link to it.</span>
+              )}
             </label>
           )}
 
           {selectedAction.type === ACTION_TYPES.PLAY_ROOM_ANIMATION && (
             <>
-              {!currentScene?.spatial?.roomUrl && (
-                <div className="editor-warning">This action only runs when the Blender spatial room is active.</div>
-              )}
+              <p className="muted">Plays in the active 3D room. Add a fallback if this hotspot should also work in the panorama.</p>
+              {!Array.isArray(hotspot.spatialPosition) && <p className="editor-warning">This hotspot has no position in the imported room.</p>}
               <label>
                 Room animation
                 {roomAnimations.length > 0 ? (
-                  <select
+                  <Select
                     value={selectedAction.clip || ''}
-                    onChange={(event) => patchAction(selectedIndex, { clip: event.target.value })}
+                    onChange={(event) => patchAction({ clip: event.target.value })}
                   >
                     <option value="">Choose an animation</option>
+                    {selectedAction.clip && !roomAnimations.includes(selectedAction.clip) && (
+                      <option value={selectedAction.clip}>{selectedAction.clip} (missing)</option>
+                    )}
                     {roomAnimations.map((clip) => <option key={clip} value={clip}>{clip}</option>)}
-                  </select>
+                  </Select>
                 ) : (
                   <input
                     value={selectedAction.clip || ''}
-                    onChange={(event) => patchAction(selectedIndex, { clip: event.target.value })}
+                    onChange={(event) => patchAction({ clip: event.target.value })}
                     placeholder="Animation clip name from Blender"
                   />
                 )}
               </label>
               <label>
                 When selected
-                <select
+                <Select
                   value={selectedAction.behavior || 'toggle'}
-                  onChange={(event) => patchAction(selectedIndex, { behavior: event.target.value })}
+                  onChange={(event) => patchAction({ behavior: event.target.value })}
                 >
                   <option value="toggle">Toggle play / pause</option>
                   <option value="restart">Restart from beginning</option>
                   <option value="play">Play / resume</option>
-                </select>
+                </Select>
               </label>
               <div className="editor-grid-2">
                 <label>
                   Loop
-                  <select
+                  <Select
                     value={selectedAction.loop || 'once'}
-                    onChange={(event) => patchAction(selectedIndex, { loop: event.target.value })}
+                    onChange={(event) => patchAction({ loop: event.target.value })}
                   >
                     <option value="once">Once</option>
                     <option value="repeat">Repeat</option>
-                  </select>
+                  </Select>
                 </label>
                 <label>
                   Speed
@@ -307,7 +243,7 @@ export default function HotspotActionEditor({
                     max="4"
                     step="0.1"
                     value={selectedAction.speed ?? 1}
-                    onChange={(event) => patchAction(selectedIndex, { speed: Number(event.target.value) || 1 })}
+                    onChange={(event) => patchAction({ speed: Number(event.target.value) || 1 })}
                   />
                 </label>
               </div>
@@ -318,11 +254,10 @@ export default function HotspotActionEditor({
           )}
 
           {selectedAction.type === ACTION_TYPES.INSPECT_MODEL && (
-            <ModelAuthoringEditor
-              action={selectedAction}
-              uploadAsset={uploadAsset}
-              patchAction={(patch) => patchAction(selectedIndex, patch)}
-            />
+            <>
+              <p className="muted">{selectedAction.modelUrl ? `${selectedAction.title || '3D product'} · Model attached` : 'No model attached'}</p>
+              <button type="button" onClick={() => onEditProduct(selectedAction.id)}>Edit product</button>
+            </>
           )}
 
           {selectedAction.type === ACTION_TYPES.SHOW_INFO && (
@@ -331,14 +266,14 @@ export default function HotspotActionEditor({
                 Title
                 <input
                   value={selectedAction.title || ''}
-                  onChange={(event) => patchAction(selectedIndex, { title: event.target.value })}
+                  onChange={(event) => patchAction({ title: event.target.value })}
                 />
               </label>
               <label>
                 Text
                 <textarea
                   value={selectedAction.body || ''}
-                  onChange={(event) => patchAction(selectedIndex, { body: event.target.value })}
+                  onChange={(event) => patchAction({ body: event.target.value })}
                   rows="5"
                 />
               </label>
@@ -352,7 +287,7 @@ export default function HotspotActionEditor({
                 <input
                   type="url"
                   value={selectedAction.url || ''}
-                  onChange={(event) => patchAction(selectedIndex, { url: event.target.value })}
+                  onChange={(event) => patchAction({ url: event.target.value })}
                   placeholder="https://example.com"
                 />
               </label>
@@ -360,7 +295,7 @@ export default function HotspotActionEditor({
                 <input
                   type="checkbox"
                   checked={selectedAction.newTab !== false}
-                  onChange={(event) => patchAction(selectedIndex, { newTab: event.target.checked })}
+                  onChange={(event) => patchAction({ newTab: event.target.checked })}
                 />
                 Open in a new tab
               </label>
@@ -370,18 +305,41 @@ export default function HotspotActionEditor({
           {selectedAction.type === ACTION_TYPES.START_GUIDE && (
             <label>
               Guide
-              <select
+              <Select
                 value={selectedAction.guideId || ''}
-                onChange={(event) => patchAction(selectedIndex, { guideId: event.target.value })}
+                onChange={(event) => patchAction({ guideId: event.target.value })}
               >
                 <option value="">Choose a guide</option>
                 {guides.map((guide) => (
-                  <option key={guide.id} value={guide.id}>{guide.title || guide.id}</option>
+                  <option key={guide.id} value={guide.id} disabled={!guide.steps?.length}>
+                    {guide.title || guide.id}{!guide.steps?.length && ' (no steps)'}
+                  </option>
                 ))}
-              </select>
+              </Select>
+              {!readyGuides.length && <span className="muted">Create a guide with at least one step in Guides.</span>}
             </label>
           )}
         </div>
+      )}
+
+      {selectedAction && (
+        <>
+          <div className="button-row">
+            {actions.length > 1 && !fallbackPair && <>
+              <button type="button" disabled={selectedIndex === 0} onClick={() => reorderAction(-1)}>Move earlier</button>
+              <button type="button" disabled={selectedIndex === actions.length - 1} onClick={() => reorderAction(1)}>Move later</button>
+            </>}
+            {actions.length > 1 && <button type="button" className="danger" onClick={() => {
+              editActions((current) => current.filter((action) => action.id !== selectedAction.id))
+              setSelectedActionId(actions[selectedIndex + 1]?.id || actions[selectedIndex - 1]?.id || '')
+            }}>{fallbackSelected ? 'Remove fallback' : 'Remove action'}</button>}
+            {addingFallback && <button type="button" aria-expanded={addingAction} aria-controls={addActionId}
+              onClick={() => { setAddingAction(!addingAction); setNewActionType('') }}>
+              {addingAction ? 'Cancel' : 'Add panorama fallback'}
+            </button>}
+          </div>
+          <div id={addActionId} hidden={!addingAction}>{addActionFields}</div>
+        </>
       )}
     </div>
   )

@@ -1,259 +1,127 @@
-import React, { useMemo, useRef, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import SceneMapDialog from './SceneMapDialog'
-import SpatialSceneImporter from './SpatialSceneImporter'
-import PanoramaMasterUpload from './PanoramaMasterUpload'
 
-function moveItem(items, fromIndex, toIndex) {
-  if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0) return items
-  const next = [...items]
-  const [item] = next.splice(fromIndex, 1)
-  next.splice(toIndex, 0, item)
+export function moveScene(scenes, fromId, toId) {
+  const from = scenes.findIndex((scene) => scene.id === fromId)
+  const to = scenes.findIndex((scene) => scene.id === toId)
+  if (from < 0 || to < 0 || from === to) return scenes
+
+  const next = [...scenes]
+  const [scene] = next.splice(from, 1)
+  next.splice(to, 0, scene)
   return next
 }
 
-function sceneThumb(scene) {
-  return scene.image || ''
-}
-
 export default function SceneOrganizer({
-  scenes,
-  currentSceneId,
-  startSceneId,
-  onNavigate,
-  onScenesChange,
-  onAddScene,
-  onRemoveScene,
-  onStartSceneChange,
-  patchScene,
-  uploadAsset,
-  onOpenLibrary,
-  onEditHotspots,
-  onUseProcessedPanorama,
+  scenes, currentSceneId, startSceneId, optionsRequest, onStartSceneChange, onNavigate, onScenesChange, onAddScene,
 }) {
-  const [newTitle, setNewTitle] = useState('')
   const [query, setQuery] = useState('')
-  const [groupFilter, setGroupFilter] = useState('all')
   const [showMap, setShowMap] = useState(false)
   const [draggedId, setDraggedId] = useState(null)
-  const [uploading, setUploading] = useState(false)
-  const [uploadError, setUploadError] = useState('')
-  const fileInput = useRef(null)
+  const handledOptionsRequest = useRef(null)
+  const search = query.trim().toLowerCase()
+  const visible = scenes.filter((scene) => `${scene.title || ''} ${scene.group || ''}`.toLowerCase().includes(search))
 
-  const currentScene = scenes.find((scene) => scene.id === currentSceneId)
-  const groups = useMemo(() => [...new Set(
-    scenes.map((scene) => String(scene.group || '').trim()).filter(Boolean),
-  )].sort((a, b) => a.localeCompare(b)), [scenes])
+  useEffect(() => {
+    if (!optionsRequest || handledOptionsRequest.current === optionsRequest.id) return
+    if (query) {
+      setQuery('')
+      return
+    }
 
-  const filteredScenes = useMemo(() => {
-    const needle = query.trim().toLowerCase()
-    return scenes.filter((scene) => {
-      if (groupFilter !== 'all' && String(scene.group || '') !== groupFilter) return false
-      if (!needle) return true
-      return `${scene.title || ''} ${scene.group || ''}`.toLowerCase().includes(needle)
-    })
-  }, [groupFilter, query, scenes])
+    handledOptionsRequest.current = optionsRequest.id
+    const options = document.getElementById(`studio-scene-options-${optionsRequest.sceneId}`)
+    if (options) {
+      options.open = true
+      options.querySelector('summary')?.focus()
+    }
+  }, [optionsRequest, query])
 
-  function addScene() {
-    onAddScene(newTitle.trim() || 'New scene')
-    setNewTitle('')
-    setQuery('')
-    setGroupFilter('all')
-  }
-
-  async function uploadPanorama(file) {
-    if (!file) return
-    const targetId = currentSceneId
-    setUploading(true)
-    setUploadError('')
-    try {
-      if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) throw new Error('Choose a JPEG, PNG or WebP panorama.')
-      const asset = await uploadAsset(file)
-      onScenesChange((previous) => previous.map((scene) => scene.id === targetId ? { ...scene, image: asset.url, panorama: null } : scene))
-    } catch (error) {
-      setUploadError(error.message || 'Could not upload this panorama. Try again.')
-    } finally {
-      setUploading(false)
-      if (fileInput.current) fileInput.current.value = ''
+  function runSceneAction(event, action) {
+    const options = event.currentTarget.closest('details')
+    action()
+    if (options) {
+      options.open = false
+      requestAnimationFrame(() => options.querySelector('summary')?.focus())
     }
   }
 
+  function moveBy(sceneId, offset) {
+    onScenesChange((previous) => {
+      const index = previous.findIndex((scene) => scene.id === sceneId)
+      return moveScene(previous, sceneId, previous[index + offset]?.id)
+    })
+  }
+
   return (
-    <div className="scene-organizer">
-      <div className="editor-context-strip">
-        <span>Current scene</span>
-        <strong>{currentScene?.title || currentSceneId}</strong>
+    <nav className="scene-browser" aria-label="Scenes">
+      <div className="studio-pane-heading">
+        <h2>Scenes <span>{scenes.length}</span></h2>
+        <button className="primary" onClick={() => { setQuery(''); onAddScene() }}>+ Add scene</button>
       </div>
-
-      <div className="scene-organizer__toolbar">
-        <input
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="Find a scene"
-          aria-label="Find a scene"
-        />
-        <button type="button" onClick={() => setShowMap(true)}>Open map</button>
-      </div>
-
-      {groups.length > 0 && (
-        <div className="scene-organizer__groups" aria-label="Scene groups">
-          <button
-            type="button"
-            className={groupFilter === 'all' ? 'active' : ''}
-            onClick={() => setGroupFilter('all')}
-          >
-            All
-          </button>
-          {groups.map((group) => (
-            <button
-              key={group}
-              type="button"
-              className={groupFilter === group ? 'active' : ''}
-              onClick={() => setGroupFilter(group)}
-            >
-              {group}
-            </button>
-          ))}
-        </div>
+      {(scenes.length > 4 || query) && (
+        <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Find a scene" aria-label="Find a scene" />
       )}
-
       <div className="scene-card-list">
-        {filteredScenes.map((scene) => (
+        {visible.map((scene, index) => (
           <article
             key={scene.id}
-            draggable
-            className={`scene-card${scene.id === currentSceneId ? ' active' : ''}`}
+            draggable={!search}
+            className={`scene-card${scene.id === currentSceneId ? ' is-current' : ''}`}
             onDragStart={() => setDraggedId(scene.id)}
             onDragEnd={() => setDraggedId(null)}
-            onDragOver={(event) => event.preventDefault()}
+            onDragOver={(event) => { if (draggedId) event.preventDefault() }}
             onDrop={(event) => {
               event.preventDefault()
-              const fromIndex = scenes.findIndex((item) => item.id === draggedId)
-              const toIndex = scenes.findIndex((item) => item.id === scene.id)
-              if (fromIndex >= 0 && toIndex >= 0) onScenesChange(moveItem(scenes, fromIndex, toIndex))
+              onScenesChange((previous) => moveScene(previous, draggedId, scene.id))
               setDraggedId(null)
             }}
           >
-            <button type="button" className="scene-card__select" onClick={() => onNavigate(scene.id)}>
+            <button type="button" className="scene-card__select" aria-current={scene.id === currentSceneId ? 'true' : undefined} onClick={() => onNavigate(scene.id)}>
               <span
                 className="scene-card__thumb"
-                style={sceneThumb(scene) ? { backgroundImage: `url(${JSON.stringify(sceneThumb(scene))})` } : undefined}
+                style={scene.image ? { backgroundImage: `url(${JSON.stringify(scene.image)})` } : undefined}
+                aria-hidden="true"
               >
-                {!sceneThumb(scene) && scene.panorama?.manifestUrl ? '360' : ''}
+                {scene.image ? '' : scene.panorama?.manifestUrl ? '360°' : index + 1}
               </span>
               <span className="scene-card__body">
-                <strong>{scene.title || scene.id}</strong>
-                <small>{scene.group || 'Ungrouped'}</small>
+                <strong>{scene.title || 'Untitled scene'}</strong>
+                {scene.group && <small>{scene.group}</small>}
               </span>
               {scene.id === startSceneId && <em>Start</em>}
             </button>
+            <details className="scene-card__options" id={`studio-scene-options-${scene.id}`} name="studio-scene-options">
+              <summary aria-label={`Options for ${scene.title || 'untitled scene'}`} title="Scene options">⋯</summary>
+              <div className="scene-card__actions">
+                <button
+                  type="button"
+                  disabled={scene.id === startSceneId}
+                  onClick={(event) => runSceneAction(event, () => onStartSceneChange(scene.id))}
+                >
+                  {scene.id === startSceneId ? 'Starting scene' : 'Set as starting scene'}
+                </button>
+                <button
+                  type="button"
+                  disabled={scene.id === scenes[0]?.id}
+                  onClick={(event) => runSceneAction(event, () => moveBy(scene.id, -1))}
+                >
+                  Move up
+                </button>
+                <button
+                  type="button"
+                  disabled={scene.id === scenes.at(-1)?.id}
+                  onClick={(event) => runSceneAction(event, () => moveBy(scene.id, 1))}
+                >
+                  Move down
+                </button>
+              </div>
+            </details>
           </article>
         ))}
       </div>
-
-      {filteredScenes.length === 0 && (
-        <div className="editor-empty-state">No scenes match this filter.</div>
-      )}
-
-      <div className="inline-form scene-organizer__add">
-        <input
-          aria-label="New scene name"
-          value={newTitle}
-          onChange={(event) => setNewTitle(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter') addScene()
-          }}
-          placeholder="New scene name"
-        />
-        <button type="button" onClick={addScene}>Add scene</button>
-      </div>
-
-      {currentScene && (
-        <div className="editor-inspector-card scene-organizer__inspector">
-          <div className="editor-subheading">Selected scene</div>
-          <label>
-            Title
-            <input
-              value={currentScene.title || ''}
-              onChange={(event) => patchScene({ title: event.target.value })}
-            />
-          </label>
-          <label>
-            Group / area
-            <input
-              value={currentScene.group || ''}
-              list="scene-groups"
-              onChange={(event) => patchScene({ group: event.target.value })}
-              placeholder="Ground floor, Bedrooms, Pavilion A..."
-            />
-          </label>
-          <datalist id="scene-groups">
-            {groups.map((group) => <option value={group} key={group} />)}
-          </datalist>
-          <div className="scene-panorama-source">
-            <div className="editor-subheading">360° panorama</div>
-            <p>{currentScene.image || currentScene.panorama?.manifestUrl ? 'The backdrop visitors see on desktop and phone.' : 'Add the first view of this room. Use a 2:1 panorama exported from your camera or 3D software.'}</p>
-            <div className="button-row"><button className="primary" onClick={() => fileInput.current?.click()} disabled={uploading}>{uploading ? 'Uploading panorama…' : currentScene.image || currentScene.panorama ? 'Replace panorama' : 'Upload panorama'}</button><button onClick={onOpenLibrary}>Choose from assets</button></div>
-            <input ref={fileInput} type="file" hidden accept="image/jpeg,image/png,image/webp" onChange={(event) => uploadPanorama(event.target.files?.[0])} />
-            {uploadError && <div className="error-text" role="alert">{uploadError}</div>}
-            {uploading && <p role="status">Uploading… You can keep editing; the image will apply to this scene.</p>}
-          </div>
-          <details className="advanced-details" key={`source-${currentSceneId}`}><summary>Image URL & high-resolution processing</summary><label>
-            Panorama image URL
-            <input
-              value={currentScene.image || ''}
-              onChange={(event) => patchScene({ image: event.target.value, panorama: null })}
-            />
-          </label>
-          <div className="muted">
-            High-resolution panorama: {currentScene.panorama?.manifestUrl ? 'configured' : 'not configured'}
-          </div>
-          <PanoramaMasterUpload key={currentSceneId} onUseProcessed={onUseProcessedPanorama} />
-          </details>
-          <details className="advanced-details" key={`spatial-${currentSceneId}`}><summary>Tracked VR room {currentScene.spatial?.roomUrl ? '· configured' : '· optional'}</summary>
-          <SpatialSceneImporter
-            uploadAsset={uploadAsset}
-            configured={Boolean(currentScene.spatial?.roomUrl)}
-            onApply={({ spatial, hotspots }) => {
-              const existing = new Map((currentScene.hotspots || []).map((item) => [item.id, item]))
-              const merged = [...(currentScene.hotspots || [])]
-              for (const imported of hotspots) {
-                const previous = existing.get(imported.id)
-                if (previous) {
-                  const index = merged.findIndex((item) => item.id === imported.id)
-                  merged[index] = {
-                    ...previous,
-                    ...imported,
-                    actions: imported.actions?.length ? imported.actions : (previous.actions || []),
-                  }
-                } else {
-                  merged.push(imported)
-                }
-              }
-              patchScene({ spatial, hotspots: merged })
-            }}
-          />
-          </details>
-          <button className="editor-inline-next" onClick={onEditHotspots}>Next: add hotspots to {currentScene.title} →</button>
-          <div className="button-row">
-            <button
-              type="button"
-              onClick={() => onStartSceneChange(currentSceneId)}
-              disabled={startSceneId === currentSceneId}
-            >
-              {startSceneId === currentSceneId ? 'Start scene' : 'Set as start scene'}
-            </button>
-            <button
-              type="button"
-              className="danger"
-              onClick={onRemoveScene}
-              disabled={scenes.length <= 1}
-            >
-              Delete scene
-            </button>
-          </div>
-        </div>
-      )}
-
+      {!visible.length && <p className="muted">{scenes.length ? 'No matching scenes.' : 'Add a scene to begin your tour.'}</p>}
+      {scenes.length > 0 && <button className="studio-map" onClick={() => setShowMap(true)}>Scene map</button>}
       {showMap && (
         <SceneMapDialog
           scenes={scenes}
@@ -264,6 +132,6 @@ export default function SceneOrganizer({
           onClose={() => setShowMap(false)}
         />
       )}
-    </div>
+    </nav>
   )
 }

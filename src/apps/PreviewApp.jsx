@@ -1,24 +1,19 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useState } from 'react'
 import Viewer from '../components/Viewer'
 import { readDraftPreview } from '../preview/draftPreview'
+import { resolveSceneId } from '../viewer/sceneSelection'
 
 export default function PreviewApp({ projectId = 'default' }) {
-  const previewKey = useMemo(
-    () => new URLSearchParams(window.location.search).get('key') || '',
-    [],
-  )
-  const [project] = useState(() => readDraftPreview(previewKey, projectId))
-  const [sceneId, setSceneId] = useState(null)
+  const [project] = useState(() => {
+    const params = new URLSearchParams(window.location.search)
+    return readDraftPreview(params.get('key'), projectId)
+  })
+  const [selectedSceneId, setSceneId] = useState(null)
 
   const scenes = project?.scenes || []
   const guides = project?.guides || []
 
-  useEffect(() => {
-    if (!scenes.length) return
-    if (!sceneId || !scenes.some((scene) => scene.id === sceneId)) {
-      setSceneId(project?.startSceneId || scenes[0].id)
-    }
-  }, [project?.startSceneId, sceneId, scenes])
+  const sceneId = resolveSceneId(scenes, selectedSceneId, project?.startSceneId)
 
   if (!project) {
     return (
@@ -32,7 +27,17 @@ export default function PreviewApp({ projectId = 'default' }) {
     )
   }
 
-  if (!sceneId) return null
+  if (!sceneId) {
+    return (
+      <div className="app-loading preview-expired">
+        <div>
+          <h2>Nothing to preview yet</h2>
+          <p>Add a scene in the editor to preview this tour.</p>
+          <a className="button-link" href={`/editor/${encodeURIComponent(projectId)}`}>Return to editor</a>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="app preview-app">
@@ -41,14 +46,15 @@ export default function PreviewApp({ projectId = 'default' }) {
         onNavigate={setSceneId}
         scenes={scenes}
         guides={guides}
+        openLinksInNewTab
+        overlayChildren={<div className="preview-banner" data-viewer-chrome="bottom">
+          <div>
+            <strong>Draft preview</strong>
+            <span>Not published</span>
+          </div>
+          <a className="button-link" href={`/editor/${encodeURIComponent(projectId)}`}>Back to editor</a>
+        </div>}
       />
-      <div className="preview-banner">
-        <div>
-          <strong>Draft preview</strong>
-          <span>Not published</span>
-        </div>
-        <a className="button-link" href={`/editor/${encodeURIComponent(projectId)}`}>Back to editor</a>
-      </div>
     </div>
   )
 }

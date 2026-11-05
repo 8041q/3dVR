@@ -24,7 +24,7 @@
               "title": "Demo product",
               "modelUrl": "/demo/product-demo.glb",
               "modelScale": 1,
-              "rotationY": 0,
+              "rotationY": -36.8,
               "exposeAnimations": true,
               "animationControls": [
                 {
@@ -58,14 +58,19 @@
                     0.55
                   ]
                 }
-              ]
+              ],
+              "viewer": {
+                "startPitch": 18,
+                "startZoom": 0.84
+              }
             }
           ],
           "style": {
             "preset": "product",
             "color": "#ffe7a8",
             "opacity": 0.92
-          }
+          },
+          "targetSceneId": ""
         },
         {
           "id": "hotspot-1792163299238",
@@ -171,8 +176,8 @@
       ]
     }
   ],
-  "revision": "00f709c8e960565d",
-  "publishedAt": "2026-10-26T15:50:26.145Z",
+  "revision": "0397964fb98794f4",
+  "publishedAt": "2026-11-05T16:03:21.890Z",
   "assets": [
     "/demo/shared room.png",
     "/demo/product-demo.glb",

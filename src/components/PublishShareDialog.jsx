@@ -41,8 +41,8 @@ export default function PublishShareDialog({
     if (!navigator.share) return
     try {
       await navigator.share({
-        title: projectTitle || '3DVR presentation',
-        text: `Open ${projectTitle || 'this 3DVR presentation'}`,
+        title: projectTitle || 'Atria 3DVR presentation',
+        text: `Open ${projectTitle || 'this Atria 3DVR presentation'}`,
         url: shareUrl,
       })
     } catch {
@@ -128,7 +128,7 @@ export default function PublishShareDialog({
             <div className="publish-share-notes">
               <div>
                 <strong>For an exhibition headset</strong>
-                <span>Open this link on the headset, then use Download project in the viewer to keep the published project available offline.</span>
+                <span>Open this link on the headset, then use Offline Mode in the viewer to save the tour for offline use.</span>
               </div>
               <div>
                 <strong>Published copy is protected</strong>

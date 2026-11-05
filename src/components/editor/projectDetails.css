@@ -1,0 +1,42 @@
+.studio-app .studio-workspace-view--project { background: var(--studio-subtle); }
+.studio-workspace-view--project .studio-workspace-header { background: var(--studio-panel); padding-block: 16px; }
+.studio-workspace-view--project .studio-workspace-header p { margin-top: 4px; }
+.studio-workspace-view--project .studio-workspace-body { padding: 24px; }
+.project-details { display: grid; grid-template-columns: minmax(0, 680px) minmax(220px, 280px); align-items: start; gap: 32px; max-width: 1000px; margin: 0 auto; }
+.project-details__main { min-width: 0; }
+.studio-app section.project-details__section { padding: 24px; margin: 0 0 16px; border: 1px solid var(--studio-line); border-radius: 10px; background: var(--studio-panel); }
+.studio-app .project-details :is(h3, p) { margin: 0; }
+.studio-app .project-details h3 { font-size: 14px; }
+.studio-app .project-details p { margin-top: 5px; color: var(--studio-muted); font-size: 12px; line-height: 1.5; }
+.project-details__fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 20px; margin-top: 12px; }
+.project-details__wide { grid-column: 1 / -1; min-width: 0; }
+.studio-app .project-details label { margin-block: 8px; }
+.studio-app .project-details :is(input, textarea, select) { background: var(--studio-panel); }
+.project-details textarea { resize: vertical; min-height: 80px; line-height: 1.5; }
+.project-details small { display: block; margin-top: 5px; color: var(--studio-muted); font-size: 11px; line-height: 1.45; font-weight: 400; }
+.project-details__summary { padding: 8px 0; min-width: 0; }
+.project-details__summary dl { display: grid; gap: 18px; margin: 24px 0; font-size: 12px; }
+.project-details__summary dt { color: var(--studio-muted); margin-bottom: 4px; }
+.project-details__summary dd { margin: 0; overflow-wrap: anywhere; line-height: 1.5; }
+.project-details__revision { padding-top: 16px; border-top: 1px solid var(--studio-line); font-size: 12px; }
+.project-details__revision summary { color: var(--studio-muted); cursor: pointer; }
+.project-details__revision code { display: block; margin-top: 10px; overflow-wrap: anywhere; }
+.studio-app .project-manager--library { max-width: 760px; margin: 0 auto; padding-block: 8px; }
+.project-manager--library > p { margin: 0 0 20px; color: var(--studio-muted); font-size: 12px; }
+.studio-app .project-manager--library .project-list { margin-bottom: 24px; }
+.project-manager--library .project-list button span { overflow-wrap: anywhere; min-width: 0; }
+.project-manager--library .project-list button small { flex: none; }
+.project-manager--library .project-create-form { align-items: end; }
+.project-manager--library .project-create-form label { flex: 1; min-width: 0; }
+.project-manager--library .project-create-form button { margin-bottom: 8px; }
+@media (max-width: 900px) {
+  .project-details { grid-template-columns: minmax(0, 1fr); gap: 8px; max-width: 680px; }
+  .project-details__summary { padding: 16px 24px; }
+  .project-details__summary dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 520px) {
+  .studio-workspace-view--project .studio-workspace-body { padding: 12px; }
+  .studio-app section.project-details__section { padding: 18px; }
+  .project-details__fields { grid-template-columns: minmax(0, 1fr); }
+  .project-details__summary { padding: 16px 18px; }
+}

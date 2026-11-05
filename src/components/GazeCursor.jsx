@@ -3,6 +3,7 @@ import * as THREE from 'three'
 import { useFrame, useThree } from '@react-three/fiber'
 import { useInteraction } from '../contexts/InteractionContext'
 import { INTERACTION_LAYER } from '../input/interactionLayers'
+import { worldAppearance } from '../theme/worldAppearance'
 
 function targetFromHit(object) {
   let current = object
@@ -13,7 +14,7 @@ function targetFromHit(object) {
   return null
 }
 
-export default function GazeCursor({ enabled, dwellMs = 1200, alwaysVisible=false }) {
+export default function GazeCursor({ enabled, dwellMs = 1200, alwaysVisible = false, suspended = false }) {
   const { camera, scene, gl } = useThree()
   const interaction = useInteraction()
   const ray = useMemo(() => {
@@ -45,7 +46,7 @@ export default function GazeCursor({ enabled, dwellMs = 1200, alwaysVisible=fals
     activeCamera.getWorldDirection(dir)
     ray.set(origin, dir)
 
-    const hit = ray.intersectObjects(scene.children, true).find((entry) => targetFromHit(entry.object))
+    const hit = suspended ? null : ray.intersectObjects(scene.children, true).find((entry) => targetFromHit(entry.object))
     const target = hit ? targetFromHit(hit.object) : null
 
     if (target !== current.current) {
@@ -77,15 +78,20 @@ export default function GazeCursor({ enabled, dwellMs = 1200, alwaysVisible=fals
   })
 
   if (!enabled) return null
+  const colors = worldAppearance()
   return (
     <group ref={mesh} visible={alwaysVisible} renderOrder={1000}>
       <mesh>
+        <ringGeometry args={[0.37, 0.67, 32]} />
+        <meshBasicMaterial color={colors['marker-outline']} transparent opacity={0.9} depthTest={false} depthWrite={false} />
+      </mesh>
+      <mesh position={[0, 0, 0.0005]}>
         <ringGeometry args={[0.45, 0.6, 32]} />
-        <meshBasicMaterial color="#ffffff" transparent opacity={0.95} depthTest={false} />
+        <meshBasicMaterial color={colors.surface} transparent opacity={0.95} depthTest={false} depthWrite={false} />
       </mesh>
       <mesh ref={progressRing} position={[0, 0, 0.001]} visible={false}>
         <ringGeometry ref={progressGeometry} args={[0.68, 0.82, 64]} />
-        <meshBasicMaterial color="#ffffff" transparent opacity={0.95} depthTest={false} />
+        <meshBasicMaterial color={colors['marker-guide']} transparent opacity={0.95} depthTest={false} depthWrite={false} />
       </mesh>
     </group>
   )

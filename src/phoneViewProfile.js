@@ -1,7 +1,6 @@
 export const PHONE_VIEW_MODES = Object.freeze({
   MAGIC_WINDOW: 'magic-window',
   HEADSET_STEREO: 'headset-stereo',
-  DOLLHOUSE: 'dollhouse',
 })
 
 export const DEFAULT_PHONE_VIEW_PROFILE = Object.freeze({
@@ -17,7 +16,6 @@ export const DEFAULT_PHONE_VIEW_PROFILE = Object.freeze({
   stereoSplitPercent: 50,
   centerGapPx: 0,
   lensCenterOffsetPercent: 0,
-  dollhouseScale: 1,
   touchLookEnabled: true,
 })
 
@@ -46,7 +44,6 @@ export function normalizePhoneViewProfile(value = {}) {
     stereoSplitPercent: Math.min(58, Math.max(42, finite(value.stereoSplitPercent, DEFAULT_PHONE_VIEW_PROFILE.stereoSplitPercent))),
     centerGapPx: Math.min(80, Math.max(0, finite(value.centerGapPx, DEFAULT_PHONE_VIEW_PROFILE.centerGapPx))),
     lensCenterOffsetPercent: Math.min(12, Math.max(-12, finite(value.lensCenterOffsetPercent, DEFAULT_PHONE_VIEW_PROFILE.lensCenterOffsetPercent))),
-    dollhouseScale: Math.min(2, Math.max(0.35, finite(value.dollhouseScale, DEFAULT_PHONE_VIEW_PROFILE.dollhouseScale))),
     touchLookEnabled: value.touchLookEnabled !== false,
   }
 }
@@ -77,4 +74,11 @@ export function opticalFovEstimateDeg(profile) {
   const normalized = normalizePhoneViewProfile(profile)
   const halfPerEyeWidth = (normalized.screenWidthMm * 0.5) / 2
   return Math.min(120, Math.max(35, (2 * Math.atan(halfPerEyeWidth / normalized.screenToLensMm) * 180) / Math.PI))
+}
+
+export function resetPhoneViewProfile(profile) {
+  const current = normalizePhoneViewProfile(profile)
+  return current.mode === PHONE_VIEW_MODES.MAGIC_WINDOW
+    ? { ...current, fovDeg: DEFAULT_PHONE_VIEW_PROFILE.fovDeg }
+    : { ...DEFAULT_PHONE_VIEW_PROFILE, mode: current.mode }
 }

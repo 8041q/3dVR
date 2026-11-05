@@ -26,6 +26,8 @@ export default function PhoneDollhouseScene({
   selectedHotspotId,
   guideHighlightHotspotId,
   onSelectHotspot,
+  pointerEnabled = false,
+  modalOpen = false,
 }) {
   const info = useMemo(() => boundsInfo(scene?.spatial?.bounds), [scene?.spatial?.bounds])
   const scale = (2.4 / info.size) * Number(scaleMultiplier || 1)
@@ -35,12 +37,12 @@ export default function PhoneDollhouseScene({
     <group position={[0, -0.35, -distance]} scale={scale}>
       <group position={[-info.center.x, -info.center.y, -info.center.z]}>
         <SpatialScene ref={spatialSceneRef} scene={scene} onStatusChange={onSpatialStatus}>
-          {(scene?.hotspots || []).filter((hotspot) => Array.isArray(hotspot.spatialPosition)).map((hotspot) => (
+          {!modalOpen && (scene?.hotspots || []).filter((hotspot) => Array.isArray(hotspot.spatialPosition)).map((hotspot) => (
             <Hotspot
               key={hotspot.id}
               hotspot={hotspot}
               spatial
-              pointerEnabled={false}
+              pointerEnabled={pointerEnabled}
               selected={hotspot.id === selectedHotspotId}
               guideHighlight={hotspot.id === guideHighlightHotspotId}
               editMode={false}

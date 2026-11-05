@@ -4,6 +4,9 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { useInteraction } from '../contexts/InteractionContext'
 import { normalizeHotspotStyle } from '../hotspots/hotspotStyles'
 import { INTERACTION_LAYER } from '../input/interactionLayers'
+import { worldAppearance } from '../theme/worldAppearance'
+
+const ignoreRaycast = () => {}
 
 function positionFromAngles(yaw = 0, pitch = 0, radius = 8) {
   const y = THREE.MathUtils.degToRad(yaw)
@@ -87,11 +90,12 @@ function HotspotMaterial({ color, opacity }) {
   )
 }
 
-function HotspotGeometry({ preset, color, opacity }) {
+function HotspotGeometry({ preset, color, opacity, decorative = false }) {
+  const meshProps = decorative ? { raycast: ignoreRaycast, renderOrder: 29 } : { renderOrder: 30 }
 
   if (preset === 'floor') {
     return (
-      <mesh scale={[1.45, 0.62, 1]}>
+      <mesh {...meshProps} scale={[1.45, 0.62, 1]}>
         <ringGeometry args={[0.18, 0.29, 42]} />
         <HotspotMaterial color={color} opacity={opacity} />
       </mesh>
@@ -100,7 +104,7 @@ function HotspotGeometry({ preset, color, opacity }) {
 
   if (preset === 'doorway') {
     return (
-      <mesh>
+      <mesh {...meshProps}>
         <shapeGeometry args={[doorwayShape()]} />
         <HotspotMaterial color={color} opacity={opacity} />
       </mesh>
@@ -109,7 +113,7 @@ function HotspotGeometry({ preset, color, opacity }) {
 
   if (preset === 'window') {
     return (
-      <mesh>
+      <mesh {...meshProps}>
         <shapeGeometry args={[windowShape()]} />
         <HotspotMaterial color={color} opacity={opacity} />
       </mesh>
@@ -118,7 +122,7 @@ function HotspotGeometry({ preset, color, opacity }) {
 
   if (preset === 'product') {
     return (
-      <mesh rotation={[0, 0, Math.PI / 4]} scale={[1.08, 1.08, 1]}>
+      <mesh {...meshProps} rotation={[0, 0, Math.PI / 4]} scale={[1.08, 1.08, 1]}>
         <circleGeometry args={[0.27, 4]} />
         <HotspotMaterial color={color} opacity={opacity} />
       </mesh>
@@ -128,11 +132,11 @@ function HotspotGeometry({ preset, color, opacity }) {
   if (preset === 'info') {
     return (
       <group>
-        <mesh>
+        <mesh {...meshProps}>
           <ringGeometry args={[0.18, 0.27, 36]} />
           <HotspotMaterial color={color} opacity={opacity} />
         </mesh>
-        <mesh position={[0, 0, 0.002]}>
+        <mesh {...meshProps} position={[0, 0, 0.002]}>
           <circleGeometry args={[0.055, 24]} />
           <HotspotMaterial color={color} opacity={opacity} />
         </mesh>
@@ -141,7 +145,7 @@ function HotspotGeometry({ preset, color, opacity }) {
   }
 
   return (
-    <mesh>
+    <mesh {...meshProps}>
       <shapeGeometry args={[navigationShape()]} />
       <HotspotMaterial color={color} opacity={opacity} />
     </mesh>
@@ -174,6 +178,7 @@ export default function Hotspot({
   const haloMaterial = useRef()
   const baseScale = hotspot.size || 1
   const style = normalizeHotspotStyle(hotspot)
+  const colors = worldAppearance()
 
   const position = useMemo(
     () => spatial && Array.isArray(hotspot.spatialPosition)
@@ -244,17 +249,20 @@ export default function Hotspot({
         else if (pointerEnabled) interaction.activateObject(event.object, 'pointer')
       }}
     >
+      <group scale={1.12} position={[0, 0, -0.005]}>
+        <HotspotGeometry preset={style.preset} color={colors['marker-outline']} opacity={style.opacity * 0.9} decorative />
+      </group>
       <HotspotGeometry
         preset={style.preset}
-        color={selected ? '#ffd88a' : style.color}
+        color={selected ? colors['marker-selected'] : style.color}
         opacity={style.opacity}
       />
 
-      <mesh ref={halo} position={[0, 0, 0.01]} visible={guideHighlight || selected}>
+      <mesh ref={halo} position={[0, 0, 0.01]} visible={guideHighlight || selected} renderOrder={31}>
         <ringGeometry args={[0.32, 0.38, 48]} />
         <meshBasicMaterial
           ref={haloMaterial}
-          color={guideHighlight ? '#7fd7ff' : '#ffd88a'}
+          color={guideHighlight ? colors['marker-guide'] : colors['marker-selected']}
           transparent
           opacity={guideHighlight ? 0.6 : 0.7}
           depthTest={false}

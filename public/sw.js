@@ -30,26 +30,50 @@ function openDatabase() {
   })
 }
 
-async function localAsset(url) {
+async function downloadedCopy(projectId, url) {
+  if (!projectId) return {}
   const db = await openDatabase()
   try {
-    const transaction = db.transaction(ASSETS, 'readonly')
-    const candidates = await requestPromise(
-      transaction.objectStore(ASSETS).index('url').getAll(url)
-    )
-
-    for (const candidate of candidates.sort((a, b) => b.downloadedAt - a.downloadedAt)) {
-      const projectTransaction = db.transaction(PROJECTS, 'readonly')
-      const project = await requestPromise(
-        projectTransaction.objectStore(PROJECTS).get(candidate.projectId)
-      )
-      if (project?.revision === candidate.revision) return candidate
-    }
-
-    return null
+    const transaction = db.transaction([PROJECTS, ASSETS], 'readonly')
+    const request = transaction.objectStore(PROJECTS).get(projectId)
+    return await new Promise((resolve, reject) => {
+      request.onerror = () => reject(request.error)
+      request.onsuccess = () => {
+        const project = request.result
+        if (!project || !url) {
+          resolve({ project })
+          return
+        }
+        const key = `${project.id}::${project.copyId || project.revision}::${url}`
+        requestPromise(transaction.objectStore(ASSETS).get(key)).then((asset) => resolve({ project, asset }), reject)
+      }
+    })
   } finally {
     db.close()
   }
+}
+
+function viewerProjectId(url) {
+  if (!url) return null
+  const parsed = new URL(url)
+  if (parsed.origin !== self.location.origin) return null
+  const path = parsed.pathname.replace(/\/+$/, '') || '/'
+  if (path === '/') return 'default'
+  const match = path.match(/^\/v\/([^/]+)$/)
+  return match ? decodeURIComponent(match[1]) : null
+}
+
+async function copyForRequest(event) {
+  if (event.request.mode === 'navigate') return downloadedCopy(viewerProjectId(event.request.url))
+  const client = event.clientId ? await self.clients.get(event.clientId) : null
+  return downloadedCopy(viewerProjectId(client?.url) || viewerProjectId(event.request.referrer), event.request.url)
+}
+
+async function offlineShellFile(project, request) {
+  const shell = project?.shell
+  if (!shell?.cacheName || !await caches.has(shell.cacheName)) return null
+  const cache = await caches.open(shell.cacheName)
+  return cache.match(request.mode === 'navigate' ? shell.indexUrl : request)
 }
 
 function parseByteRange(value, size) {
@@ -116,23 +140,7 @@ self.addEventListener('activate', (event) => event.waitUntil((async () => {
 })()))
 
 self.addEventListener('message', (event) => {
-  if (event.data?.type !== 'CACHE_SHELL') return
-
-  event.waitUntil((async () => {
-    try {
-      const cache = await caches.open(SHELL)
-      for (const url of [...new Set(event.data.urls || [])]) {
-        try {
-          await cache.add(new Request(url, { cache: 'reload' }))
-        } catch {
-          // One optional shell asset failing should not invalidate the project copy.
-        }
-      }
-      event.ports?.[0]?.postMessage({ ok: true })
-    } catch (error) {
-      event.ports?.[0]?.postMessage({ ok: false, error: error.message })
-    }
-  })())
+  if (event.data?.type === 'OFFLINE_PROTOCOL') event.ports?.[0]?.postMessage({ version: 1 })
 })
 
 self.addEventListener('fetch', (event) => {
@@ -140,16 +148,10 @@ self.addEventListener('fetch', (event) => {
 
   event.respondWith((async () => {
     try {
-      const asset = await localAsset(event.request.url)
-      if (asset?.blob) return offlineAssetResponse(asset, event.request)
-    } catch {
-      // Network and shell-cache fallback below remains available.
-    }
-
-    try {
       const response = await fetch(event.request)
       if (
         response.ok &&
+        new URL(event.request.url).origin === self.location.origin &&
         ['document', 'script', 'style', 'worker', 'font', 'manifest'].includes(event.request.destination)
       ) {
         const cache = await caches.open(SHELL)
@@ -157,11 +159,23 @@ self.addEventListener('fetch', (event) => {
       }
       return response
     } catch (error) {
-      const cached = await caches.match(event.request)
+      // Explicit download fetches require fresh bytes. A browser page reload
+      // also marks scripts/styles as reload; those still need the saved shell.
+      if (event.request.cache === 'reload' && !event.request.destination && event.request.mode !== 'navigate') throw error
+      try {
+        const { project, asset } = await copyForRequest(event)
+        if (asset?.blob) return offlineAssetResponse(asset, event.request)
+        const shell = await offlineShellFile(project, event.request)
+        if (shell) return shell
+      } catch {
+        // The generic app cache can still open previously visited routes.
+      }
+      const runtime = await caches.open(SHELL)
+      const cached = await runtime.match(event.request)
       if (cached) return cached
 
       if (event.request.mode === 'navigate') {
-        const shell = await caches.match('/index.html') || await caches.match('/')
+        const shell = await runtime.match('/index.html') || await runtime.match('/')
         if (shell) return shell
       }
 
