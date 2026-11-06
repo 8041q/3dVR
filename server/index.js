@@ -1,10 +1,15 @@
 import 'dotenv/config'
 import express from 'express'
-import cors from 'cors'
+import helmet from 'helmet'
+import { rateLimit } from 'express-rate-limit'
+import { authHandler, createAccountsRouter, sameOrigin } from './accounts.js'
+import { cleanupAbandonedUploads } from './cleanup.js'
+import { resourceLimits } from './resourceLimits.js'
+import { accessGate } from './access.js'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { createAuthRouter } from './auth.js'
+import { identity } from './auth.js'
 import { createScenesRouter } from './scenes.js'
 import { createUploadRouter } from './upload.js'
 import { createProjectsRouter } from './projects.js'
@@ -13,11 +18,11 @@ import { createGuidesRouter } from './guides.js'
 import { createAssetsRouter } from './assets.js'
 import { createPanoramaUploadsRouter } from './panoramaUploads.js'
 import { createPanoramaJobsRouter } from './panoramaJobs.js'
-import { PANORAMA_ROOT } from './storagePaths.js'
+import { PANORAMA_ROOT, MEDIA_ROOT } from './storagePaths.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const repoRoot = path.join(__dirname, '..')
-const uploads = path.join(repoRoot, 'public', 'uploads')
+const uploads = path.join(MEDIA_ROOT, 'uploads')
 const distRoot = path.join(repoRoot, 'dist')
 
 fs.mkdirSync(uploads, { recursive: true })
@@ -26,17 +31,27 @@ fs.mkdirSync(PANORAMA_ROOT, { recursive: true })
 const app = express()
 
 app.disable('x-powered-by')
-app.use(cors({ origin: true, credentials: false }))
-app.use(express.json({ limit: '1mb' }))
+app.set('trust proxy','loopback')
+app.use((req,_res,next) => { req.headers['x-atria-client-ip'] = req.ip; next() })
+// Authentication remains closed until local initialization is completed.
+app.use(helmet({ contentSecurityPolicy: { directives: { defaultSrc: ["'self'"], scriptSrc: ["'self'", "'wasm-unsafe-eval'"], styleSrc: ["'self'", "'unsafe-inline'"], imgSrc: ["'self'", 'data:', 'blob:', 'https:'], mediaSrc: ["'self'", 'blob:', 'https:'], connectSrc: ["'self'", 'https:'], workerSrc: ["'self'", 'blob:'], objectSrc: ["'none'"], frameAncestors: ["'none'"] } }, crossOriginEmbedderPolicy: false }))
+app.use(sameOrigin)
+app.use('/api/auth', rateLimit({ windowMs:60000, limit:30 }), authHandler())
+app.use(express.json({ limit: '1mb', inflate: false }))
+app.use(identity)
+app.use('/api',rateLimit({windowMs:60000,limit:600}))
+app.use('/api/accounts', rateLimit({ windowMs:60000, limit:30 }), createAccountsRouter(express))
+app.use(accessGate)
+app.use(resourceLimits)
 
-app.use('/uploads', express.static(uploads, { maxAge: 0 }))
+
+app.use('/uploads', express.static(uploads, { maxAge: 0, setHeaders: res => res.setHeader('Cache-Control','private, no-store') }))
 app.use('/media/panoramas', express.static(PANORAMA_ROOT, {
-  immutable: true,
-  maxAge: '365d',
+  maxAge: 0,
+  setHeaders: res => res.setHeader('Cache-Control','private, no-store'),
   etag: true,
 }))
 
-app.use('/api/auth', createAuthRouter(express))
 app.use('/api/scenes', createScenesRouter(express))
 app.use('/api/upload', createUploadRouter(express))
 app.use('/api/assets', createAssetsRouter(express))
@@ -75,8 +90,13 @@ if (fs.existsSync(path.join(distRoot, 'index.html'))) {
   })
 }
 
+app.use((error, _req, res, _next) => {
+  console.error('[request]',error)
+  if (!res.headersSent) res.status(error.status >= 400 && error.status < 500 ? error.status : 500).json({ error:'Request failed.' })
+})
+setInterval(() => cleanupAbandonedUploads().catch(error=>console.error('[cleanup]',error)),3600000).unref()
 const PORT = Number(process.env.PORT || 3001)
-const server = app.listen(PORT, () => {
+const server = app.listen(PORT, process.env.HOST || '127.0.0.1', () => {
   console.log(`[server] http://localhost:${PORT}`)
   if (fs.existsSync(path.join(distRoot, 'index.html'))) {
     console.log('[server] serving production client from ./dist')

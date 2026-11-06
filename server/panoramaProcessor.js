@@ -20,10 +20,12 @@ const FACES = [
 function run(command, args) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true })
+    const timer = setTimeout(() => child.kill('SIGKILL'), 900000)
+    child.once('close', () => clearTimeout(timer))
     let stdout = ''
     let stderr = ''
-    child.stdout.on('data', (c) => { stdout += c.toString() })
-    child.stderr.on('data', (c) => { stderr += c.toString() })
+    child.stdout.on('data', (c) => { stdout = (stdout + c.toString()).slice(-1048576) })
+    child.stderr.on('data', (c) => { stderr = (stderr + c.toString()).slice(-1048576) })
     child.on('error', reject)
     child.on('close', (code) => code === 0 ? resolve({ stdout, stderr }) : reject(new Error(`${command} exited ${code}\n${stderr.trim()}`)))
   })
@@ -65,7 +67,7 @@ async function renderFaceLevel({ sourcePath, destination, face, level, tileSize,
   const count = level.tilesPerEdge ** 2
   const pattern = path.join(destination, 'tile_%05d.webp')
   await run('ffmpeg', [
-    '-hide_banner', '-loglevel', 'error', '-y', '-i', sourcePath,
+    '-hide_banner', '-loglevel', 'error', '-y', '-protocol_whitelist', 'file', '-i', sourcePath,
     '-vf', tileFilter(face, level, tileSize),
     '-frames:v', String(count), '-start_number', '0', '-an',
     '-c:v', 'libwebp', '-quality', String(quality), '-compression_level', '6', '-preset', 'picture', pattern,

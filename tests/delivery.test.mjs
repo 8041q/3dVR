@@ -155,3 +155,17 @@ test('offline worker uses the matching project copy only after a network failure
   assert.deepEqual(calls, ['exhibition', 'exhibition', 'exhibition'])
   await assert.rejects(read({ url, cache: 'reload' }), /No network/)
 })
+
+test('private offline copies require the matching account marker in the service worker', async () => {
+  const context={URL,Headers,Response,self:{location:{origin:'https://tour.test'},addEventListener(){}},indexedDB:{}}
+  let active='alice'
+  const project={id:'private',copyId:'copy',manifest:{offlineAccount:'alice'}}
+  const valueRequest=value=>{const r={};queueMicrotask(()=>{r.result=value;r.onsuccess?.()});return r}
+  context.indexedDB.open=()=>valueRequest({close(){},transaction(){return{objectStore(name){return{get(){return valueRequest(name==='projects' ? project : name==='identity' ? {user:active} : {blob:new Blob(['private'])})}}}}}})
+  vm.runInNewContext(await readFile(new URL('../public/sw.js',import.meta.url),'utf8'),context)
+  assert.equal((await context.downloadedCopy('private','https://tour.test/uploads/p.jpg')).asset.blob.size,7)
+  active='bob'
+  assert.equal((await context.downloadedCopy('private','https://tour.test/uploads/p.jpg')).asset,undefined)
+  active=null
+  assert.equal((await context.downloadedCopy('private','https://tour.test/uploads/p.jpg')).asset,undefined)
+})

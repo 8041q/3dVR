@@ -12,3 +12,6 @@ export const MASTER_ROOT = path.join(STORAGE_ROOT, 'masters')
 export const JOB_ROOT = path.join(STORAGE_ROOT, 'jobs')
 export const PANORAMA_ROOT = path.join(STORAGE_ROOT, 'panoramas')
 export const WORK_ROOT = path.join(STORAGE_ROOT, 'work')
+
+export const DATA_ROOT = process.env.VR_DATA_ROOT ? path.resolve(process.env.VR_DATA_ROOT) : path.join(STORAGE_ROOT, 'data')
+export const MEDIA_ROOT = path.join(STORAGE_ROOT, 'public')

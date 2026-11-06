@@ -1,3 +1,4 @@
+import { useModelThumbnails } from '../../contexts/ModelThumbnailContext'
 import Select from '../ui/Select'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import './assetLibrary.css'
@@ -24,6 +25,16 @@ function formatBytes(bytes = 0) {
   return `${(mb / 1024).toFixed(2)} GB`
 }
 
+function AssetThumbnail({ asset, thumbnailState }) {
+  const [failed, setFailed] = useState(false)
+  const src = asset.thumbnailUrl || (asset.type === 'image' ? `/api/assets/thumbnail?url=${encodeURIComponent(asset.url)}&v=${encodeURIComponent(asset.updatedAt)}` : null)
+  if (src && !failed) return <img src={src} alt="" loading="lazy" decoding="async" onError={() => setFailed(true)} />
+  return <span className="studio-asset-placeholder">{asset.type === 'model' ? <>
+    <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" aria-hidden="true"><path d="m12 2 9 5v10l-9 5-9-5V7Zm0 10 9-5M12 12 3 7m9 5v10" /></svg>
+    <small>{failed ? 'Open preview to refresh thumbnail' : thumbnailState === 'error' ? 'Thumbnail unavailable' : 'Generating thumbnail…'}</small>
+  </> : ({ image: 'Image preview unavailable', audio: 'Audio', video: 'Video' })[asset.type] || asset.extension}</span>
+}
+
 export default function AssetLibrary({
   uploadAsset,
   selectionType,
@@ -32,7 +43,12 @@ export default function AssetLibrary({
   authToken,
   projectContent,
 }) {
-  const [assets, setAssets] = useState([])
+  const thumbnails = useModelThumbnails()
+  const [listedAssets, setAssets] = useState([])
+  const assets = useMemo(() => listedAssets.map(asset => {
+    const result = thumbnails?.results[asset.url]
+    return !asset.thumbnailUrl && result?.version === asset.updatedAt && result.thumbnailUrl ? { ...asset, thumbnailUrl: result.thumbnailUrl } : asset
+  }), [listedAssets, thumbnails?.results])
   const [filter, setFilter] = useState(selectionType || 'all')
   const [query, setQuery] = useState('')
   const [loading, setLoading] = useState(true)
@@ -49,6 +65,9 @@ export default function AssetLibrary({
   const [dragOver, setDragOver] = useState(false)
   const uploadLock = useRef(false)
   const fileRef = useRef(null)
+  const thumbnailReady = useCallback((url, thumbnailUrl) => {
+    setAssets(current => current.map(asset => asset.url === url ? { ...asset, thumbnailUrl } : asset))
+  }, [])
 
   const refresh = useCallback(async (signal) => {
     setLoading(true)
@@ -58,13 +77,13 @@ export default function AssetLibrary({
       const body = await response.json()
       if (!response.ok) throw new Error(body.error || 'Could not load assets')
       if (!Array.isArray(body)) throw new Error('Unexpected asset list')
-      if (!signal?.aborted) setAssets(body)
+      if (!signal?.aborted) { setAssets(body); body.forEach(asset => thumbnails?.enqueue(asset)) }
     } catch {
       if (!signal?.aborted) setLoadError('Could not load the asset library.')
     } finally {
       if (!signal?.aborted) setLoading(false)
     }
-  }, [])
+  }, [thumbnails?.enqueue])
 
   useEffect(() => {
     const request = new AbortController()
@@ -79,6 +98,7 @@ export default function AssetLibrary({
   const mutating = busy || Boolean(deletingUrl)
   const completed = queue.filter((item) => item.status === 'complete').length
   const failed = queue.filter((item) => item.status === 'failed')
+  const thumbnailFailures = assets.filter(asset => !asset.thumbnailUrl && thumbnails?.results[asset.url]?.state === 'error')
 
   async function upload(files) {
     if (!files?.length || uploadLock.current || deletingUrl) return
@@ -177,24 +197,25 @@ export default function AssetLibrary({
       </div>
       {!selectionType && <div className="asset-library__filters" role="group" aria-label="File types">{FILTERS.map((item) => <button type="button" key={item} aria-pressed={filter === item} className={filter === item ? 'active' : ''} onClick={() => setFilter(item)}>{({ all: 'All files', image: 'Images', model: '3D models', audio: 'Audio', video: 'Video' })[item]} <span>{assets.filter((asset) => item === 'all' || asset.type === item).length}</span></button>)}</div>}
       <p className="muted studio-asset-feedback" role="status">{loading ? 'Loading files…' : notice || `Showing ${visible.length} of ${assets.length} files. Select a file to preview it.`}</p>
+      {thumbnailFailures.length > 0 && <p className="studio-asset-feedback" role="status">{thumbnailFailures.length} model {thumbnailFailures.length === 1 ? 'thumbnail is' : 'thumbnails are'} unavailable. <button type="button" onClick={() => thumbnailFailures.forEach(asset => thumbnails.enqueue(asset, null, true))}>Retry thumbnails</button></p>}
       {error && <p className="error-text" role="alert">{error}</p>}
       {loadError && <p className="error-text" role="alert">{loadError} <button type="button" onClick={() => refresh()}>Retry</button></p>}
       {!loading && !loadError && !visible.length && <div className="studio-asset-empty"><h3>{assets.length ? 'No files match these filters' : 'Your library is empty'}</h3><p>{assets.length ? 'Try a different name, file type or usage filter.' : 'Upload files here, then choose them when editing a scene or product.'}</p>{assets.length > 0 && <button type="button" onClick={() => { setQuery(''); setFilter('all'); setUsageFilter('all') }}>Clear filters</button>}</div>}
       <ul className={`studio-asset-list studio-asset-list--${layout}`} aria-label="Matching assets" aria-busy={loading}>
         {visible.map((asset) => <li className="studio-asset-row" key={asset.url}>
           <button type="button" className="studio-asset-thumbnail" aria-label={`Preview ${asset.name}`} onClick={() => setPreview(asset)}>
-            {asset.type === 'image' ? <img src={`/api/assets/thumbnail?url=${encodeURIComponent(asset.url)}&v=${encodeURIComponent(asset.updatedAt)}`} alt="" loading="lazy" onError={(event) => { event.currentTarget.hidden = true }} /> : <span>{({ model: '3D', audio: 'Audio', video: 'Video' })[asset.type] || asset.extension}</span>}
+            <AssetThumbnail key={asset.thumbnailUrl || asset.updatedAt} asset={asset} thumbnailState={thumbnails?.results[asset.url]?.state} />
             <small>{asset.extension?.slice(1).toUpperCase()}</small>
           </button>
           <div className="studio-asset-info"><button type="button" title={asset.name} onClick={() => setPreview(asset)}>{asset.name}</button><span>{formatBytes(asset.bytes)} · {asset.source === 'demo' ? 'Sample file' : new Date(asset.updatedAt).toLocaleDateString()}</span>
             <span className={usageByUrl.get(asset.url)?.length ? 'studio-asset-used' : ''}>{usageByUrl.get(asset.url)?.length ? `Used in ${usageByUrl.get(asset.url).length} ${usageByUrl.get(asset.url).length === 1 ? 'place' : 'places'} in this project` : 'Not used in this project'}</span></div>
           <div className="studio-asset-controls">
             {((asset.type === 'image' && onUseImage) || (asset.type === 'model' && onUseModel)) ? <button type="button" className="primary" aria-label={`Use ${asset.type} ${asset.name}`} disabled={mutating} onClick={() => useAsset(asset)}>Use {asset.type}</button> : <button type="button" onClick={() => setPreview(asset)}>Preview</button>}
-            <details><summary aria-label={`Manage ${asset.name}`}>More</summary><div className="studio-asset-menu"><button type="button" onClick={() => copyUrl(asset.url)}>Copy link</button><a className="button-link" href={asset.url} download={asset.name}>Download</a>{asset.source === 'upload' && <button type="button" className="danger" onClick={() => deleteAsset(asset)} disabled={mutating || loading || Boolean(usageByUrl.get(asset.url)?.length)} title={usageByUrl.get(asset.url)?.length ? 'Remove this file from the project before deleting it.' : undefined}>{deletingUrl === asset.url ? 'Deleting…' : 'Delete file'}</button>}</div></details>
+            <details data-menu><summary aria-label={`Manage ${asset.name}`}>More</summary><div className="studio-asset-menu"><button type="button" onClick={() => copyUrl(asset.url)}>Copy link</button><a className="button-link" href={asset.url} download={asset.name}>Download</a>{asset.source === 'upload' && <button type="button" className="danger" onClick={() => deleteAsset(asset)} disabled={mutating || loading || Boolean(usageByUrl.get(asset.url)?.length)} title={usageByUrl.get(asset.url)?.length ? 'Remove this file from the project before deleting it.' : undefined}>{deletingUrl === asset.url ? 'Deleting…' : 'Delete file'}</button>}</div></details>
           </div>
         </li>)}
       </ul>
-      {preview && <AssetPreview key={preview.url} asset={preview} project={projectContent} onClose={() => setPreview(null)} onUse={(preview.type === 'image' && onUseImage) || (preview.type === 'model' && onUseModel) ? useAsset : undefined} />}
+      {preview && <AssetPreview key={preview.url} asset={preview} project={projectContent} onThumbnailReady={thumbnailReady} onClose={() => setPreview(null)} onUse={(preview.type === 'image' && onUseImage) || (preview.type === 'model' && onUseModel) ? useAsset : undefined} />}
     </section>
   )
 }

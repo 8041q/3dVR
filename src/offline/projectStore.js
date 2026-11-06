@@ -1,7 +1,7 @@
 import { ACTION_TYPES, normalizeHotspotActions } from '../actions/actionTypes.js'
 
 const DB = '3dvr-offline-library'
-const VER = 1
+const VER = 2
 const PROJECTS = 'projects'
 const ASSETS = 'assets'
 
@@ -24,6 +24,7 @@ function openDatabase() {
   const request = indexedDB.open(DB, VER)
   request.onupgradeneeded = () => {
     const db = request.result
+    if (!db.objectStoreNames.contains('identity')) db.createObjectStore('identity',{keyPath:'id'})
     if (!db.objectStoreNames.contains(PROJECTS)) db.createObjectStore(PROJECTS, { keyPath: 'id' })
     if (!db.objectStoreNames.contains(ASSETS)) {
       const assets = db.createObjectStore(ASSETS, { keyPath: 'key' })
@@ -184,7 +185,9 @@ export async function getDownloadedProjectRecord(id) {
   const db = await openDatabase()
   try {
     const projects = db.transaction(PROJECTS, 'readonly').objectStore(PROJECTS)
-    return await requestResult(projects.get(id))
+    const record = await requestResult(projects.get(id))
+    if (record?.manifest?.offlineAccount && record.manifest.offlineAccount !== localStorage.getItem('3dvr-offline-account')) return null
+    return record
   } finally {
     db.close()
   }
@@ -267,4 +270,16 @@ export function removeDownloadedProject(id) {
       db.close()
     }
   })
+}
+
+export async function clearPrivateDownloads() {
+  const db = await openDatabase()
+  let records
+  try { records = await requestResult(db.transaction(PROJECTS,'readonly').objectStore(PROJECTS).getAll()) } finally { db.close() }
+  for (const record of records) if (record.manifest?.offlineAccount) await removeDownloadedProject(record.id)
+}
+
+export async function setOfflineAccount(user) {
+  const db = await openDatabase()
+  try { const tx=db.transaction('identity','readwrite'); tx.objectStore('identity').put({id:'active',user}); await transactionDone(tx) } finally {db.close()}
 }

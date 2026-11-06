@@ -1,16 +1,20 @@
+import { MEDIA_ROOT } from './storagePaths.js'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { requireEditor } from './auth.js'
 import { assetRegistryByUrl, removeAssetFromRegistry } from './assetRegistry.js'
 import { findAssetReferences } from './assetReferences.js'
-import { assetThumbnail } from './assetThumbnails.js'
+import { assetThumbnail, cachedModelThumbnail, saveModelThumbnail } from './assetThumbnails.js'
+import { rateLimit } from 'express-rate-limit'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const repoRoot = path.join(__dirname, '..')
-const publicRoot = path.join(repoRoot, 'public')
+const publicRoot = MEDIA_ROOT
 const uploadsRoot = path.join(publicRoot, 'uploads')
 const demoRoot = path.join(publicRoot, 'demo')
+const thumbnailRoot = path.join(MEDIA_ROOT, '..', 'thumbnails')
+const thumbnailUrl = (asset) => `/api/assets/thumbnail?url=${encodeURIComponent(asset.url)}&v=${encodeURIComponent(asset.updatedAt)}`
 
 const TYPE_BY_EXTENSION = new Map([
   ['.jpg', 'image'], ['.jpeg', 'image'], ['.png', 'image'], ['.webp', 'image'],
@@ -86,13 +90,26 @@ export function createAssetsRouter(express) {
 
   router.get('/thumbnail', async (req, res) => {
     try {
-      const thumbnail = await assetThumbnail(req.query.url, publicRoot, path.join(__dirname, 'data', 'asset-thumbnails'))
+      const thumbnail = /\.(glb|gltf)$/i.test(String(req.query.url))
+        ? await cachedModelThumbnail(req.query.url, publicRoot, thumbnailRoot)
+        : await assetThumbnail(req.query.url, publicRoot, thumbnailRoot)
       if (!thumbnail) return res.sendStatus(404)
-      res.set('Cache-Control', 'public, max-age=86400')
-      return res.sendFile(thumbnail)
+      res.set('Cache-Control', 'private, no-store')
+      return res.sendFile(path.basename(thumbnail), { root: path.dirname(thumbnail) })
     } catch {
       res.set('Cache-Control', 'no-store')
       return res.type('svg').send('<svg xmlns="http://www.w3.org/2000/svg" width="480" height="320"><rect width="100%" height="100%" fill="#f3f4f6"/><text x="50%" y="50%" text-anchor="middle" fill="#667085" font-family="sans-serif" font-size="18">Open file to preview</text></svg>')
+    }
+  })
+
+  router.post('/model-thumbnail', requireEditor, rateLimit({ windowMs: 60000, limit: 120 }), express.raw({ type: 'image/webp', limit: '256kb', inflate: false }), async (req, res) => {
+    try {
+      const saved = await saveModelThumbnail(String(req.query.url || ''), String(req.query.v || ''), req.body, publicRoot, thumbnailRoot)
+      const revision = (await fs.stat(saved)).mtimeMs
+      return res.json({ thumbnailUrl: `${thumbnailUrl({ url: String(req.query.url), updatedAt: String(req.query.v) })}&capture=${revision}` })
+    } catch (error) {
+      const status = error.status || 500
+      return res.status(status).json({ error: status < 500 ? error.message : 'Could not save the thumbnail. Check that FFmpeg is installed on the server.' })
     }
   })
 
@@ -118,11 +135,15 @@ export function createAssetsRouter(express) {
       const assets = [...enrichedUploads, ...demo]
         .sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)))
 
+      await Promise.all(assets.filter(asset => asset.type === 'model').map(async asset => {
+        if (await cachedModelThumbnail(asset.url, publicRoot, thumbnailRoot)) asset.thumbnailUrl = thumbnailUrl(asset)
+      }))
+
       res.set('Cache-Control', 'no-store')
       return res.json(assets)
     } catch (error) {
       console.error('[assets]', error)
-      return res.status(500).json({ error: error.message || 'Could not list assets' })
+      return res.status(500).json({ error: 'Could not list assets' })
     }
   })
 
@@ -160,7 +181,7 @@ export function createAssetsRouter(express) {
       })
     } catch (error) {
       console.error('[assets:delete]', error)
-      return res.status(500).json({ error: error.message || 'Could not delete asset' })
+      return res.status(500).json({ error: 'Could not delete asset' })
     }
   })
 

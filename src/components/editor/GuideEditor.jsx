@@ -56,11 +56,12 @@ function StepViewfinder({ scene, step, active, onCapture, onHighlight }) {
   )
 }
 
-export default function GuideEditor({ guides, scenes, onGuidesChange, currentSceneId, active, selectionRequest, onPreviewGuide }) {
+export default function GuideEditor({ guides, scenes, onGuidesChange, onDeleteGuide, currentSceneId, active, selectionRequest, onPreviewGuide }) {
   const [selectedGuideId, setSelectedGuideId] = useState(selectionRequest?.guideId || guides[0]?.id || '')
   const [selectedStepId, setSelectedStepId] = useState(selectionRequest?.stepId || '')
   const [draggedStepId, setDraggedStepId] = useState(null)
   const stepInspector = useRef(null)
+  const guidePicker = useRef(null), createButton = useRef(null)
 
   const selectedGuide = guides.find((guide) => guide.id === selectedGuideId) || guides[0] || null
   const selectedStepIndex = selectedGuide?.steps?.findIndex((step) => step.id === selectedStepId) ?? -1
@@ -105,9 +106,10 @@ export default function GuideEditor({ guides, scenes, onGuidesChange, currentSce
   function removeGuide() {
     if (!selectedGuide) return
     const next = guides.filter((guide) => guide.id !== selectedGuide.id)
-    onGuidesChange((current) => current.filter((guide) => guide.id !== selectedGuide.id))
+    onDeleteGuide(selectedGuide.id)
     setSelectedGuideId(next[0]?.id || '')
     setSelectedStepId(next[0]?.steps?.[0]?.id || '')
+    requestAnimationFrame(() => (guidePicker.current || createButton.current)?.focus())
   }
 
   function addStep() {
@@ -224,22 +226,22 @@ export default function GuideEditor({ guides, scenes, onGuidesChange, currentSce
     <div className="guide-editor guide-editor--storyboard">
       <div className="guide-editor__topline">
         <p className="muted">Build a tour one step at a time. Choose a scene, set the view, then decide how visitors continue.</p>
-        <button type="button" onClick={addGuide}>New guide</button>
+        {guides.length > 0 && <button type="button" onClick={addGuide}>New guide</button>}
       </div>
       {!selectedGuide ? <div className="editor-empty-state">
         <h3>Create your first guided tour</h3><p>A guide takes visitors through your scenes in order. Each step can show a message or open a product.</p>
-        <button type="button" className="primary" onClick={addGuide}>Create guide</button>
+        <button ref={createButton} type="button" className="primary" onClick={addGuide}>Create guide</button>
       </div> : <>
         <div className="guide-picker-row">
-          <label>Guide<Select value={selectedGuide.id} onChange={(event) => {
+          <label>Guide<Select ref={guidePicker} value={selectedGuide.id} onChange={(event) => {
             const guide = guides.find((item) => item.id === event.target.value)
             setSelectedGuideId(guide.id); setSelectedStepId(guide.steps[0]?.id || '')
           }}>{guides.map((guide) => <option key={guide.id} value={guide.id}>{guide.title || 'Untitled guide'}</option>)}</Select></label>
           <label>Guide name<input value={selectedGuide.title || ''} onChange={(event) => patchGuide({ title: event.target.value })} /></label>
           <button type="button" className="primary" disabled={!selectedGuide.steps.length} onClick={(event) => onPreviewGuide?.(selectedGuide.id, event.currentTarget)}>Play guide</button>
+          <button type="button" className="danger guide-delete" onClick={removeGuide}>Delete guide</button>
           <details className="guide-settings advanced-details"><summary>Guide settings</summary>
             <label>Description<textarea rows="2" value={selectedGuide.description || ''} onChange={(event) => patchGuide({ description: event.target.value })} /></label>
-            <button type="button" className="danger" onClick={removeGuide}>Delete guide</button>
           </details>
         </div>
         <div className="guide-layout">
@@ -261,9 +263,13 @@ export default function GuideEditor({ guides, scenes, onGuidesChange, currentSce
             </div>
           </nav>
           {selectedStep ? <div className="guide-step-inspector" key={selectedStep.id} ref={stepInspector}>
-            <header className="guide-step-inspector__header"><h3>Step {actualStepIndex + 1} of {selectedGuide.steps.length}</h3>
-              <div className="compact-actions"><button type="button" disabled={actualStepIndex === 0} onClick={() => reorder(-1)}>Move up</button><button type="button" disabled={actualStepIndex === selectedGuide.steps.length - 1} onClick={() => reorder(1)}>Move down</button></div>
+            <header className="guide-step-inspector__header"><div><span className="muted">Selected step</span><h3>Step {actualStepIndex + 1} of {selectedGuide.steps.length}</h3></div>
+              <button type="button" className="primary" onClick={(event) => onPreviewGuide?.(selectedGuide.id, event.currentTarget, selectedStep.id)}>Play this step</button>
             </header>
+            <div className="guide-step-tools" role="group" aria-label={`Actions for step ${actualStepIndex + 1}`}>
+              <button type="button" disabled={actualStepIndex === 0} onClick={() => reorder(-1)}>Move up</button><button type="button" disabled={actualStepIndex === selectedGuide.steps.length - 1} onClick={() => reorder(1)}>Move down</button>
+              <button type="button" onClick={duplicateStep}>Duplicate step</button><button type="button" className="danger" onClick={deleteStep}>Delete step</button>
+            </div>
             <section className="guide-step-section">
               <h3>1. Scene and message</h3>
               <p className="muted">Where should this step take the visitor, and what should they notice?</p>
@@ -325,11 +331,6 @@ export default function GuideEditor({ guides, scenes, onGuidesChange, currentSce
               <p className="muted">{needsHotspot && needsTimer ? 'The first trigger continues the guide. Visitors can also press Next.' : needsHotspot ? 'Selecting this hotspot runs its action and continues the guide. Next is also available.' : needsTimer ? 'The countdown starts after the scene loads. Visitors can also press Next.' : 'Visitors stay on this step until they choose Next.'}{actualStepIndex === selectedGuide.steps.length - 1 ? ' This is the last step, so continuing finishes the guide.' : ''}</p>
             </section>
             {targetIssues.map(({ field, message, severity }) => <p key={`${field}-${message}`} className={severity === 'error' ? 'error-text' : 'studio-warning'} role="status">{message}</p>)}
-            <footer className="guide-step-footer-actions">
-              <button type="button" className="primary" onClick={(event) => onPreviewGuide?.(selectedGuide.id, event.currentTarget, selectedStep.id)}>Play from this step</button>
-              <button type="button" onClick={duplicateStep}>Duplicate step</button>
-              <button type="button" className="danger" onClick={deleteStep}>Delete step</button>
-            </footer>
           </div> : <div className="editor-empty-state"><h3>Add the first step</h3><p>Each step takes visitors to a scene and tells them what to explore.</p><button type="button" onClick={addStep} disabled={!scenes.length}>Add step</button></div>}
         </div>
       </>}

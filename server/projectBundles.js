@@ -1,3 +1,4 @@
+import { MEDIA_ROOT } from './storagePaths.js'
 import crypto from 'node:crypto'
 import fs from 'node:fs/promises'
 import { createReadStream, createWriteStream, constants } from 'node:fs'
@@ -156,7 +157,7 @@ export async function extractProjectZip(file, destination, { maxBytes = 20 * 102
   finally { zip?.close() }
 }
 
-export function createProjectBundleService({ publicRoot = path.join(repoRoot, 'public'), panoramaRoot = PANORAMA_ROOT, tempRoot = INCOMING_ROOT,
+export function createProjectBundleService({ publicRoot = MEDIA_ROOT, panoramaRoot = PANORAMA_ROOT, tempRoot = INCOMING_ROOT,
   snapshotProject = exportProjectState, restoreProject = importProjectState,
   readRegistry = readAssetRegistry, register = registerAsset, unregister = removeAssetFromRegistry } = {}) {
   const uploadsRoot = path.join(publicRoot, 'uploads')
@@ -313,7 +314,7 @@ export function createProjectBundleService({ publicRoot = path.join(repoRoot, 'p
         const destination = within(panoramaRoot, newId)
         await fs.mkdir(destination)
         createdPanoramas.push(destination)
-        await fs.cp(within(root, panorama.bundlePath), destination, { recursive: true, errorOnExist: true, force: false })
+        for (const entry of await fs.readdir(within(root, panorama.bundlePath))) await fs.cp(within(root, panorama.bundlePath+'/'+entry), within(destination,entry), { recursive:true,errorOnExist:true,force:false })
         for (const name of (await walk(destination)).filter((item) => item.endsWith('.json'))) {
           const original = await jsonFile(within(destination, name))
           const json = rewrite(original, replace)
@@ -331,7 +332,14 @@ export function createProjectBundleService({ publicRoot = path.join(repoRoot, 'p
       }
       const converted = new Map([...snapshots].map(([name, value]) => [name, rewrite(value, replace)]))
       const project = await restoreProject({ draft: converted.get('draft.json'), published: converted.get('published.json'), versions: [...converted].filter(([name]) => name.startsWith('versions/')).map(([, value]) => value) })
-      return { ...project, importedAssets: assets.length, importedPanoramas: (manifest.panoramas || []).length, externalAssets: [...external] }
+      const mediaResources = []
+      for (const file of createdFiles) mediaResources.push({url:'/uploads/'+path.basename(file),bytes:(await fs.stat(file)).size})
+      for (const directory of createdPanoramas) {
+        let bytes=0
+        for(const name of await walk(directory)) bytes+=(await fs.stat(within(directory,name))).size
+        mediaResources.push({url:'/media/panoramas/'+path.basename(directory)+'/manifest.json',bytes})
+      }
+      return { ...project, mediaResources, importedAssets: assets.length, importedPanoramas: (manifest.panoramas || []).length, externalAssets: [...external] }
     } catch (error) {
       for (const url of registered) await unregister(url).catch(() => {})
       for (const file of createdFiles) await fs.rm(file, { force: true }).catch(() => {})

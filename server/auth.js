@@ -1,39 +1,12 @@
-import crypto from 'node:crypto'
-
-const editorToken = crypto.randomBytes(32).toString('hex')
-
-function configuredPassword() {
-  if (process.env.EDITOR_PASSWORD) return process.env.EDITOR_PASSWORD
-  if (process.env.NODE_ENV === 'production') return null
-  return 'admin'
+import { getAuth, securityDb, installationStatus } from './identity.js'
+import { canAuthorProjects } from '../src/accountCapabilities.js'
+import { fromNodeHeaders } from 'better-auth/node'
+export async function identity(req, res, next) {
+  if (installationStatus().state==='needs-initialization') {req.identity=null;return next()}
+  try { req.identity = await getAuth().api.getSession({ headers: fromNodeHeaders(req.headers) }); if(req.identity && securityDb().prepare('SELECT banned FROM user WHERE id=?').get(req.identity.user.id)?.banned) req.identity=null; next() } catch (error) { next(error) }
 }
-
 export function requireEditor(req, res, next) {
-  const header = req.get('Authorization') || ''
-  const token = header.startsWith('Bearer ') ? header.slice(7) : ''
-  if (token !== editorToken) return res.status(401).json({ error: 'Editor authentication required.' })
+  if (!req.identity) return res.status(401).json({ error: 'Sign in required.' })
+  if (!canAuthorProjects(req.identity.user)) return res.status(403).json({ error:'Finish your account setup before editing projects.' })
   next()
-}
-
-export function createAuthRouter(express) {
-  const router = express.Router()
-
-  router.post('/login', (req, res) => {
-    const password = configuredPassword()
-    if (!password) {
-      return res.status(503).json({ error: 'EDITOR_PASSWORD is not configured.' })
-    }
-    if (String(req.body?.password || '') !== password) {
-      return res.status(401).json({ error: 'Incorrect password.' })
-    }
-    return res.json({ token: editorToken })
-  })
-
-  router.get('/session', (req, res) => {
-    const header = req.get('Authorization') || ''
-    const token = header.startsWith('Bearer ') ? header.slice(7) : ''
-    res.json({ authenticated: token === editorToken })
-  })
-
-  return router
 }

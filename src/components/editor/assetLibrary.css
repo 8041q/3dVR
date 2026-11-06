@@ -18,7 +18,7 @@
 .asset-library__filters span { opacity: .6; margin-left: 3px; }
 .studio-asset-feedback { margin: 12px 0; color: var(--studio-muted); font-size: 12px; }
 .studio-asset-list { display: grid; gap: 12px; margin: 0; padding: 0 0 100px; list-style: none; }
-.studio-asset-list--grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); }
+.studio-asset-list--grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr)); }
 .studio-asset-row { min-width: 0; position: relative; border: 1px solid var(--studio-line); border-radius: var(--studio-radius); background: var(--studio-panel); }
 .studio-app .studio-asset-thumbnail { position: relative; display: grid; place-items: center; width: 100%; height: 144px; padding: 0; border-radius: var(--studio-radius) var(--studio-radius) 0 0; overflow: hidden; background: var(--studio-subtle); }
 .studio-asset-thumbnail img { width: 100%; height: 100%; object-fit: contain; }
@@ -71,6 +71,12 @@
 }
 .studio-workspace-view--assets .studio-workspace-body > .studio-asset-browser { width: 100%; max-width: none; }
 .studio-asset-preview__hint { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 16px; font-size: 12px; color: var(--studio-muted); }
+.studio-asset-placeholder { display:grid; justify-items:center; gap:10px; color:var(--studio-muted); }
+.studio-app .studio-asset-placeholder small { position:static; padding:0 8px; font-size:11px; background:none; font-weight:400; }
+.studio-asset-preview__media--model .studio-model-thumbnail-preview { width:100%; height:100%; max-height:100%; object-fit:contain; }
+.studio-model-thumbnail-missing { padding:24px; color:var(--studio-muted); }
+.studio-asset-preview__hint button { flex:none; }
+@media (max-width:600px) { .studio-asset-preview__hint { flex-wrap:wrap; } }
 
 /* Match the baseline and height of every control in the filter row. */
 .studio-asset-toolbar { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 180px) minmax(0, 160px) auto; align-items: end; }
@@ -91,3 +97,9 @@
   .studio-asset-list--list .studio-asset-row { grid-template-columns: 48px minmax(0,1fr); }
   .studio-asset-list--list .studio-asset-controls { grid-column: 2; justify-content: flex-start; padding: 8px 12px 0; }
 }
+
+.studio-app .studio-asset-menu :is(button,.button-link) { display:flex; align-items:center; justify-content:flex-start; width:100%; box-sizing:border-box; margin:0; min-height:34px; padding:8px 10px; white-space:nowrap; }
+
+.studio-thumbnail-worker { position:fixed; left:-10000px; top:0; width:480px; height:320px; pointer-events:none; opacity:0; }
+
+.studio-asset-list { padding-bottom:160px; }

@@ -1,9 +1,10 @@
+import { permission, mediaAllowed } from './access.js'
 import crypto from 'node:crypto'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { requireEditor } from './auth.js'
 import { createProjectBundleService, bundleError } from './projectBundles.js'
-import { INCOMING_ROOT } from './storagePaths.js'
+import { INCOMING_ROOT, MEDIA_ROOT, PANORAMA_ROOT } from './storagePaths.js'
 
 function sizeLimit(name, fallback) {
   const value = Number(process.env[name])
@@ -24,12 +25,12 @@ async function receiveZip(request, file, limit) {
   } finally { await handle.close() }
 }
 
-export function createProjectTransfersRouter(express, { service = createProjectBundleService(), tempRoot = INCOMING_ROOT } = {}) {
+export function createProjectTransfersRouter(express, { service = createProjectBundleService(), tempRoot = INCOMING_ROOT, authorizeMedia = mediaAllowed } = {}) {
   const router = express.Router()
   const downloads = new Map()
   function sendError(res, error) {
     if (!error.status || error.status >= 500) console.error('[project-transfer]', error)
-    if (!res.headersSent && !res.destroyed) res.status(error.status || 500).json({ error: error.message || 'Project transfer failed.' })
+    if (!res.headersSent && !res.destroyed) res.status(error.status || 500).json({ error: error.status && error.status < 500 ? error.message : 'Project transfer failed.' })
   }
 
   router.post('/export/:projectId', requireEditor, async (req, res) => {
@@ -37,10 +38,17 @@ export function createProjectTransfersRouter(express, { service = createProjectB
       const { draft, expectedDraftRevision } = req.body || {}
       if (draft && (!Array.isArray(draft.scenes) || !Array.isArray(draft.guides) || typeof expectedDraftRevision !== 'string')) throw bundleError('Exporting unsaved edits requires a complete draft and its base revision.')
       const plan = await service.prepareExport(req.params.projectId, { draft, expectedDraftRevision })
+      for (const entry of plan.entries || []) {
+        if (!entry.file) continue
+        const uploads=path.join(MEDIA_ROOT,'uploads')+path.sep
+        const panorama=PANORAMA_ROOT+path.sep
+        const url=entry.file.startsWith(uploads) ? '/uploads/'+path.basename(entry.file) : entry.file.startsWith(panorama) ? '/media/panoramas/'+path.relative(PANORAMA_ROOT,entry.file).split(path.sep).join('/') : null
+        if (url && !await authorizeMedia(req.identity.user,url)) return res.status(403).json({error:'Export references media outside your access.'})
+      }
       const ticket = crypto.randomBytes(32).toString('hex')
       const timer = setTimeout(() => downloads.delete(ticket), 10 * 60 * 1000)
       timer.unref()
-      downloads.set(ticket, { plan, timer })
+      downloads.set(ticket, { plan, timer, userId:req.identity.user.id, projectId:req.params.projectId })
       res.set('Cache-Control', 'no-store').json({ downloadUrl: `/api/project-transfers/download/${ticket}`, filename: plan.filename, fileCount: plan.fileCount, externalAssets: plan.externalAssets })
     } catch (error) { sendError(res, error) }
   })
@@ -49,7 +57,7 @@ export function createProjectTransfersRouter(express, { service = createProjectB
   // stream large ZIPs to disk without retaining the entire project in memory.
   router.get('/download/:ticket', async (req, res) => {
     const download = downloads.get(req.params.ticket)
-    if (!download) return res.status(404).json({ error: 'This download expired. Export the project again.' })
+    if (!download || download.userId !== req.identity?.user.id || !['owner','edit'].includes(permission(req.identity.user,download.projectId))) return res.status(404).json({ error: 'This download expired. Export the project again.' })
     downloads.delete(req.params.ticket)
     clearTimeout(download.timer)
     res.set('Cache-Control', 'no-store')

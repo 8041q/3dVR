@@ -3,7 +3,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-export const ASSET_REGISTRY_PATH = path.join(__dirname, 'data', 'assets.json')
+export const ASSET_REGISTRY_PATH = path.join(process.env.VR_DATA_ROOT || path.join(process.env.VR_STORAGE_ROOT || path.join(__dirname, '..', 'storage'), 'data'), 'assets.json')
 let pendingMutation = Promise.resolve()
 function serializeMutation(operation) {
   const result = pendingMutation.then(operation)

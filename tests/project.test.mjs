@@ -17,7 +17,7 @@ async function projectStore(t) {
   await copyFile(new URL('../server/projectStore.js', import.meta.url), modulePath)
   await copyFile(new URL('../src/projectMetadata.js', import.meta.url), path.join(directory, 'src', 'projectMetadata.js'))
   await copyFile(new URL('../src/projectSettings.js', import.meta.url), path.join(directory, 'src', 'projectSettings.js'))
-  return { store: await import(pathToFileURL(modulePath)), directory: path.join(directory, 'server') }
+  return { store: await import(pathToFileURL(modulePath)), directory: path.join(directory, 'storage') }
 }
 
 test('parallel project creation preserves both blank projects', async (t) => {

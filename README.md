@@ -49,7 +49,13 @@ cp .env.example .env
 npm install
 ```
 
-Set a real editor password in `.env`.
+Set `APP_ORIGIN` in `.env` (`http://localhost:5173` for local development, your HTTPS origin for production). Initialize the owner locally:
+
+```bash
+npm run accounts -- init owner@example.com
+```
+
+Open the single-use activation link printed by that command, choose a password, sign in at `/account`, and enroll an authenticator. After connecting your authenticator, open Projects to create or edit tours with the same account. Users and Server contain administration controls. There is no default password or public registration. See [server security and migration](docs/SERVER_SECURITY.md) before upgrading an existing installation.
 
 ## Development - one command
 
@@ -122,13 +128,13 @@ This runs the editor and project persistence tests. The persistence tests use a 
 
 Uploaded assets keep a sanitized human-readable filename. If a name already exists, the server allocates predictable numeric variants such as `booth-room-2.glb`, `booth-room-3.glb`, and so on; UUID filenames are not used for upload collisions.
 
-The Asset Library exposes **Delete** only for uploaded assets. Deletion is refused while the asset URL is still present in the current project state, saved draft, published snapshot, legacy project data, or a saved revision. Once references are removed and saved, deleting an asset removes both the file in `public/uploads/` and its `server/data/assets.json` registry entry. Demo assets are never deleted through this endpoint.
+The Asset Library exposes **Delete** only for uploaded assets. Deletion is refused while the asset URL is still present in the current project state, saved draft, published snapshot, legacy project data, or a saved revision. Once references are removed and saved, deleting an asset removes both the file in `storage/public/uploads/` and its `storage/data/assets.json` registry entry. Demo assets are never deleted through this endpoint.
 
 ## Project migration backups
 
-In **Project → Manage projects**, choose **Export / import**. Export downloads a `.3dvr.zip` containing the draft, metadata, viewer settings, published snapshot/history, local uploads, processed panorama tiles, and referenced demo/model dependencies. The current project's unsaved edits can be included without saving or publishing them. Other projects export their saved drafts. External URLs remain linked; they are not downloaded.
+In the editor, choose **Project Settings → Export project**. Export downloads a `.3dvr.zip` containing the draft, metadata, viewer settings, published snapshot/history, local uploads, processed panorama tiles, and referenced demo/model dependencies. The current project's unsaved edits can be included without saving or publishing them. External URLs remain linked; they are not downloaded.
 
-Import a ZIP to create a separate **unpublished** project. The importer restores media using available filenames and fresh panorama IDs, rewrites references, and retains imported releases as version history. It never overwrites an existing project or automatically publishes a tour. ZIPs containing a version-1 `migration-manifest.json` bundle (including a zipped CLI export directory) are supported. Archives are validated for paths, checksums, missing media, and size limits before project creation; failed imports roll back newly created media.
+In the workspace, choose **Import project** to restore a ZIP as a separate private **unpublished** project. The importer restores media using available filenames and fresh panorama IDs, rewrites references, and retains imported releases as version history. It never overwrites an existing project or automatically publishes a tour. ZIPs containing a version-1 `migration-manifest.json` bundle (including a zipped CLI export directory) are supported. Archives are validated for paths, checksums, missing media, and size limits before project creation; failed imports roll back newly created media.
 
 Imports default to a 10 GiB upload limit and a 20 GiB extracted limit. Override these with `MAX_PROJECT_IMPORT_BYTES` and `MAX_PROJECT_EXTRACT_BYTES`. Ensure the reverse proxy permits the same upload size and sufficient transfer time. ZIP media streams to disk; exports use the browser's native downloader rather than buffering the entire archive in browser memory.
 
@@ -150,7 +156,7 @@ If the destination already contains that project id, explicitly add `--overwrite
 
 ## Guides
 
-Guides are first-class project data stored in `server/data/guides.json` during the current prototype stage.
+Guides are first-class project data stored in `storage/data/` as project snapshots. Legacy global APIs are retired.
 
 A guide contains ordered steps. Each step can:
 
@@ -189,7 +195,7 @@ In the editor, use `Scan model` after uploading/entering a GLB URL to discover a
 Projects use separate draft and published snapshots under:
 
 ```text
-server/data/projects/<project-id>/
+storage/data/projects/<project-id>/
   meta.json
   draft.json
   published.json
@@ -202,7 +208,7 @@ A later infrastructure phase can move these snapshots and asset metadata to Post
 
 ## Current editor workflow
 
-The editor keeps a scene list, panorama canvas, and contextual inspector in one workspace. Select a scene to manage its panorama and hotspots, or open **Guides**, **Assets**, and **Project** from the workspace bar. **Project** holds metadata (including author and credits), rights, and starting scene settings; **Manage projects** handles switching, creation, and duplication. See [project metadata](docs/PROJECT_METADATA.md) for the field model. **Preview** runs the current draft in the editor and returns to the same selection. **Review & publish** links unfinished items to their settings and publishes the reviewed revision. See [the editor guide](docs/USER_GUIDE.md) for the full workflow.
+The editor keeps a scene list, panorama canvas, and contextual inspector in one workspace. Select a scene to manage its panorama and hotspots, or open **Guides**, **Assets**, and **Project Settings** from the workspace bar. **Project Settings** holds metadata (including author and credits), rights, and starting scene settings; **Export project** downloads a backup of the current project. **← Projects** returns to your workspace for project creation, import and switching. See [project metadata](docs/PROJECT_METADATA.md) for the field model. **Preview** runs the current draft in the editor and returns to the same selection. **Review & publish** links unfinished items to their settings and publishes the reviewed revision. See [the editor guide](docs/USER_GUIDE.md) for the full workflow.
 
 See `PHASE10.md` for the scene/action/finish-authoring changes and `PHASE12.md` for the current product-inspection architecture.
 

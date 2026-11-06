@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
-import SceneMapDialog from './SceneMapDialog'
+import SceneMapDialog from './SceneNavigationMap'
+import HomeIcon from '../ui/HomeIcon'
 
 export function moveScene(scenes, fromId, toId) {
   const from = scenes.findIndex((scene) => scene.id === fromId)
@@ -80,7 +81,7 @@ export default function SceneOrganizer({
             <button type="button" className="scene-card__select" aria-current={scene.id === currentSceneId ? 'true' : undefined} onClick={() => onNavigate(scene.id)}>
               <span
                 className="scene-card__thumb"
-                style={scene.image ? { backgroundImage: `url(${JSON.stringify(scene.image)})` } : undefined}
+                style={scene.image ? { backgroundImage: `url(${JSON.stringify(/^\/(uploads|demo)\//.test(scene.image) ? `/api/assets/thumbnail?url=${encodeURIComponent(scene.image)}` : scene.image)})` } : undefined}
                 aria-hidden="true"
               >
                 {scene.image ? '' : scene.panorama?.manifestUrl ? '360°' : index + 1}
@@ -89,9 +90,9 @@ export default function SceneOrganizer({
                 <strong>{scene.title || 'Untitled scene'}</strong>
                 {scene.group && <small>{scene.group}</small>}
               </span>
-              {scene.id === startSceneId && <em>Start</em>}
+              {scene.id === startSceneId && <span className="scene-home" aria-label="Starting scene" title="Starting scene"><HomeIcon /></span>}
             </button>
-            <details className="scene-card__options" id={`studio-scene-options-${scene.id}`} name="studio-scene-options">
+            <details data-menu className="scene-card__options" id={`studio-scene-options-${scene.id}`} name="studio-scene-options">
               <summary aria-label={`Options for ${scene.title || 'untitled scene'}`} title="Scene options">⋯</summary>
               <div className="scene-card__actions">
                 <button
@@ -127,6 +128,7 @@ export default function SceneOrganizer({
           scenes={scenes}
           currentSceneId={currentSceneId}
           startSceneId={startSceneId}
+          onStartSceneChange={onStartSceneChange}
           onNavigate={onNavigate}
           onScenesChange={onScenesChange}
           onClose={() => setShowMap(false)}

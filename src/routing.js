@@ -1,7 +1,9 @@
 export function getAppRoute(pathname = window.location.pathname) {
   const clean = pathname.replace(/\/+$/, '') || '/'
 
-  if (clean === '/editor' || clean.startsWith('/editor/')) {
+  if (['/','/account','/editor'].includes(clean)) return {kind:'account'}
+
+  if (clean.startsWith('/editor/')) {
     return {
       kind: 'editor',
       projectId: decodeURIComponent(clean.split('/')[2] || 'default'),
@@ -24,5 +26,5 @@ export function getAppRoute(pathname = window.location.pathname) {
     }
   }
 
-  return { kind: 'viewer', projectId: 'default' }
+  return { kind: 'account' }
 }

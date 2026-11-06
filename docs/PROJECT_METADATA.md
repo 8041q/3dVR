@@ -1,6 +1,6 @@
 # Project metadata
 
-The **Project** workspace describes the current experience. A persistent navigation row switches between **Project details** and **Manage projects**; both are also available in the project name menu. The manager provides search, publication-status filters, sorting, author and content summaries, published links, project creation with author/description, and named duplication. Loading failures keep the current project available and provide a refresh action. Empty search results include a clear-filters action.
+The **Project Settings** workspace describes the current experience. Its navigation switches between **Project details** and **Export project**. Use **← Projects** to return to the global workspace for searching, filtering, creating, importing and opening projects. Project creation accepts the same optional author and description fields used by Project details. The editor has one export location for the current project.
 
 ## Field choices
 

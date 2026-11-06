@@ -5,7 +5,7 @@ import AssetLibrary from './AssetLibrary'
 import GuideEditor from './GuideEditor'
 import HotspotInspector, { NewHotspot } from './HotspotInspector'
 import ModelAuthoringEditor from './ModelAuthoringEditor'
-import ProjectManager from './ProjectManager'
+import ProjectExport from './ProjectExport'
 import ProjectDetails from './ProjectDetails'
 import PublishReviewDialog from './PublishReviewDialog'
 import SceneInspector from './SceneInspector'
@@ -13,10 +13,11 @@ import SceneOrganizer from './SceneOrganizer'
 import { ACTION_CHOICES, ACTION_TYPES, createAction, normalizeHotspotActions, withHotspotActions } from '../../actions/actionTypes'
 import { projectChecks } from '../../editor/projectChecks'
 import { checkProjectMedia } from '../../editor/checkProjectMedia'
-import { removeProjectHotspot, removeProjectScene, replaceSpatialRoom } from '../../editor/projectEdits'
+import { removeProjectGuide, removeProjectHotspot, removeProjectScene, replaceSpatialRoom } from '../../editor/projectEdits'
 import { hasPanorama, panoramaKey } from '../../panorama/panoramaSource'
 import { replaceProductModel } from '../../product/modelMetadata'
 import { resolveSceneId } from '../../viewer/sceneSelection'
+import useDismissibleMenus from '../../hooks/useDismissibleMenus'
 import { projectViewerSettings } from '../../projectSettings.js'
 
 const SCENE_INSPECTOR = { kind: 'scene' }
@@ -24,7 +25,7 @@ const WORKSPACES = [
   { kind: 'scenes', label: 'Scenes' },
   { kind: 'guides', label: 'Guides' },
   { kind: 'assets', label: 'Assets' },
-  { kind: 'project', label: 'Project' },
+  { kind: 'project', label: 'Project Settings' },
 ]
 
 function statusForDraft(draft) {
@@ -64,6 +65,7 @@ function AssetPicker({ title, onClose, children }) {
 }
 
 export default function EditorWorkspace({ projectId, draft, authToken }) {
+  useDismissibleMenus()
   const { project, scenes, guides } = draft
   const [workspace, setWorkspace] = useState({ kind: 'scenes' })
   const [assetPicker, setAssetPicker] = useState(null)
@@ -88,7 +90,6 @@ export default function EditorWorkspace({ projectId, draft, authToken }) {
   const previewOpener = useRef(null)
   const editProductButton = useRef(null)
   const workspaceHeading = useRef(null)
-  const projectMenu = useRef(null)
   const inspectorRef = useRef(null)
   const stageRef = useRef(null)
   const sceneId = resolveSceneId(scenes, selectedSceneId, project.startSceneId)
@@ -417,34 +418,12 @@ export default function EditorWorkspace({ projectId, draft, authToken }) {
       <div className="editor-studio" hidden={Boolean(preview)}>
         <header className="editor-topbar studio-header">
           <div className="studio-identity">
+            <a className="studio-back-projects" href="/" onClick={event => { if (busy) event.preventDefault() }} aria-disabled={busy || undefined} title="Return to your project library">← Projects</a>
             <span className="editor-logo" aria-label="Atria 3DVR">
               <img src="/brand/3dvr-portal-v2.svg" alt="" width="40" height="40" />
               <span>Atria 3DVR</span>
             </span>
-            <details className="studio-project-menu" ref={projectMenu}
-              onBlur={(event) => {
-                if (!event.currentTarget.contains(event.relatedTarget)) event.currentTarget.open = false
-              }}
-              onKeyDown={(event) => {
-                if (event.key !== 'Escape' || !event.currentTarget.open) return
-                event.preventDefault()
-                event.currentTarget.open = false
-                event.currentTarget.querySelector('summary')?.focus()
-              }}>
-              <summary aria-label={`${project.title || 'Untitled tour'} project menu`}><h1>{project.title || 'Untitled tour'}</h1><span aria-hidden="true">▾</span></summary>
-              <div>
-                <button onClick={() => {
-                  projectMenu.current.open = false
-                  openWorkspace({ kind: 'project' })
-                  requestAnimationFrame(() => workspaceHeading.current?.focus())
-                }}>Project details</button>
-                <button onClick={() => {
-                  projectMenu.current.open = false
-                  openWorkspace({ kind: 'projects' })
-                  requestAnimationFrame(() => workspaceHeading.current?.focus())
-                }}>Manage projects</button>
-              </div>
-            </details>
+            <h1 className="studio-project-title">{project.title || 'Untitled tour'}</h1>
           </div>
           <span className={`studio-status${draft.dirty ? ' studio-warning' : ''}`} role="status">{statusForDraft(draft)}</span>
           <div className="studio-commands">
@@ -473,7 +452,7 @@ export default function EditorWorkspace({ projectId, draft, authToken }) {
         <nav className="studio-workspace-nav" aria-label="Project workspaces" inert={draft.publishing ? true : undefined}>
           {WORKSPACES.map(({ kind, label }) => (
             <button key={kind} type="button" className={kind === 'project' ? 'studio-project-tab' : undefined}
-              aria-current={workspace.kind === kind || (kind === 'project' && workspace.kind === 'projects') ? 'page' : undefined}
+              aria-current={workspace.kind === kind || (kind === 'project' && workspace.kind === 'export') ? 'page' : undefined}
               onClick={() => openWorkspace({ kind })}>{label}</button>
           ))}
         </nav>
@@ -607,7 +586,7 @@ export default function EditorWorkspace({ projectId, draft, authToken }) {
             <h2 ref={workspace.kind === 'guides' ? workspaceHeading : null} tabIndex={-1}>Guides</h2>
           </header>
           <div className="studio-workspace-body">
-            <GuideEditor guides={guides} scenes={scenes} onGuidesChange={draft.updateGuides}
+            <GuideEditor guides={guides} scenes={scenes} onGuidesChange={draft.updateGuides} onDeleteGuide={id => draft.updateProject(current => removeProjectGuide(current,id))}
               currentSceneId={sceneId} selectionRequest={guideRequest} active={workspace.kind === 'guides' && !preview}
               onPreviewGuide={previewGuide} />
           </div>
@@ -623,28 +602,27 @@ export default function EditorWorkspace({ projectId, draft, authToken }) {
           </main>
         )}
 
-        {['project', 'projects'].includes(workspace.kind) && (
-          <main className="editor-panel studio-workspace-view studio-workspace-view--project" aria-label={workspace.kind === 'project' ? 'Project details' : 'Manage projects'}
+        {['project', 'export'].includes(workspace.kind) && (
+          <main className="editor-panel studio-workspace-view studio-workspace-view--project" aria-label={workspace.kind === 'project' ? 'Project details' : 'Export project'}
             inert={draft.publishing ? true : undefined}>
             <header className="studio-workspace-header">
               <div>
-                <h2 ref={workspaceHeading} tabIndex={-1}>{workspace.kind === 'project' ? 'Project details' : 'Manage projects'}</h2>
+                <h2 ref={workspaceHeading} tabIndex={-1}>{workspace.kind === 'project' ? 'Project details' : 'Export project'}</h2>
                 <p>{workspace.kind === 'project'
                   ? 'Metadata, credits, and viewer settings. Use Save draft to keep your changes.'
-                  : 'Browse your projects, create a new experience, or duplicate your current draft.'}</p>
+                  : 'Download a portable backup of this project.'}</p>
               </div>
             </header>
             <nav className="studio-project-navigation" aria-label="Project tools">
               <button type="button" aria-current={workspace.kind === 'project' ? 'page' : undefined}
                 onClick={() => openWorkspace({ kind: 'project' })}>Project details</button>
-              <button type="button" aria-current={workspace.kind === 'projects' ? 'page' : undefined}
-                onClick={() => openWorkspace({ kind: 'projects' })}>Manage projects</button>
+              <button type="button" aria-current={workspace.kind === 'export' ? 'page' : undefined}
+                onClick={() => openWorkspace({ kind: 'export' })}>Export project</button>
             </nav>
             <div className="studio-workspace-body">
               {workspace.kind === 'project'
                 ? <ProjectDetails project={project} meta={draft.meta} onChange={draft.updateProject} />
-                : <ProjectManager projectId={projectId} title={project.title} meta={draft.meta} token={authToken}
-                    project={project} dirty={draft.dirty} onOpenDetails={() => openWorkspace({ kind: 'project' })} />}
+                : <ProjectExport projectId={projectId} token={authToken} project={project} dirty={draft.dirty} />}
             </div>
           </main>
         )}

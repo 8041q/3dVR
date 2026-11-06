@@ -5,7 +5,7 @@ import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { clamp, damp, nearestAngle, PITCH_LIMIT, pointerSensitivity, wheelPixels } from '../src/input/lookMotion.js'
 import { projectChecks } from '../src/editor/projectChecks.js'
-import { removeProjectScene, removeProjectHotspot, replaceSpatialRoom } from '../src/editor/projectEdits.js'
+import { removeProjectGuide, removeProjectScene, removeProjectHotspot, replaceSpatialRoom } from '../src/editor/projectEdits.js'
 import { contentSignature, mergeSavedDraft } from '../src/editor/draftState.js'
 
 const info = { id: 'info', type: 'show-info', title: 'Hello', body: 'Welcome' }
@@ -227,4 +227,20 @@ test('the bundled demo product loads with its advertised drawer animation', asyn
   mixer.clipAction(model.animations[0]).play()
   mixer.update(0.8)
   assert.ok(drawer.position.z > before)
+})
+
+test('deleting a guide clears startup and hotspot references in one undoable edit', () => {
+  const original=project()
+  original.settings={defaultGuideId:'tour',allowOffline:false}
+  original.scenes[0].hotspots.push({id:'guide-only',actions:[{id:'start-tour',type:'start-guide',guideId:'tour'}]})
+  original.scenes[0].hotspots.push({id:'mixed-guide',actions:[{id:'tour-action',type:'start-guide',guideId:'tour'},info]})
+  const before=JSON.stringify(original)
+  const next=removeProjectGuide(original,'tour')
+  assert.equal(next.guides.length,0)
+  assert.equal(next.settings.defaultGuideId,undefined)
+  assert.equal(next.settings.allowOffline,false)
+  assert.equal(next.scenes[0].hotspots.some(hotspot=>hotspot.id==='guide-only'),false)
+  assert.deepEqual(next.scenes[0].hotspots.find(hotspot=>hotspot.id==='mixed-guide').actions,[info])
+  assert.equal(JSON.stringify(original),before)
+  assert.deepEqual(projectChecks(next),[])
 })

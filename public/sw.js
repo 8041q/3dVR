@@ -1,5 +1,5 @@
 const DB = '3dvr-offline-library'
-const VER = 1
+const VER = 2
 const PROJECTS = 'projects'
 const ASSETS = 'assets'
 const SHELL = '3dvr-shell-v2'
@@ -15,6 +15,7 @@ function openDatabase() {
 
     request.onupgradeneeded = () => {
       const db = request.result
+      if (!db.objectStoreNames.contains('identity')) db.createObjectStore('identity',{keyPath:'id'})
       if (!db.objectStoreNames.contains(PROJECTS)) {
         db.createObjectStore(PROJECTS, { keyPath: 'id' })
       }
@@ -34,12 +35,24 @@ async function downloadedCopy(projectId, url) {
   if (!projectId) return {}
   const db = await openDatabase()
   try {
-    const transaction = db.transaction([PROJECTS, ASSETS], 'readonly')
+    const transaction = db.transaction([PROJECTS, ASSETS, 'identity'], 'readonly')
     const request = transaction.objectStore(PROJECTS).get(projectId)
     return await new Promise((resolve, reject) => {
       request.onerror = () => reject(request.error)
       request.onsuccess = () => {
         const project = request.result
+        // Private copies require the account marker written after an online login.
+        if (project?.manifest?.offlineAccount) {
+          const marker = transaction.objectStore('identity').get('active')
+          marker.onsuccess = () => {
+            if (marker.result?.user !== project.manifest.offlineAccount) return resolve({})
+            if (!url) return resolve({project})
+            const key = `${project.id}::${project.copyId || project.revision}::${url}`
+            requestPromise(transaction.objectStore(ASSETS).get(key)).then(asset => resolve({project,asset}),reject)
+          }
+          marker.onerror = () => resolve({})
+          return
+        }
         if (!project || !url) {
           resolve({ project })
           return

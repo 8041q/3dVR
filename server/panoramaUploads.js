@@ -99,7 +99,7 @@ export function createPanoramaUploadsRouter(express) {
   router.post('/', requireEditor, async (req, res) => {
     await ensureDirs()
     const expectedSize = Number(req.body?.size)
-    if (!Number.isSafeInteger(expectedSize) || expectedSize <= 0) return res.status(400).json({ error: 'Valid file size required.' })
+    if (!Number.isSafeInteger(expectedSize) || expectedSize <= 0 || expectedSize > (Number(process.env.MAX_ASSET_UPLOAD_BYTES) || 2147483648)) return res.status(400).json({ error: 'Valid file size required.' })
     const id = crypto.randomUUID()
     const record = { id, filename: path.basename(String(req.body?.filename || 'panorama')).replace(/[^a-zA-Z0-9._-]/g, '_'), mimeType: String(req.body?.mimeType || ''), expectedSize, offset: 0, status: 'uploading', createdAt: new Date().toISOString() }
     await fs.writeFile(partPath(id), Buffer.alloc(0), { flag: 'wx' }); await writeUpload(record)
@@ -135,9 +135,10 @@ export function createPanoramaUploadsRouter(express) {
         if (!Buffer.isBuffer(req.body) || !req.body.length) return res.status(400).json({ error: 'Empty chunk.' })
         if (actualOffset + req.body.length > record.expectedSize) return res.status(413).json({ error: 'Chunk exceeds declared file size.' })
         await fs.appendFile(partPath(record.id), req.body)
+        await fs.utimes(metaPath(record.id),new Date(),new Date())
         res.set('Upload-Offset', String(actualOffset + req.body.length)).status(204).end()
       })
-    } catch (e) { res.status(e.code === 'ENOENT' ? 404 : e.status || 500).json({ error: e.message }) }
+    } catch (e) { res.status(e.code === 'ENOENT' ? 404 : e.status || 500).json({ error: e.status && e.status < 500 ? e.message : 'Operation failed.' }) }
   })
 
   router.post('/:uploadId/complete', requireEditor, async (req, res) => {
@@ -153,7 +154,7 @@ export function createPanoramaUploadsRouter(express) {
           panorama: { ...record.metadata, projection: 'equirectangular', byteSize: record.expectedSize },
         })
       })
-    } catch (e) { res.status(e.code === 'ENOENT' ? 404 : e.status || 500).json({ error: e.message }) }
+    } catch (e) { res.status(e.code === 'ENOENT' ? 404 : e.status || 500).json({ error: e.status && e.status < 500 ? e.message : 'Operation failed.' }) }
   })
 
   return router

@@ -32,6 +32,19 @@ function clearMissingHotspots(guides, scenes) {
 }
 
 // Keep removal and reference cleanup in one history entry so Undo restores both.
+export function removeProjectGuide(project, guideId) {
+  if (!project.guides?.some(guide => guide.id === guideId)) return project
+  const scenes = project.scenes.map(scene => ({ ...scene, hotspots: (scene.hotspots || []).flatMap(hotspot => {
+    const original = normalizeHotspotActions(hotspot)
+    const actions = original.filter(action => action.type !== ACTION_TYPES.START_GUIDE || action.guideId !== guideId)
+    if (actions.length === original.length) return [hotspot]
+    return actions.length ? [withHotspotActions(hotspot, actions)] : []
+  }) }))
+  const settings = { ...project.settings }
+  if (settings.defaultGuideId === guideId) delete settings.defaultGuideId
+  return { ...project, scenes, settings, guides: clearMissingHotspots(project.guides.filter(guide => guide.id !== guideId), scenes) }
+}
+
 export function removeProjectScene(project, sceneId) {
   if (project.scenes.length <= 1 || !project.scenes.some((scene) => scene.id === sceneId)) return project
   const scenes = project.scenes.filter((scene) => scene.id !== sceneId).map((scene) => ({

@@ -1,8 +1,10 @@
+import { useModelThumbnails } from '../contexts/ModelThumbnailContext'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { createDraftState, draftContent, editDraft, moveDraftHistory, receiveSavedDraft } from '../editor/draftState'
 
 export function useProjectDraft(projectId) {
+  const thumbnails = useModelThumbnails()
   const { token } = useAuth()
   const [draft, setDraft] = useState(createDraftState)
   const [loading, setLoading] = useState(true)
@@ -144,8 +146,9 @@ export function useProjectDraft(projectId) {
     })
     const body = await response.json().catch(() => ({}))
     if (!response.ok) throw new Error(body.error || 'Upload failed')
+    if (/\.glb$/i.test(file.name)) thumbnails?.enqueue({ ...body, name: file.name, type: 'model' }, file)
     return body
-  }, [token])
+  }, [token, thumbnails?.enqueue])
 
   const undo = useCallback(() => commitDraft(moveDraftHistory(draftRef.current, 'undo')), [commitDraft])
   const redo = useCallback(() => commitDraft(moveDraftHistory(draftRef.current, 'redo')), [commitDraft])

@@ -9,7 +9,7 @@ import yazl from 'yazl'
 import express from 'express'
 import { createProjectBundleService, extractProjectZip } from '../server/projectBundles.js'
 import { createProjectTransfersRouter } from '../server/projectTransfers.js'
-import { createAuthRouter } from '../server/auth.js'
+import { securityDb } from '../server/identity.js'
 
 function glb(json) {
   const data = Buffer.from(JSON.stringify(json))
@@ -94,7 +94,7 @@ test('whole-project ZIP round trip includes unsaved metadata, history, panorama 
   assert.equal(manifest.id, panoId)
   assert.match(manifest.assetIndexUrl, new RegExp(panoId))
   assert.equal(await fs.readFile(path.join(f.panoramaRoot, panoId, 'levels/front.webp'), 'utf8'), 'tile bytes')
-  const versions = await fs.readdir(path.join(f.serverRoot, 'data/projects', imported.id, 'versions'))
+  const versions = await fs.readdir(path.join(f.root, 'storage/data/projects', imported.id, 'versions'))
   assert.equal(versions.length, 2)
   for (const version of versions) assert.equal((await f.store.getProjectVersion(imported.id, version.slice(0, -5))).id, imported.id)
   const secondPlan = await f.service.prepareExport(imported.id)
@@ -163,31 +163,27 @@ test('ZIP validation rejects traversal, links, case collisions, corrupt data and
 
 test('authenticated endpoints stream a single-use export and import it as a new unpublished project', async (t) => {
   const f = await fixture(t)
+  process.env.VR_SECURITY_ROOT = ':memory:'
   const app = express()
   app.use(express.json())
-  app.use('/api/auth', createAuthRouter(express))
+  app.use((req,_res,next) => { if(req.get('Authorization') === 'Bearer transfer-fixture') req.identity={user:{id:'transfer-fixture',role:'user'}}; next() })
+  securityDb().prepare("INSERT OR REPLACE INTO grants(project,owner) VALUES(?,?)").run(f.project.id,'transfer-fixture')
   app.use('/api/project-transfers', createProjectTransfersRouter(express, { service: f.service, tempRoot: f.tempRoot }))
   const server = app.listen(0, '127.0.0.1')
   await new Promise((resolve) => server.once('listening', resolve))
   t.after(() => new Promise((resolve) => { server.close(resolve); server.closeAllConnections() }))
   const base = `http://127.0.0.1:${server.address().port}`
-  const password = process.env.EDITOR_PASSWORD
-  process.env.EDITOR_PASSWORD = 'isolated-bundle-test'
-  let token
-  try {
-    const login = await fetch(`${base}/api/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: 'isolated-bundle-test' }) })
-    token = (await login.json()).token
-  } finally { if (password === undefined) delete process.env.EDITOR_PASSWORD; else process.env.EDITOR_PASSWORD = password }
+  const token = 'transfer-fixture'
   const endpoint = `${base}/api/project-transfers/export/${f.project.id}`
   assert.equal((await fetch(endpoint, { method: 'POST' })).status, 401)
   const prepared = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: '{}' })
   assert.equal(prepared.status, 200)
   const plan = await prepared.json()
-  const download = await fetch(`${base}${plan.downloadUrl}`)
+  const download = await fetch(`${base}${plan.downloadUrl}`, {headers:{Authorization:`Bearer ${token}`}})
   assert.equal(download.status, 200)
   assert.match(download.headers.get('content-type'), /application\/zip/)
   const zip = Buffer.from(await download.arrayBuffer())
-  assert.equal((await fetch(`${base}${plan.downloadUrl}`)).status, 404)
+  assert.equal((await fetch(`${base}${plan.downloadUrl}`, {headers:{Authorization:`Bearer ${token}`}})).status, 404)
   assert.equal((await fetch(`${base}/api/project-transfers/import`, { method: 'POST', headers: { 'Content-Type': 'application/zip' }, body: zip })).status, 401)
   const imported = await fetch(`${base}/api/project-transfers/import`, { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/zip' }, body: zip })
   assert.equal(imported.status, 201)

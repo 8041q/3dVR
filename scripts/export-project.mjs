@@ -1,3 +1,5 @@
+import 'dotenv/config'
+import { DATA_ROOT, MEDIA_ROOT, PANORAMA_ROOT } from '../server/storagePaths.js'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -6,9 +8,9 @@ import { sanitizeUploadFilename } from '../server/assetStorage.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const repoRoot = path.join(__dirname, '..')
-const projectsRoot = path.join(repoRoot, 'server', 'data', 'projects')
-const uploadsRoot = path.join(repoRoot, 'public', 'uploads')
-const panoramasRoot = path.join(repoRoot, 'storage', 'panoramas')
+const projectsRoot = path.join(DATA_ROOT, 'projects')
+const uploadsRoot = path.join(MEDIA_ROOT, 'uploads')
+const panoramasRoot = PANORAMA_ROOT
 
 function usage() {
   console.log('Usage: npm run export:project -- <project-id> [destination] [--dry-run]')

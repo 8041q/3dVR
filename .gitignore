@@ -11,3 +11,8 @@ public/uploads/*
 
 public/demo/*
 !public/demo/product-demo.glb
+
+.env.*
+!.env.example
+server/data/
+backups/

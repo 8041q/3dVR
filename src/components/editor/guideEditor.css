@@ -134,3 +134,12 @@
   .studio-app .guide-picker-row { grid-template-columns: minmax(0,1fr) auto; }
   .studio-app .guide-picker-row > label:first-child { grid-column: 1 / -1; }
 }
+
+.studio-app .guide-picker-row { align-items:end; }
+.guide-step-tools { display:flex; gap:6px; flex-wrap:wrap; margin:12px 0; padding:12px; border:1px solid var(--studio-line); border-radius:var(--studio-radius); background:var(--studio-subtle); }
+.guide-step-tools > .danger { margin-left:auto; }
+.guide-step-inspector__header { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+.guide-step-inspector__header .muted { display:block; margin-bottom:4px; font-size:11px; }
+
+.studio-app .guide-picker-row { grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto auto; }
+@media (max-width:680px) { .studio-app .guide-picker-row { grid-template-columns:repeat(2,minmax(0,1fr)); } .studio-app .guide-picker-row > label { grid-column:1 / -1; } }

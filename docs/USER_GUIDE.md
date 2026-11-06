@@ -22,7 +22,7 @@ Use your editor password when asked. In development the default is `admin` unles
 
 Select a scene from the list on the left. The center shows its panorama and the inspector on the right shows its image, hotspots, and settings. Select a hotspot on the canvas or in the inspector to edit what it does. **Back to scene** returns to the scene inspector.
 
-Use the workspace bar to switch between **Scenes**, **Guides**, **Assets**, and **Project**. The **Project** tab holds project metadata and settings; the project name menu also provides **Project details** and **Manage projects**. The header holds **Save draft**, **Preview**, **Review & publish**, **Undo**, and **Redo**.
+Use the workspace bar to switch between **Scenes**, **Guides**, **Assets**, and **Project Settings**. **Project Settings** holds project metadata, viewer settings and the current project’s export. The project title is a label rather than a second settings menu. Use **← Projects** in the header to return to your workspace. The browser warns before leaving with unsaved changes. The header holds **Save draft**, **Preview**, **Review & publish**, **Undo**, and **Redo**.
 
 Drag the panorama to look around and scroll to zoom. **Reset view** restores the default direction and zoom. Use **Hide inspector** when you need a wider canvas. While placing or moving a hotspot, drag to look around and click once to place it. **Esc** cancels placement.
 
@@ -66,9 +66,9 @@ After publishing, a compact share window appears with:
 
 The QR code is generated locally by 3DVR; it does not use an external QR website.
 
-## 4. Create or duplicate a project
+## 4. Create and manage projects
 
-Open **Manage projects** from the project name menu or the **Project** tab. Enter a name and select **Create project**, or use **Duplicate current draft** to copy the current project, including unsaved edits and metadata. The copy has its own link and can be opened in a new tab.
+In your workspace, choose **+ New project**. Enter a name and optionally add an author and description, then select **Create project** to open its editor. New projects start private. Project creation and import are available only in the workspace; the editor handles the project you have opened.
 
 In **Project**, describe the experience with a title, description, content language, and comma-separated keywords. Record the author, organization, contributors, license, and copyright or usage notes. All metadata is optional and follows the same **Save draft**, **Undo**, and **Review & publish** workflow as scene edits. Metadata is included in published manifests, offline copies, and project exports. Content language describes the project; it does not translate the interface.
 
@@ -76,13 +76,13 @@ The **Viewer & sharing settings** section chooses the visitor’s starting scene
 
 **Project information** shows the project ID, creation date, last saved date, publication date, and published revision. These values are maintained automatically. Section links jump to metadata, credits, rights, and viewer settings.
 
-In **Manage projects**, search by title, author, or description; filter by publication status; and sort by name or last update. Project cards show credits, content counts, dates, and links to edit or open the published experience. New projects can include an author and description immediately. Copies can be given their own title. If loading fails, the current project stays available and **Refresh projects** retries the library.
+In the workspace project library, search by title, author or description, filter by publication status and sort by name or last update. Open an editor or published tour from its card; project owners can also manage access. Use **← Projects** from the editor to return here.
 
 ### Export and import a complete project
 
-Open **Export / import** in the manager, or select **Export ZIP** on a project card. Choose a project and select **Export project ZIP**. The `.3dvr.zip` download includes the draft, credits and metadata, viewer settings, saved releases, uploads, models and their local dependencies, and processed panorama tiles. For the current project, **Include current unsaved edits** captures your work without changing the saved draft or live tour. External links remain links and still need their original hosts.
+In the editor, open **Project Settings → Export project** and select **Export project ZIP**. The `.3dvr.zip` includes the current project's draft, metadata, settings, release history and referenced local media. **Include current unsaved edits** captures your work without saving or publishing it. External links remain links and still need their original hosts.
 
-To restore or move a project, choose its ZIP file and select **Import project ZIP**. The progress bar shows upload progress, followed by archive validation and media restoration. Successful imports appear in the library, with a link to open the imported project in a new tab. Imports create a separate unpublished draft, retain saved release history, and allocate new media paths when necessary. Existing projects and files are preserved. Preview the imported draft, then use **Review & publish** when ready.
+To restore or move a project, return to your workspace and select **Import project**. Choose a ZIP and import it. The progress bar shows upload progress followed by archive validation and media restoration. Imports create a separate private unpublished draft, retain saved release history and allocate new media paths when necessary. Use **Open editor** after a successful import, then preview and publish when ready.
 
 ## 5. Scenes
 
@@ -92,16 +92,17 @@ Assign a group in the scene inspector. Use the options menu on a scene row to ch
 
 ### Scene map
 
-Select **Scene map** to see the project as a navigation diagram.
+Select **Scene map** to explore the tour’s navigation graph.
 
-- Each card is a scene.
-- Lines are created automatically from **Go to scene** hotspot actions.
-- The `Start` badge shows the public starting scene.
-- Drag the small **Move** handle to organise the diagram.
-- Select a scene card to jump back to that scene in the editor.
-- **Auto arrange** resets the diagram to a clean grid.
+- Cards show a scene thumbnail, group and incoming/outgoing route counts. A home icon marks the starting scene.
+- Select a card to inspect its connections. Follow an incoming or outgoing route in the side panel, or choose **Edit scene** to return to its inspector. Double-clicking a card also opens its scene.
+- Search by scene name or group; press Enter to centre the first match. Highlight unreachable scenes or end points with the map filter.
+- Use **+**, **−**, **Fit map**, or Ctrl/Cmd + wheel to zoom. Drag the background to pan; normal scrolling also works.
+- **Auto arrange** follows routes from the starting scene, handles loops, and places disconnected scenes separately.
+- Drag a card’s move handle to arrange it. With that handle focused, arrow keys move it; Shift moves farther. Positions are saved with the draft and support Undo.
+- Use **Make starting scene** in the side panel to change where visitors enter. The map reports broken navigation targets and scenes with no route from the starting scene.
 
-Moving cards in the Scene map only changes the editor diagram; it does not change visitor navigation.
+Arranging cards changes only the diagram. Connections come from navigation hotspot actions; edit those in the scene editor.
 
 ## 6. Add a normal 360 panorama
 
@@ -185,7 +186,7 @@ On computers and phones, products open in a dedicated model view. Camera control
 
 ## 11. Asset library
 
-Open **Assets** to upload, browse, and preview reusable files.
+Open **Assets** to upload, browse, and preview reusable files. Image cards use small thumbnails. Existing models without thumbnails are queued automatically when you open the editor. New GLB uploads generate a thumbnail from the local file automatically, including uploads made from model settings. Generation runs one model at a time in the background; subsequent visits use the saved WebP images. A placeholder shows generation progress, and failed thumbnails can be retried from the library. Reopening a saved preview shows the image first; choose **Open 3D preview** to load the interactive model. **Save current view as thumbnail** replaces the saved image with your chosen angle. The server needs FFmpeg and FFprobe to validate and save thumbnails. Thumbnails follow the source asset’s account permissions and are cached outside the public directory.
 
 - Drop multiple files onto the upload area or choose **Upload files**. The queue shows each result; **Retry failed** retries only failed uploads.
 - Switch between **Grid** and **List**, search by name or format, and sort by date, name, or size.
@@ -247,6 +248,8 @@ You can still open **Precise coordinates** when you need exact X/Y/Z values.
 Good uses include hidden storage, mechanisms, material details, controls and construction details. Keep labels short and explanations clear.
 
 ## 15. Create a Guide
+
+Guide controls keep **Play guide**, **Delete guide** and description settings beside the chosen guide. Step actions sit at the top of the selected step. Deleting a guide clears its startup and hotspot references; Undo restores the guide and those references together.
 
 Open **Guides** and choose **New guide**. A first step is added automatically when scenes are available. Name the guide, then select a step in the left column.
 

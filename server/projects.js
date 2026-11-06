@@ -14,7 +14,7 @@ import {
 function sendError(res, error) {
   const status = error.status || 500
   if (status >= 500) console.error('[projects]', error)
-  return res.status(status).json({ error: error.message || 'Project operation failed' })
+  return res.status(status).json({ error: status >= 500 ? 'Project operation failed.' : error.message })
 }
 
 function validateRelease(snapshot) {
@@ -112,7 +112,7 @@ export function createProjectsRouter(express) {
 
   router.get('/:projectId/versions/:revision', async (req, res) => {
     try {
-      res.set('Cache-Control', 'public, max-age=31536000, immutable')
+      res.set('Cache-Control', 'no-store')
       return res.json(await getProjectVersion(req.params.projectId, req.params.revision))
     } catch (error) {
       return sendError(res, error)

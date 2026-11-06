@@ -3,7 +3,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const DATA_ROOT = path.join(__dirname, 'data')
+const DATA_ROOT = process.env.VR_DATA_ROOT ? path.resolve(process.env.VR_DATA_ROOT) : path.join(process.env.VR_STORAGE_ROOT || path.join(__dirname, '..', 'storage'), 'data')
 const PROJECTS_ROOT = path.join(DATA_ROOT, 'projects')
 const LEGACY_FILES = [
   ['scenes.json', 'legacy-scenes'],

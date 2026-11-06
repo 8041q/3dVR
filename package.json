@@ -16,13 +16,19 @@
     "test": "node --test",
     "test:editor": "node --test tests/editor.test.mjs",
     "export:project": "node scripts/export-project.mjs",
-    "import:project": "node scripts/import-project.mjs"
+    "import:project": "node scripts/import-project.mjs",
+    "accounts": "node scripts/accounts.mjs"
   },
   "dependencies": {
+    "@node-rs/argon2": "^2.2.2",
     "@react-three/fiber": "^9.3.0",
+    "better-auth": "^1.7.18",
+    "better-sqlite3": "13.0.3",
     "cors": "^2.8.5",
     "dotenv": "^17.2.2",
     "express": "^5.1.0",
+    "express-rate-limit": "^8.7.3",
+    "helmet": "^8.3.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "three": "^0.180.0",
@@ -33,5 +39,8 @@
     "@vitejs/plugin-basic-ssl": "^2.1.0",
     "@vitejs/plugin-react": "^5.2.0",
     "vite": "^7.1.5"
+  },
+  "engines": {
+    "node": ">=22.13.0"
   }
 }

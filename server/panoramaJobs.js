@@ -73,7 +73,7 @@ export function createPanoramaJobsRouter(express) {
       res.json(jobForEditor(await readPanoramaJob(req.params.jobId)))
     } catch (error) {
       if (error.code === 'ENOENT') return res.status(404).json({ error: 'Job not found' })
-      res.status(error.status || 500).json({ error: error.message })
+      res.status(error.status || 500).json({ error: error.status && error.status < 500 ? error.message : 'Operation failed.' })
     }
   })
   router.post('/:jobId/retry', requireEditor, async (req, res) => {
@@ -81,7 +81,7 @@ export function createPanoramaJobsRouter(express) {
       res.set('Cache-Control', 'no-store').json(jobForEditor(await retryJob(req.params.jobId)))
     } catch (error) {
       if (error.code === 'ENOENT') return res.status(404).json({ error: 'Job not found' })
-      res.status(error.status || 500).json({ error: error.message })
+      res.status(error.status || 500).json({ error: error.status && error.status < 500 ? error.message : 'Operation failed.' })
     }
   })
   return router

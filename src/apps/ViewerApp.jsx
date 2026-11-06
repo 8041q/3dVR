@@ -1,4 +1,7 @@
 import React, { useState } from 'react'
+import { useAuth } from '../contexts/AuthContext'
+import AccountApp from './AccountApp'
+import EntryState from '../components/EntryState'
 import Viewer from '../components/Viewer'
 import ProjectOfflineControl from '../components/ProjectOfflineControl'
 import ProjectWatermark from '../components/ProjectWatermark'
@@ -7,7 +10,8 @@ import { resolveSceneId } from '../viewer/sceneSelection'
 import { projectViewerSettings } from '../projectSettings.js'
 
 export default function ViewerApp({ projectId = 'default' }) {
-  const { project, loading, error, source, reload } = useProject(projectId)
+  const { project, loading, error, errorStatus, source, reload } = useProject(projectId)
+  const auth=useAuth()
   const [selectedSceneId, setSceneId] = useState(null)
   const scenes = project?.scenes || []
   const guides = project?.guides || []
@@ -15,18 +19,10 @@ export default function ViewerApp({ projectId = 'default' }) {
 
   const sceneId = resolveSceneId(scenes, selectedSceneId, project?.startSceneId)
 
-  if (loading) return <div className="app-loading">Loading project...</div>
-
-  if (error) {
-    return (
-      <div className="app-loading">
-        <div className="error-text">{error}</div>
-        <button onClick={reload}>Retry</button>
-      </div>
-    )
-  }
-
-  if (!sceneId) return <div className="app-loading">This tour has no scenes yet.</div>
+  if (loading) return <EntryState title="Opening your tour…" description="Loading the visitor experience." />
+  if (errorStatus===401) return <AccountApp notice="Sign in to view this private tour." returnTo={location.pathname} />
+  if (error) return <EntryState title={errorStatus===403 ? 'This account can’t open this tour.' : errorStatus===404 ? 'This tour isn’t available.' : 'We couldn’t open this tour.'} description={errorStatus===403 ? 'Ask the project creator for access, or use an account that already has permission.' : errorStatus===404 ? 'The tour may not be published yet. Your workspace is still available.' : 'Check your connection and try again.'}><a className="account-button account-primary" href="/">Open workspace</a>{errorStatus===403 && auth.user && <button onClick={async()=>{await auth.logout();await reload()}}>Use another account</button>}{!errorStatus && <button onClick={reload}>Try again</button>}</EntryState>
+  if (!sceneId) return <EntryState title="This tour is still taking shape." description="There are no published scenes to view yet."><a className="account-button account-primary" href="/">Open workspace</a></EntryState>
 
   return (
     <div className="app">

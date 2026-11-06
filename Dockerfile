@@ -11,14 +11,15 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 ENV NODE_ENV=production
+ENV HOST=0.0.0.0
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/server ./server
-COPY --from=build /app/src/actions/actionTypes.js ./src/actions/actionTypes.js
-COPY --from=build /app/src/editor/projectChecks.js ./src/editor/projectChecks.js
-COPY --from=build /app/src/guides/guidePlayback.js ./src/guides/guidePlayback.js
+COPY --from=build /app/src ./src
 COPY --from=build /app/public ./public
+RUN mkdir -p /app/storage && chown -R node:node /app
+USER node
 COPY --from=build /app/scripts ./scripts
 COPY --from=build /app/.env.example ./.env.example
 EXPOSE 3001

@@ -1,3 +1,5 @@
+import crypto from 'node:crypto'
+import { MEDIA_ROOT } from './storagePaths.js'
 import fs from 'node:fs'
 import fsPromises from 'node:fs/promises'
 import path from 'node:path'
@@ -7,7 +9,7 @@ import { chooseStoredFilename, sanitizeUploadFilename } from './assetStorage.js'
 import { registerAsset } from './assetRegistry.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const UPLOADS = path.join(__dirname, '..', 'public', 'uploads')
+const UPLOADS = path.join(MEDIA_ROOT, 'uploads')
 const DEFAULT_MAX_BYTES = 2 * 1024 * 1024 * 1024
 
 const ALLOWED_EXTENSIONS = new Set([
@@ -37,7 +39,7 @@ export function createUploadRouter(express) {
       })
     }
 
-    const configuredMax = Number(process.env.MAX_ASSET_UPLOAD_BYTES || DEFAULT_MAX_BYTES)
+    const configuredMax = Math.max(1, Number(process.env.MAX_ASSET_UPLOAD_BYTES) || DEFAULT_MAX_BYTES)
     const declaredBytes = Number(req.get('Content-Length') || 0)
     if (Number.isFinite(configuredMax) && configuredMax > 0 && declaredBytes > configuredMax) {
       return res.status(413).json({ error: 'Asset exceeds the configured upload size.' })
@@ -46,7 +48,7 @@ export function createUploadRouter(express) {
     const originalName = sanitizeUploadFilename(filename, extension)
     const name = await chooseStoredFilename(UPLOADS, originalName, extension)
     const finalPath = path.join(UPLOADS, name)
-    const tempPath = `${finalPath}.${process.pid}.part`
+    const tempPath = `${finalPath}.${crypto.randomUUID()}.part`
     const writeStream = fs.createWriteStream(tempPath, { flags: 'wx' })
     let written = 0
     let failed = false
@@ -84,13 +86,16 @@ export function createUploadRouter(express) {
     writeStream.on('error', async (error) => {
       failed = true
       await cleanup()
-      if (!res.headersSent) res.status(500).json({ error: error.message || 'Asset upload failed.' })
+      if (!res.headersSent) res.status(error.status || 500).json({ error: error.status && error.status < 500 ? error.message : 'Asset upload failed.' })
     })
 
     writeStream.on('finish', async () => {
       if (failed) return
       try {
-        await fsPromises.rename(tempPath, finalPath)
+        await validateMedia(tempPath,extension)
+        // Hard links create the final file exclusively; concurrent uploads cannot overwrite.
+        await fsPromises.link(tempPath, finalPath)
+        await fsPromises.unlink(tempPath)
         const contentType = req.get('Content-Type') || 'application/octet-stream'
         const url = `/uploads/${name}`
         await registerAsset({
@@ -103,6 +108,7 @@ export function createUploadRouter(express) {
         })
         return res.status(201).json({
           url,
+          updatedAt: (await fsPromises.stat(finalPath)).mtime.toISOString(),
           bytes: written,
           filename: name,
           storedName: name,
@@ -111,7 +117,7 @@ export function createUploadRouter(express) {
         })
       } catch (error) {
         await cleanup()
-        if (!res.headersSent) res.status(500).json({ error: error.message || 'Asset upload failed.' })
+        if (!res.headersSent) res.status(error.status || 500).json({ error: error.status && error.status < 500 ? error.message : 'Asset upload failed.' })
       }
     })
 
@@ -119,4 +125,13 @@ export function createUploadRouter(express) {
   })
 
   return router
+}
+
+async function validateMedia(file,extension) {
+  const handle = await fsPromises.open(file,'r')
+  const buffer = Buffer.alloc(16)
+  try { await handle.read(buffer,0,16,0) } finally {await handle.close()}
+  const hex=buffer.toString('hex'), text=buffer.toString('ascii')
+  const valid = { '.jpg':hex.startsWith('ffd8ff'), '.png':hex.startsWith('89504e470d0a1a0a'), '.webp':text.startsWith('RIFF') && text.slice(8,12)==='WEBP', '.glb':text.startsWith('glTF') && buffer.readUInt32LE(4)===2, '.wav':text.startsWith('RIFF') && text.slice(8,12)==='WAVE', '.ogg':text.startsWith('OggS'), '.mp3':text.startsWith('ID3') || (buffer[0]===255 && (buffer[1]&224)===224), '.mp4':text.slice(4,8)==='ftyp', '.webm':hex.startsWith('1a45dfa3') }
+  if (!valid[extension]) throw Object.assign(new Error('File content does not match its extension.'),{status:415})
 }
