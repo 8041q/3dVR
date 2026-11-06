@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises'
 import { securityDb } from './identity.js'
 import { STORAGE_ROOT } from './storagePaths.js'
+import { accountProjects } from './projectOwnership.js'
 const active = new Map()
 let transfers = 0, reserved = 0
 export async function resourceLimits(req,res,next) {
@@ -10,7 +11,7 @@ export async function resourceLimits(req,res,next) {
   const projectWrite=/^\/api\/projects(?:\/[^/]+\/(draft|publish|publish-draft))?$/.test(req.path)
   const upload=req.path === '/api/upload' || req.path === '/api/panorama-uploads'
   if (!upload && !isImport && !projectWrite) return next()
-  if(req.path==='/api/projects' && securityDb().prepare('SELECT COUNT(*) AS count FROM grants WHERE owner=?').get(user.id).count>=100) return res.status(413).json({error:'Account project limit reached.'})
+  if(req.path==='/api/projects' && accountProjects(securityDb(),user.id).length>=100) return res.status(413).json({error:'Account project limit reached.'})
   const quota=Number(process.env.USER_STORAGE_QUOTA_BYTES) || 50*1024**3
   const declared=isImport ? Number(process.env.MAX_PROJECT_EXTRACT_BYTES)||20*1024**3 : projectWrite ? Math.max(1048576,Number(req.get('Content-Length'))||0) : req.path.endsWith('panorama-uploads') ? Number(req.body?.size) : Number(req.get('Content-Length'))
   if (!Number.isSafeInteger(declared) || declared<=0) return res.status(411).json({error:'A positive upload size is required.'})

@@ -1,4 +1,5 @@
 import Select from '../ui/Select'
+import BackLink from '../ui/BackLink'
 import React, { useEffect, useEffectEvent, useId, useRef, useState } from 'react'
 import {
   createAnimationControl,
@@ -224,7 +225,7 @@ export default function ModelAuthoringEditor({ action, patchAction, uploadAsset,
 
       <div className="studio-product-step-content" id={`${sectionId}-content`} ref={stepContent}>
       <div className="studio-product-step-heading">
-        {feature && <button type="button" onClick={() => selectFeature(null)}>← All interactions</button>}
+        {feature ? <BackLink onClick={()=>selectFeature(null)}>Back to interactions</BackLink> : stepIndex>0 && <BackLink onClick={()=>selectSection(PRODUCT_SECTIONS[stepIndex-1][0])}>Back to {PRODUCT_SECTIONS[stepIndex-1][1].toLowerCase()}</BackLink>}
         <span>Step {stepIndex + 1} of {PRODUCT_SECTIONS.length}{section === 'options' ? ' · Optional' : ''}</span>
         <h3 ref={stepHeading} tabIndex={-1}>{featureInfo?.[1] || step[1]}</h3>
         <p>{featureInfo?.[2] || step[3]}</p>
@@ -662,7 +663,6 @@ export default function ModelAuthoringEditor({ action, patchAction, uploadAsset,
       </div>
 
       <footer className="studio-product-step-footer">
-        <button type="button" disabled={stepIndex === 0} onClick={() => feature ? selectFeature(null) : selectSection(PRODUCT_SECTIONS[stepIndex - 1][0])}>{feature ? 'All interactions' : 'Back'}</button>
         <span>{section === 'review' ? 'Use Save draft in the header to keep your edits.' : feature ? 'Changes appear in your preview.' : `${stepIndex + 1} / ${PRODUCT_SECTIONS.length}`}</span>
         <button type="button" className="primary" disabled={!modelReady || (section === 'placement' && viewStatus !== 'ready')} onClick={() => {
           if (feature) selectFeature(null)

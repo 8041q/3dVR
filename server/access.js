@@ -1,13 +1,16 @@
 import { canAuthorProjects } from '../src/accountCapabilities.js'
 import { securityDb, audit } from './identity.js'
 import { getProjectDraft, getPublishedManifest } from './projectStore.js'
+import { projectOwnerIds, projectUnavailable, setProjectOwners } from './projectOwnership.js'
+import { accountControls } from './accountState.js'
 
 export function grant(id) { return securityDb().prepare('SELECT * FROM grants WHERE project=?').get(id) }
 export function permission(user,id) {
   if (!canAuthorProjects(user)) return null
   const g = grant(id)
-  if (g?.owner === user.id) return 'owner'
-  return securityDb().prepare('SELECT permission FROM members WHERE project=? AND user=?').get(id,user.id)?.permission || null
+  if (!g) return null
+  if (g.owner === user.id) return 'owner'
+  return securityDb().prepare('SELECT 1 FROM members WHERE project=? AND user=?').get(id,user.id) ? 'owner' : null
 }
 export function references(value, result = new Set()) {
   if (typeof value === 'string' && /^\/(uploads|media\/panoramas)\//.test(value)) result.add(value.split(/[?#]/)[0])
@@ -35,6 +38,7 @@ export function claimResource(user,url) {
 export async function mediaAllowed(user,url, publicOnly = false) {
   if (!publicOnly && ownResource(user,url)) return true
   for (const g of securityDb().prepare('SELECT * FROM grants').all()) {
+    if(projectUnavailable(securityDb(),g.project)) continue
     const p = permission(user,g.project)
     if (!publicOnly && ['owner','edit'].includes(p)) {
       const draft = await getProjectDraft(g.project).catch(() => null)
@@ -52,6 +56,8 @@ export async function accessGate(req,res,next) {
   const user = req.identity?.user
   if (user?.banned) { req.identity = null; return denied(req,res) }
   const pathname = req.path
+  if(user?.mustChangePassword && (pathname.startsWith('/api/') || pathname.startsWith('/uploads/') || pathname.startsWith('/media/'))) return res.status(403).json({error:'Choose a new password to continue.',code:'PASSWORD_CHANGE_REQUIRED'})
+  if(user?.deletionPending || user?.purging) return denied(req,res)
   if (pathname.startsWith('/uploads/') || pathname.startsWith('/media/panoramas/')) {
     let url
     try { url = decodeURIComponent(pathname) } catch { return res.sendStatus(400) }
@@ -67,24 +73,30 @@ export async function accessGate(req,res,next) {
   const match = pathname.match(/^\/api\/projects\/([^/]+)(?:\/(.*))?$/)
   if (match) {
     const id = match[1], operation = match[2], g = grant(id), p = permission(user,id)
+    if(g && projectUnavailable(securityDb(),id)) return denied(req,res)
     if (operation === 'manifest' && req.method === 'GET') {
       if (!p && g?.visibility !== 'public') return denied(req,res)
     } else if (!['owner','edit'].includes(p)) return denied(req,res)
     if (operation === 'access') {
       if (p !== 'owner') return denied(req,res)
-      if (req.method === 'GET') return res.json({ ...g, members:securityDb().prepare('SELECT m.user,m.permission,u.email FROM members m JOIN user u ON u.id=m.user WHERE project=?').all(id) })
+      if (req.method === 'GET') {
+        const db=securityDb(), owners=projectOwnerIds(db,id).map(userId=>db.prepare('SELECT id AS user,email,name FROM user WHERE id=?').get(userId)).filter(Boolean)
+        return res.json({project:id,visibility:g.visibility,owners,members:owners.filter(owner=>owner.user!==user.id).map(owner=>({...owner,permission:'owner'}))})
+      }
       if (req.method !== 'PUT') return res.sendStatus(405)
       const { visibility } = req.body || {}
-      const members = Array.isArray(req.body?.members) ? req.body.members.map(m => ({ user: m.email ? securityDb().prepare("SELECT id FROM user WHERE email=? AND role IN ('user','owner')").get(String(m.email).trim().toLowerCase())?.id : m.user, permission:m.permission })) : null
-      if (!['private','public'].includes(visibility) || !Array.isArray(members) || members.length > 100) return res.sendStatus(400)
-      if (members.some(m => !['view','edit'].includes(m.permission) || !securityDb().prepare("SELECT id FROM user WHERE id=? AND role IN ('user','owner')").get(m.user))) return res.sendStatus(400)
+      const entries=Array.isArray(req.body?.owners) ? req.body.owners : Array.isArray(req.body?.members) ? [{user:g.owner},...req.body.members] : null
+      if (!['private','public'].includes(visibility) || !entries?.length || entries.length>100) return res.sendStatus(400)
+      const owners=entries.map(entry=>entry?.email ? securityDb().prepare("SELECT id FROM user WHERE email=? AND role IN ('user','owner')").get(String(entry.email).trim().toLowerCase())?.id : entry?.user)
+      if(owners.some(id=>typeof id!=='string' || !securityDb().prepare("SELECT 1 FROM user WHERE id=? AND role IN ('user','owner')").get(id))) return res.sendStatus(400)
+      if(owners.some(id=>{const state=accountControls(securityDb(),id);return state.purging || (state.deleteAfter && state.deleteAfter<=Date.now())})) return res.status(409).json({error:'An account being permanently deleted cannot be added as a project owner.'})
+      const unique=[...new Set(owners)]
       securityDb().transaction(() => {
         securityDb().prepare('UPDATE grants SET visibility=? WHERE project=?').run(visibility,id)
-        securityDb().prepare('DELETE FROM members WHERE project=?').run(id)
-        for (const m of members) securityDb().prepare('INSERT OR REPLACE INTO members VALUES(?,?,?)').run(id,m.user,m.permission)
+        setProjectOwners(securityDb(),id,unique)
       })()
       audit(user.id,'project-access',id)
-      return res.json({ ok:true })
+      return res.json({ ok:true,retainsAccess:unique.includes(user.id) })
     }
   } else if (!canAuthorProjects(user)) return denied(req,res)
   if (pathname === '/api/projects' && req.method === 'POST' && req.body?.duplicateFrom && !['owner','edit'].includes(permission(user,req.body.duplicateFrom))) return denied(req,res)

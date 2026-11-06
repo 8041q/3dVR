@@ -7,7 +7,7 @@ Use Node.js 22.13+; Node 22 and 24 are covered by CI. Each installation has its 
 1. Copy `.env.example` to `.env`. Set `APP_ORIGIN` to the exact HTTPS origin without a trailing slash. Use `http://localhost:5173` for local Vite development.
 2. Run `npm ci`, then `npm run accounts -- init owner@example.com` locally on the server.
 3. Open the printed single-use link within 15 minutes. Choose a password of 15-128 characters, sign in and enroll an authenticator. Save recovery codes separately. Verification opens owner controls directly.
-4. Invite regular accounts from owner controls. Invitation/reset links expire after one hour. Share them through a trusted channel. Manual delivery does not verify ownership of an email address; email is only the account identifier.
+4. Invite regular accounts from owner controls. Invitation links expire after one hour. Share them through a trusted channel. Manual delivery does not verify ownership of an email address; email is only the account identifier.
 5. Build with `npm run build`; serve behind HTTPS. Owner account changes use the current authenticated MFA session, which expires after 12 hours.
 
 Keep activation links out of logs and tickets. Tokens are passed in the URL fragment and removed from the address bar by the activation screen. There are no default passwords or public signup endpoints.
@@ -20,7 +20,7 @@ Stop the web and worker. Back up `server/data`, `public/uploads`, `storage` and 
 npm run accounts -- assign editor@example.com default
 ```
 
-Unassigned projects are inaccessible. Assignment defaults to private and preserves published snapshots. The project creator can choose public visibility in Account / Sharing. Imports and copies become new private projects. Remove `EDITOR_PASSWORD` from configuration; old bearer tokens are invalid.
+Unassigned projects are inaccessible. Assignment defaults to private and preserves published snapshots. Any project owner can choose public visibility in Account / Project access. Imports and copies become new private projects. Remove `EDITOR_PASSWORD` from configuration; old bearer tokens are invalid.
 
 After verifying migration, retain the private backup and remove obsolete source-directory runtime files. Legacy snapshots are already tracked: `.gitignore` cannot untrack them or erase old history. Review the release index and history before publishing GitHub source. This implementation deliberately does not rewrite history or delete existing content.
 
@@ -36,13 +36,15 @@ Defaults: web 2 GiB RAM; worker 4 GiB; uploads 2 GiB; panorama dimensions 32768x
 
 ## Project access and exhibition offline mode
 
-Creators manage visibility and sharing. Editors can edit and publish. Viewers receive only published content. Drafts, versions, libraries, uploads, jobs, thumbnails and exports enforce permissions. Public visitors receive only media referenced by public publications. External media remains governed by its external host; upload locally when confidentiality matters.
+Every account with project access is an equal project owner: all can edit, publish and manage access. There is no creator/editor/viewer hierarchy. Existing member entries, including legacy `view` and `edit` entries, now mean equal ownership. The database's original `grants.owner` column is only a storage custodian; it does not confer superior project permissions. Updating the owner list can remove any owner, including the creator, but must leave at least one. This access model does not implement live co-op editing; concurrent draft updates still use revision conflict checks. Drafts, versions, libraries, uploads, jobs, thumbnails and exports enforce permissions. Public visitors receive only media referenced by public publications and are not project owners. External media remains governed by its external host; upload locally when confidentiality matters.
 
 Offline viewing saves a viewer presentation, separately from exporting an editable project. Private copies belong to the account that authorized them. Logout/account switching clears private copies. Network failures allow exhibition playback; authorization failures do not. A disconnected device learns about revocation only on reconnect. This is not DRM: an authorized viewer or someone controlling the browser/device can copy visible media. Already public/downloaded content cannot be recalled.
 
 ## Recovery, backups and updates
 
-Regular users reset passwords with an owner-generated link. Password resets revoke sessions and retain MFA. For an owner recovery, stop the web process and run locally:
+The owner resets a member's password from People & access. This generates 12 cryptographically random letters, displayed once for manual delivery, and stores only their password hash. Resetting revokes all existing sessions and remembered MFA browsers. The member must choose their own password of 15–128 characters before using any project APIs. This requirement has no expiry and survives sign-out or closing the browser. Existing MFA still applies. Owners use their current authenticated session for account operations; there is no additional recent-sign-in timer.
+
+For an owner recovery, stop the web process and run locally:
 
 ```bash
 npm run accounts -- recover owner@example.com
@@ -55,6 +57,14 @@ For consistent backups, stop web and worker and copy all of `storage` plus any e
 Run `npm ci`, `npm audit`, tests and the build for updates. Run `npm run accounts -- migrate` locally when auth schemas change. Back up before migration; roll back using matching code/database backups. Keep logs private and never log cookies, invitation tokens or request bodies. The owner screen reports free disk, configured quota, active sessions and account/sharing audit events.
 
 This work is not an independent penetration test or ASVS certification. Test actual TLS/proxy behavior, container permissions, exhaustion behavior and backup recovery on the target server before recommending public internet deployment.
+
+## Devices and account deletion
+
+Security shows only the signed-in account's active devices, with a current-device marker, browser/system, IP, approximate location and activity timestamps. The account holder can sign out an individual device, other devices or all devices. Owners cannot inspect or revoke another account's devices from People & access; suspension revokes that account's sessions and blocks sign-in until the owner reactivates it. Device locations are looked up locally using a bundled DB-IP country snapshot. Set `GEOIP_DATABASE` to an updated country/city MMDB to replace the snapshot. Accuracy depends on that database and proxies/VPNs; private addresses show Local network. See `THIRD_PARTY_NOTICES.md` for attribution.
+
+Members can schedule their own deletion; the server owner can schedule member deletion. The protected master account cannot be deleted through these controls. The dialog requires two confirmations, including typing the account email, then offers an export before the final scheduling action. The account ZIP includes every project the account owns, including ones created by other people, as restorable project ZIPs with assets, plus other owned uploads and panorama sources. Download it before scheduling. Scheduling immediately signs the account out; projects with remaining owners stay available, while projects without another available owner are hidden during the retention period.
+
+The server retains the account and files for 30 days. Completing sign-in, including MFA if enabled, before the deadline cancels deletion and restores access. After the deadline, sign-in is refused. Cleanup removes the account from each project's owners. A project and its complete draft, publications, history and referenced assets survive while another owner remains; only projects losing their last owner are deleted. The server also cleans unused media, device metadata and MFA/password records. Cleanup runs on startup and every minute while the web process is running, retrying interrupted removals. Physical files still needed by retained projects are kept to avoid breaking those projects. Independent server backups and files already downloaded by visitors are outside this cleanup; apply an appropriate backup retention policy separately.
 
 ## Node runtime compatibility
 

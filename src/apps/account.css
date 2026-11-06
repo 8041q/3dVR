@@ -184,3 +184,32 @@
 
 .account-ui textarea { resize:vertical; min-height:100px; }
 .account-optional { color:var(--ui-muted); font-weight:400; }
+.account-ui.account-confirm-dialog { width:min(600px,calc(100vw - 32px)); max-height:calc(100dvh - 32px); margin:auto; padding:28px; overflow:auto; border:1px solid var(--ui-border); border-radius:12px; background:var(--ui-surface); color:var(--ui-ink); }
+.account-confirm-dialog::backdrop { background:#14233788; }
+.account-confirm-dialog > h2 { margin:10px 0 18px; font-size:22px; }
+.account-confirm-body { display:grid; gap:16px; }
+.account-confirm-body p { line-height:1.65; }
+.account-confirm-actions { justify-content:flex-end; margin-top:24px; padding-top:20px; border-top:1px solid var(--ui-line); flex-wrap:wrap; }
+.account-ui button.account-danger { color:var(--ui-danger); border-color:#e5bcbc; background:var(--ui-danger-surface); }
+.account-ui button.account-danger:hover:not(:disabled) { background:#f9e1e1; border-color:var(--ui-danger); }
+.account-panel--danger { border-color:#e5bcbc; }
+.account-device-list { display:grid; margin:18px 0; }
+.account-device { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:14px; padding:18px 0; border-top:1px solid var(--ui-line); }
+.account-device > div { min-width:0; flex:1 1 280px; }
+.account-device .account-badge { margin-left:10px; }
+.account-device p { overflow-wrap:anywhere; margin-top:6px; }
+.account-device-note { margin-top:18px!important; }
+.account-ui.account-deletion-dialog { width:min(480px,calc(100vw - 32px)); padding:24px; }
+.account-deletion-heading { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:8px 12px; margin-bottom:16px; }
+.account-deletion-heading > .account-eyebrow { grid-column:2; font-size:9px; }
+.account-deletion-heading > h2 { grid-column:1 / -1; font-size:20px; margin:0; outline:0; }
+.account-deletion-heading--initial > h2 { grid-column:1; grid-row:1; }
+.account-deletion-heading--initial > .account-eyebrow { grid-row:1; }
+.account-deletion-dialog .account-confirm-body { gap:12px; }
+.account-deletion-dialog .account-confirm-actions { justify-content:space-between; gap:12px; margin-top:20px; padding-top:16px; }
+.account-deletion-person { overflow-wrap:anywhere; }
+.account-deletion-person > span { display:block; color:var(--ui-muted); font-size:12px; margin-top:2px; }
+.account-deletion-impact { padding:12px; border-radius:6px; background:var(--ui-subtle); }
+.account-deletion-impact > p + p { margin-top:6px; }
+.account-deletion-confirmation > span { font-weight:400; line-height:1.6; overflow-wrap:anywhere; }
+.account-deletion-confirmation strong { font-weight:650; }

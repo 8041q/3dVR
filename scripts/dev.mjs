@@ -24,11 +24,11 @@ runProcesses([
   {
     name: 'api',
     command: process.execPath,
-    args: [path.join(root, 'server', 'index.js')],
+    args: ['--watch', path.join(root, 'server', 'index.js')],
   },
   {
     name: 'worker',
     command: process.execPath,
-    args: [path.join(root, 'server', 'panoramaWorker.js')],
+    args: ['--watch', path.join(root, 'server', 'panoramaWorker.js')],
   },
 ], { env: { ...process.env, ...development, NODE_ENV:'development' } })

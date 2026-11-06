@@ -5,6 +5,7 @@ import { GUIDE_ADVANCE, guideAdvanceDelay, guideAdvanceMode, guideEntryAction, g
 import { ACTION_TYPES } from '../../actions/actionTypes'
 import Viewer from '../Viewer'
 import './guideEditor.css'
+import ConfirmDialog from '../ConfirmDialog'
 
 function moveItem(items, index, delta) {
   const nextIndex = index + delta
@@ -60,6 +61,7 @@ export default function GuideEditor({ guides, scenes, onGuidesChange, onDeleteGu
   const [selectedGuideId, setSelectedGuideId] = useState(selectionRequest?.guideId || guides[0]?.id || '')
   const [selectedStepId, setSelectedStepId] = useState(selectionRequest?.stepId || '')
   const [draggedStepId, setDraggedStepId] = useState(null)
+  const [confirmingGuide,setConfirmingGuide]=useState(null)
   const stepInspector = useRef(null)
   const guidePicker = useRef(null), createButton = useRef(null)
 
@@ -103,10 +105,10 @@ export default function GuideEditor({ guides, scenes, onGuidesChange, onDeleteGu
     setSelectedStepId(guide.steps[0]?.id || '')
   }
 
-  function removeGuide() {
-    if (!selectedGuide) return
-    const next = guides.filter((guide) => guide.id !== selectedGuide.id)
-    onDeleteGuide(selectedGuide.id)
+  function removeGuide(guide) {
+    if (!guide) return
+    const next = guides.filter((item) => item.id !== guide.id)
+    onDeleteGuide(guide.id)
     setSelectedGuideId(next[0]?.id || '')
     setSelectedStepId(next[0]?.steps?.[0]?.id || '')
     requestAnimationFrame(() => (guidePicker.current || createButton.current)?.focus())
@@ -224,6 +226,7 @@ export default function GuideEditor({ guides, scenes, onGuidesChange, onDeleteGu
 
   return (
     <div className="guide-editor guide-editor--storyboard">
+      {confirmingGuide && <ConfirmDialog title="Delete guide?" confirmLabel="Delete guide" danger onClose={()=>setConfirmingGuide(null)} onConfirm={()=>{const guide=confirmingGuide;setConfirmingGuide(null);removeGuide(guide)}}><p>Delete <strong>{confirmingGuide.title || 'Untitled guide'}</strong> and all its steps? Startup and hotspot references will be cleared too.</p><p>You can use Undo to restore the guide and its references.</p></ConfirmDialog>}
       <div className="guide-editor__topline">
         <p className="muted">Build a tour one step at a time. Choose a scene, set the view, then decide how visitors continue.</p>
         {guides.length > 0 && <button type="button" onClick={addGuide}>New guide</button>}
@@ -239,7 +242,7 @@ export default function GuideEditor({ guides, scenes, onGuidesChange, onDeleteGu
           }}>{guides.map((guide) => <option key={guide.id} value={guide.id}>{guide.title || 'Untitled guide'}</option>)}</Select></label>
           <label>Guide name<input value={selectedGuide.title || ''} onChange={(event) => patchGuide({ title: event.target.value })} /></label>
           <button type="button" className="primary" disabled={!selectedGuide.steps.length} onClick={(event) => onPreviewGuide?.(selectedGuide.id, event.currentTarget)}>Play guide</button>
-          <button type="button" className="danger guide-delete" onClick={removeGuide}>Delete guide</button>
+          <button type="button" className="danger guide-delete" onClick={()=>setConfirmingGuide(selectedGuide)}>Delete guide</button>
           <details className="guide-settings advanced-details"><summary>Guide settings</summary>
             <label>Description<textarea rows="2" value={selectedGuide.description || ''} onChange={(event) => patchGuide({ description: event.target.value })} /></label>
           </details>

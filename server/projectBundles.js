@@ -94,6 +94,11 @@ function modelUri(uri, base) {
   const url = new URL(uri, `${SOURCE_ORIGIN}${base}`)
   return url.origin === SOURCE_ORIGIN ? canonicalUrl(url.pathname) : url.href
 }
+export async function localModelDependencies(file, sourceUrl) {
+  const model=await modelJson(file)
+  if(!model) return []
+  return [...(model.json.buffers || []),...(model.json.images || [])].map(item=>modelUri(item.uri,sourceUrl)).filter(url=>url?.startsWith('/'))
+}
 async function rewriteModel(file, sourceUrl, replace) {
   const model = await modelJson(file)
   if (!model) return

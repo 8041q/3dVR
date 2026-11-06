@@ -24,7 +24,7 @@
 .map-v2 .scene-map-node__image { grid-row:1 / 4; display:grid; place-content:center; width:56px; height:64px; overflow:hidden; border-radius:5px; background:var(--studio-subtle); font-size:11px; }
 .map-v2 .scene-map-node__image img { width:56px; height:64px; object-fit:cover; }
 .map-v2 .scene-map-home { position:absolute; top:-9px; left:12px; display:grid; place-items:center; width:24px; height:24px; border-radius:6px; color:var(--ui-on-accent); background:var(--studio-accent); }
-.studio-scene-map.map-v2 .scene-map-node__drag { position:absolute; right:0; top:-12px; left:auto; bottom:auto; width:28px; height:26px; min-height:0; padding:0; border:1px solid var(--studio-border); border-radius:5px; background:var(--studio-panel); cursor:move; touch-action:none; font-size:18px; }
+.studio-scene-map.map-v2 .scene-map-node__drag { position:absolute; right:6px; top:auto; left:auto; bottom:6px; width:34px; height:34px; display:grid; place-items:center; color:var(--studio-accent); min-height:0; padding:0; border:1px solid var(--studio-border); border-radius:5px; background:var(--studio-panel); cursor:move; touch-action:none; font-size:18px; }
 .scene-map-inspector { padding:22px 18px; border-left:1px solid var(--studio-line); overflow:auto; background:var(--studio-panel); }
 .scene-map-inspector h3 { margin:8px 0; font-size:17px; overflow-wrap:anywhere; }
 .scene-map-inspector h4 { margin:24px 0 10px; font-size:12px; }

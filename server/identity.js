@@ -9,6 +9,8 @@ import { hash, verify } from '@node-rs/argon2'
 import { STORAGE_ROOT } from './storagePaths.js'
 import { createAuthMiddleware, isAPIError } from 'better-auth/api'
 import { applicationOrigin, trustedApplicationOrigins } from './origin.js'
+import { accountControls } from './accountState.js'
+import { APIError } from 'better-auth/api'
 let database, auth
 export function securityDb() {
   if (database) return database
@@ -22,6 +24,8 @@ export function securityDb() {
     CREATE TABLE IF NOT EXISTS resources (kind TEXT, id TEXT, owner TEXT NOT NULL, bytes INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(kind,id));
     CREATE TABLE IF NOT EXISTS invitations (hash TEXT PRIMARY KEY, email TEXT NOT NULL, role TEXT NOT NULL, expires INTEGER NOT NULL, used INTEGER NOT NULL DEFAULT 0);
     CREATE TABLE IF NOT EXISTS events (id INTEGER PRIMARY KEY, at TEXT DEFAULT CURRENT_TIMESTAMP, actor TEXT, action TEXT, target TEXT);
+    CREATE TABLE IF NOT EXISTS account_controls (userId TEXT PRIMARY KEY, mustChangePassword INTEGER NOT NULL DEFAULT 0, resetVersion INTEGER NOT NULL DEFAULT 0, deletionRequestedAt INTEGER, deleteAfter INTEGER, deletionCanceledAt INTEGER, purging INTEGER NOT NULL DEFAULT 0);
+    CREATE TABLE IF NOT EXISTS session_details (sessionId TEXT PRIMARY KEY, userId TEXT NOT NULL, lastSeenAt INTEGER NOT NULL, ip TEXT NOT NULL, location TEXT NOT NULL);
   `)
   if (!database.prepare('PRAGMA table_info(resources)').all().some(c=>c.name==='bytes')) database.exec('ALTER TABLE resources ADD COLUMN bytes INTEGER NOT NULL DEFAULT 0')
   return database
@@ -45,6 +49,9 @@ export function getAuth() {
     database: securityDb(), secret, baseURL, trustedOrigins: () => trustedApplicationOrigins(),
     hooks: { before:createAuthMiddleware(async ctx => {
       if(ctx.path !== '/sign-in/email') return
+      const user=securityDb().prepare('SELECT id FROM user WHERE email=?').get(String(ctx.body?.email || '').trim().toLowerCase())
+      const controls=user && accountControls(securityDb(),user.id)
+      if(controls && (controls.purging || (controls.deleteAfter && controls.deleteAfter<=Date.now()))) throw new APIError('UNAUTHORIZED',{message:'Invalid email or password.',code:'INVALID_EMAIL_OR_PASSWORD'})
       const cookie=ctx.context.createAuthCookie('trust_device')
       const trusted=await ctx.getSignedCookie(cookie.name,ctx.context.secret)
       if(!trusted) return
@@ -70,7 +77,7 @@ export function getAuth() {
     }}}},
     emailAndPassword: { enabled: true, disableSignUp: true, minPasswordLength: 15, maxPasswordLength: 128, revokeSessionsOnPasswordReset: true,
       password: { hash: password => hash(password, { memoryCost: 65536, timeCost: 3, parallelism: 1, algorithm: 2 }), verify: ({ hash: digest, password }) => verify(digest, password) } },
-    session: { expiresIn: 43200, freshAge: 300, disableSessionRefresh: true, cookieCache: { enabled: false } },
+    session: { expiresIn: 43200, freshAge: 0, disableSessionRefresh: true, cookieCache: { enabled: false } },
     advanced: { ipAddress: { ipAddressHeaders:['x-atria-client-ip'] }, useSecureCookies: baseURL.startsWith('https:'), defaultCookieAttributes: { httpOnly: true, sameSite: 'lax', path: '/' } },
     rateLimit: { enabled: true, storage: 'database', window: 60, max: 30 },
     plugins: [admin({ adminRoles: ['owner'], defaultRole: 'user', roles:{owner:adminAc,user:userAc} }), twoFactor({ issuer: 'Atria 3DVR', trustDeviceMaxAge:7200, backupCodeOptions: { storeBackupCodes: 'encrypted' } })],

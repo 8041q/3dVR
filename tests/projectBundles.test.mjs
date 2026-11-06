@@ -27,6 +27,7 @@ async function fixture(t) {
   const serverRoot = path.join(root, 'server'), publicRoot = path.join(root, 'public'), panoramaRoot = path.join(root, 'panoramas'), tempRoot = path.join(root, 'incoming')
   for (const dir of [serverRoot, path.join(root, 'src'), path.join(publicRoot, 'uploads'), path.join(publicRoot, 'demo'), panoramaRoot]) await fs.mkdir(dir, { recursive: true })
   await fs.copyFile(new URL('../server/projectStore.js', import.meta.url), path.join(serverRoot, 'projectStore.mjs'))
+  await fs.copyFile(new URL('../server/accountFiles.js', import.meta.url), path.join(serverRoot,'accountFiles.js'))
   for (const name of ['projectMetadata.js', 'projectSettings.js']) await fs.copyFile(new URL(`../src/${name}`, import.meta.url), path.join(root, 'src', name))
   const store = await import(pathToFileURL(path.join(serverRoot, 'projectStore.mjs')))
   const records = new Map()

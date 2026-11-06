@@ -44,7 +44,7 @@ export default function LoginModal({ onClose, notice, embedded = false }) {
       <label className="account-field">Account email<input type="email" autoComplete="username" autoFocus={embedded} required value={email} onChange={event => setEmail(event.target.value)} placeholder="you@example.com" /></label>
       <PasswordField label="Password" id="account-login-password" value={password} onChange={event => setPassword(event.target.value)} />
       <button className="account-link-button" type="button" onClick={() => setResetHelp(!resetHelp)} aria-expanded={resetHelp}>Forgot your password?</button>
-      {resetHelp && <p className="account-help">Ask your server owner for a password reset link. Owner accounts can use the local recovery command on their server.</p>}
+      {resetHelp && <p className="account-help">Ask your server owner for a temporary password. Owner accounts can use the local recovery command on their server.</p>}
     </> : <>
       <div className="account-instruction">{backup ? 'Enter one of the recovery codes you saved when connecting your authenticator.' : 'Open your authenticator app and enter the six-digit code for Atria. No email is sent.'}</div>
       <label className="account-field">{backup ? 'Recovery code' : 'Authenticator code'}<input key={backup ? 'backup' : 'totp'} className={backup ? '' : 'account-code'} autoFocus required inputMode={backup ? 'text' : 'numeric'} autoComplete="one-time-code" value={code} onChange={event => setCode(event.target.value)} placeholder={backup ? 'Recovery code' : '123456'} /></label>

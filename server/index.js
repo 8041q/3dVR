@@ -4,6 +4,7 @@ import helmet from 'helmet'
 import { rateLimit } from 'express-rate-limit'
 import { authHandler, createAccountsRouter, sameOrigin } from './accounts.js'
 import { cleanupAbandonedUploads } from './cleanup.js'
+import { purgeDeletedAccounts } from './accountLifecycle.js'
 import { resourceLimits } from './resourceLimits.js'
 import { accessGate } from './access.js'
 import fs from 'node:fs'
@@ -95,6 +96,8 @@ app.use((error, _req, res, _next) => {
   if (!res.headersSent) res.status(error.status >= 400 && error.status < 500 ? error.status : 500).json({ error:'Request failed.' })
 })
 setInterval(() => cleanupAbandonedUploads().catch(error=>console.error('[cleanup]',error)),3600000).unref()
+purgeDeletedAccounts().catch(error=>console.error('[account-cleanup]',error))
+setInterval(()=>purgeDeletedAccounts().catch(error=>console.error('[account-cleanup]',error)),60000).unref()
 const PORT = Number(process.env.PORT || 3001)
 const server = app.listen(PORT, process.env.HOST || '127.0.0.1', () => {
   console.log(`[server] http://localhost:${PORT}`)

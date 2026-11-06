@@ -21,8 +21,8 @@ export default function ViewerApp({ projectId = 'default' }) {
 
   if (loading) return <EntryState title="Opening your tour…" description="Loading the visitor experience." />
   if (errorStatus===401) return <AccountApp notice="Sign in to view this private tour." returnTo={location.pathname} />
-  if (error) return <EntryState title={errorStatus===403 ? 'This account can’t open this tour.' : errorStatus===404 ? 'This tour isn’t available.' : 'We couldn’t open this tour.'} description={errorStatus===403 ? 'Ask the project creator for access, or use an account that already has permission.' : errorStatus===404 ? 'The tour may not be published yet. Your workspace is still available.' : 'Check your connection and try again.'}><a className="account-button account-primary" href="/">Open workspace</a>{errorStatus===403 && auth.user && <button onClick={async()=>{await auth.logout();await reload()}}>Use another account</button>}{!errorStatus && <button onClick={reload}>Try again</button>}</EntryState>
-  if (!sceneId) return <EntryState title="This tour is still taking shape." description="There are no published scenes to view yet."><a className="account-button account-primary" href="/">Open workspace</a></EntryState>
+  if (error) return <EntryState title={errorStatus===403 ? 'This account can’t open this tour.' : errorStatus===404 ? 'This tour isn’t available.' : 'We couldn’t open this tour.'} description={errorStatus===403 ? 'Ask a project owner for access, or use an account that already has permission.' : errorStatus===404 ? 'The tour may not be published yet. Your workspace is still available.' : 'Check your connection and try again.'}>{errorStatus===403 && auth.user && <button onClick={async()=>{await auth.logout();await reload()}}>Use another account</button>}{!errorStatus && <button onClick={reload}>Try again</button>}</EntryState>
+  if (!sceneId) return <EntryState title="This tour is still taking shape." description="There are no published scenes to view yet."></EntryState>
 
   return (
     <div className="app">

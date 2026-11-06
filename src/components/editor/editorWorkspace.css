@@ -39,9 +39,6 @@
   background: var(--studio-panel);
 }
 .studio-identity { gap: var(--studio-space-3); min-width: 0; }
-.studio-back-projects { display:inline-flex; align-items:center; flex:none; min-height:32px; padding:6px 10px; border:1px solid var(--studio-border); border-radius:var(--studio-radius); color:var(--studio-accent); font-size:12px; font-weight:600; text-decoration:none; }
-.studio-back-projects:hover { background:var(--studio-selection); }
-.studio-back-projects[aria-disabled] { opacity:.5; cursor:wait; }
 @media (max-width:800px) { .studio-identity .editor-logo > span { display:none; } }
 .studio-identity h1 {
   max-width: 33vw;

@@ -8,6 +8,9 @@ import { toNodeHandler } from 'better-auth/node'
 import { getAuth, securityDb, invitation, tokenHash, audit, installationStatus } from './identity.js'
 
 import { identity } from './auth.js'
+import { createAccountManagementRouter, resetMemberPassword } from './accountManagement.js'
+import { accountControls, decorateAccount, cancelScheduledDeletion } from './accountState.js'
+import { revokeAccountSessions } from './accountLifecycle.js'
 
 
 
@@ -44,9 +47,25 @@ export function authHandler() {
 
     if (!paths.has(req.path)) return res.sendStatus(404)
     if(installationStatus().state==='needs-initialization') return res.status(503).json({error:'Server setup is not complete.',code:'SETUP_REQUIRED'})
-    handler ||= toNodeHandler(getAuth())
+    handler ||= toNodeHandler(async request=> {
+      const response=await getAuth().handler(request)
+      const authPath=new URL(request.url).pathname.replace(/^\/api\/auth/,'')
+      if(['/sign-in/email','/two-factor/verify-totp','/two-factor/verify-backup-code'].includes(authPath) && response.ok) {
+        // Validate the final response after all MFA hooks. Provisional sessions
+        // created by the password step cannot cancel a scheduled deletion.
+        const cookies=new Map()
+        for(const value of response.headers.getSetCookie()) {
+          const pair=value.split(';')[0],split=pair.indexOf('=')
+          cookies.set(pair.slice(0,split),pair.slice(split+1))
+        }
+        const session=await getAuth().api.getSession({headers:new Headers({Cookie:[...cookies].map(([key,value])=>`${key}=${value}`).join('; ')})})
+        if(cancelScheduledDeletion(securityDb(),session)) audit(session.user.id,'account-deletion-canceled',session.user.id)
+      }
+      return response
+    })
 
     await identity(req, res, () => {})
+    if(req.identity?.user.mustChangePassword && !['/sign-in/email','/sign-out','/get-session'].includes(req.path)) return res.status(403).json({error:'Choose a new password to continue.',code:'PASSWORD_CHANGE_REQUIRED'})
 
     if (req.identity?.user.role === 'owner') {
 
@@ -55,7 +74,7 @@ export function authHandler() {
 
     }
 
-    return handler(req, res, next)
+    return handler(req,res,next)
 
   }
 
@@ -67,7 +86,11 @@ export function createAccountsRouter(express) {
 
   r.use((_req, res, next) => { res.set('Cache-Control','no-store'); next() })
 
-  r.get('/me', (req,res) => res.json({ user: req.identity?.user || null, installation:installationStatus() }))
+  r.get('/me', (req,res) => {
+    const state=req.identity && accountControls(securityDb(),req.identity.user.id)
+    const canceled=state?.deletionCanceledAt && state.deletionCanceledAt>=new Date(req.identity.session.createdAt).getTime()-2000
+    res.json({user:req.identity?.user || null,installation:installationStatus(),...(canceled ? {notice:'Your scheduled account deletion was canceled because you signed in.'} : {})})
+  })
 
   r.post('/accept', async (req,res) => {
     if(installationStatus().state==='needs-initialization') return res.status(503).json({error:'Run the setup command in the server terminal first.',code:'SETUP_REQUIRED'})
@@ -136,23 +159,25 @@ export function createAccountsRouter(express) {
 
     const disk=await fs.statfs(STORAGE_ROOT)
 
-    res.json({ hosting:{ freeBytes:Number(disk.bavail)*Number(disk.bsize), userQuotaBytes:Number(process.env.USER_STORAGE_QUOTA_BYTES)||50*1024**3, activeSessions:db.prepare('SELECT COUNT(*) AS count FROM session').get().count }, users: db.prepare('SELECT id,email,name,role,banned,twoFactorEnabled FROM user').all(), events: db.prepare('SELECT * FROM events ORDER BY id DESC LIMIT 100').all() })
+    res.json({ hosting:{ freeBytes:Number(disk.bavail)*Number(disk.bsize), userQuotaBytes:Number(process.env.USER_STORAGE_QUOTA_BYTES)||50*1024**3, activeSessions:db.prepare('SELECT COUNT(*) AS count FROM session').get().count }, users: db.prepare('SELECT id,email,name,role,banned,twoFactorEnabled FROM user').all().map(user=>decorateAccount(db,user)), events: db.prepare('SELECT * FROM events ORDER BY id DESC LIMIT 100').all() })
 
   })
 
-  r.post('/owner/invitations', ownerOnly, (req,res) => {
+  r.post('/owner/invitations', ownerOnly, async (req,res,next) => {
 
     const email = String(req.body?.email || '').trim().toLowerCase()
 
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) return res.sendStatus(400)
 
     const reset = req.body?.reset === true
+    if(reset) {
+      const user=securityDb().prepare('SELECT id FROM user WHERE email=?').get(email)
+      try {return res.json(await resetMemberPassword(user?.id,req.identity.user.id))} catch(error) {if(error.status)return res.status(error.status).json({error:error.message});return next(error)}
+    }
 
-    if (reset && securityDb().prepare('SELECT role FROM user WHERE email=?').get(email)?.role === 'owner') return res.sendStatus(403)
+    const token = invitation(email,'user')
 
-    const token = invitation(email,reset ? 'reset' : 'user')
-
-    audit(req.identity.user.id,reset ? 'password-reset-link' : 'invite',email)
+    audit(req.identity.user.id,'invite',email)
 
     res.json({ url: `/account#invite=${token}` })
 
@@ -163,11 +188,11 @@ export function createAccountsRouter(express) {
     const db = securityDb(), user = db.prepare('SELECT role FROM user WHERE id=?').get(req.params.id)
 
     if (!user || user.role === 'owner') return res.sendStatus(403)
+    if(typeof req.body?.suspended!=='boolean') return res.status(400).json({error:'Device sessions are managed privately by the account holder.'})
 
-    if (typeof req.body?.suspended === 'boolean') db.prepare('UPDATE user SET banned=? WHERE id=?').run(req.body.suspended ? 1 : 0,req.params.id)
+    db.prepare('UPDATE user SET banned=?,banExpires=NULL WHERE id=?').run(req.body.suspended ? 1 : 0,req.params.id)
 
-    db.prepare('DELETE FROM session WHERE userId=?').run(req.params.id)
-    db.prepare("DELETE FROM verification WHERE value=? AND identifier LIKE 'trust-device-%'").run(req.params.id)
+    revokeAccountSessions(req.params.id)
 
     audit(req.identity.user.id,'account-update',req.params.id)
 
@@ -175,6 +200,7 @@ export function createAccountsRouter(express) {
 
   })
 
+  r.use(createAccountManagementRouter(express,{ownerOnly}))
   return r
 
 }

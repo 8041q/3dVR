@@ -9,7 +9,7 @@ import { ModelThumbnailProvider } from '../contexts/ModelThumbnailContext'
 function ProjectEditor({ projectId, token }) {
   const draft = useProjectDraft(projectId)
   if (draft.loading) return <EntryState title="Opening your project…" description="Preparing the editor." />
-  if (draft.error || !draft.project) return <EntryState title="We couldn’t open this project." description="It may not be assigned to your account, or your session may have ended."><a className="account-button account-primary" href="/">Your workspace</a><button onClick={draft.reload}>Try again</button></EntryState>
+  if (draft.error || !draft.project) return <EntryState title="We couldn’t open this project." description="It may not be assigned to your account, or your session may have ended."><button onClick={draft.reload}>Try again</button></EntryState>
   return <EditorWorkspace projectId={projectId} draft={draft} authToken={token} />
 }
 

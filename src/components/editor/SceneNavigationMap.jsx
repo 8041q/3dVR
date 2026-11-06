@@ -88,7 +88,7 @@ export default function SceneNavigationMap({ scenes, currentSceneId, startSceneI
                 onPointerDown={event => { if (event.button !== 0) return; event.stopPropagation(); drag.current = { id: scene.id, pointerId: event.pointerId, x: event.clientX, y: event.clientY, original: pos }; event.currentTarget.setPointerCapture(event.pointerId) }}
                 onPointerMove={event => { const d = drag.current; if (d?.pointerId !== event.pointerId) return; d.position = { x: Math.max(16, d.original.x + (event.clientX - d.x) / zoom), y: Math.max(16, d.original.y + (event.clientY - d.y) / zoom) }; setMoving({ id: d.id, ...d.position }) }}
                 onPointerUp={event => finishDrag(event, true)} onPointerCancel={event => finishDrag(event, false)} onLostPointerCapture={event => finishDrag(event, false)}
-                onKeyDown={event => { const dirs = { ArrowLeft: [-1,0], ArrowRight: [1,0], ArrowUp: [0,-1], ArrowDown: [0,1] }, dir = dirs[event.key]; if (!dir) return; event.preventDefault(); const step = event.shiftKey ? 64 : 16; patch(scene.id, { x: Math.max(16, pos.x + dir[0] * step), y: Math.max(16, pos.y + dir[1] * step) }) }}>⠿</button>
+                onKeyDown={event => { const dirs = { ArrowLeft: [-1,0], ArrowRight: [1,0], ArrowUp: [0,-1], ArrowDown: [0,1] }, dir = dirs[event.key]; if (!dir) return; event.preventDefault(); const step = event.shiftKey ? 64 : 16; patch(scene.id, { x: Math.max(16, pos.x + dir[0] * step), y: Math.max(16, pos.y + dir[1] * step) }) }}><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">{[6,12,18].flatMap(y=>[8,16].map(x=><circle key={`${x}-${y}`} cx={x} cy={y} r="1.8" />))}</svg></button>
             </article>
           })}
         </div></div>

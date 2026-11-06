@@ -4,6 +4,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { normalizeProjectMetadata } from '../src/projectMetadata.js'
 import { normalizeProjectSettings } from '../src/projectSettings.js'
+import { removeStoredPath } from './accountFiles.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const DATA_ROOT = process.env.VR_DATA_ROOT ? path.resolve(process.env.VR_DATA_ROOT) : path.join(process.env.VR_STORAGE_ROOT || path.join(__dirname, '..', 'storage'), 'data')
@@ -193,6 +194,7 @@ async function initializeDefaultProject() {
 
   const existing = await readJson(metaPath('default'))
   if (existing) return existing
+  if(await fs.stat(path.join(DATA_ROOT,'.default-project-deleted')).then(()=>true).catch(()=>false)) return null
 
   const [legacyScenes, legacyGuides] = await Promise.all([
     readJson(LEGACY_SCENES_PATH, []),
@@ -228,6 +230,18 @@ async function initializeDefaultProject() {
   await writeJsonAtomic(metaPath('default'), meta)
 
   return meta
+}
+
+export async function deleteStoredProject(projectId) {
+  const id=sanitizeProjectId(projectId)
+  return runProjectOperation(id,async()=> {
+    if(id==='default') {
+      await fs.mkdir(DATA_ROOT,{recursive:true})
+      await fs.writeFile(path.join(DATA_ROOT,'.default-project-deleted'),'1')
+      for(const name of ['scenes.json','guides.json']) await removeStoredPath(DATA_ROOT,name)
+    }
+    await removeStoredPath(PROJECTS_ROOT,id)
+  })
 }
 
 async function ensureProject(projectId) {

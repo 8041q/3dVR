@@ -15,6 +15,7 @@ async function projectStore(t) {
   await mkdir(path.join(directory, 'src'))
   const modulePath = path.join(directory, 'server', 'projectStore.mjs')
   await copyFile(new URL('../server/projectStore.js', import.meta.url), modulePath)
+  await copyFile(new URL('../server/accountFiles.js', import.meta.url), path.join(directory,'server','accountFiles.js'))
   await copyFile(new URL('../src/projectMetadata.js', import.meta.url), path.join(directory, 'src', 'projectMetadata.js'))
   await copyFile(new URL('../src/projectSettings.js', import.meta.url), path.join(directory, 'src', 'projectSettings.js'))
   return { store: await import(pathToFileURL(modulePath)), directory: path.join(directory, 'storage') }

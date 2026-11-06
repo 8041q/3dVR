@@ -8,6 +8,7 @@ import './components/viewerSurfaces.css'
 import './components/ui/select.css'
 import './components/product/productInspection.css'
 import './components/editor/modelAuthoring.css'
+import './components/ui/backNavigation.css'
 import { registerOfflineServiceWorker } from './offline/serviceWorker'
 
 registerOfflineServiceWorker()

@@ -18,6 +18,7 @@ import { hasPanorama, panoramaKey } from '../../panorama/panoramaSource'
 import { replaceProductModel } from '../../product/modelMetadata'
 import { resolveSceneId } from '../../viewer/sceneSelection'
 import useDismissibleMenus from '../../hooks/useDismissibleMenus'
+import BackLink, { BackRow } from '../ui/BackLink'
 import { projectViewerSettings } from '../../projectSettings.js'
 
 const SCENE_INSPECTOR = { kind: 'scene' }
@@ -418,7 +419,6 @@ export default function EditorWorkspace({ projectId, draft, authToken }) {
       <div className="editor-studio" hidden={Boolean(preview)}>
         <header className="editor-topbar studio-header">
           <div className="studio-identity">
-            <a className="studio-back-projects" href="/" onClick={event => { if (busy) event.preventDefault() }} aria-disabled={busy || undefined} title="Return to your project library">← Projects</a>
             <span className="editor-logo" aria-label="Atria 3DVR">
               <img src="/brand/3dvr-portal-v2.svg" alt="" width="40" height="40" />
               <span>Atria 3DVR</span>
@@ -456,6 +456,9 @@ export default function EditorWorkspace({ projectId, draft, authToken }) {
               onClick={() => openWorkspace({ kind })}>{label}</button>
           ))}
         </nav>
+        {workspace.kind==='product'
+          ? <BackRow className="studio-back-row" onClick={returnToHotspot} disabled={busy}>Back to hotspot</BackRow>
+          : <BackRow className="studio-back-row" href="/" disabled={busy}>Back to projects</BackRow>}
         {error && !reviewOpen && (
           <div className="studio-error" role="alert">
             {error}<button aria-label="Dismiss message" onClick={() => setError('')}>×</button>
@@ -533,10 +536,10 @@ export default function EditorWorkspace({ projectId, draft, authToken }) {
 
           <aside id="studio-inspector" ref={inspectorRef} className="editor-panel studio-inspector" aria-label={heading} hidden={!inspectorOpen} tabIndex={-1}>
             <header className="studio-inspector-header">
-              <h2>{heading}</h2>
               {panel.kind !== 'scene' && (
-                <button onClick={() => openPanel(SCENE_INSPECTOR)}>Back to scene</button>
+                <BackLink onClick={() => openPanel(SCENE_INSPECTOR)}>Back to scene</BackLink>
               )}
+              <h2>{heading}</h2>
             </header>
             <div className="studio-inspector-body" key={inspectorKey}>
               {panel.kind === 'hotspot' && hotspot ? (
@@ -635,7 +638,6 @@ export default function EditorWorkspace({ projectId, draft, authToken }) {
                 <h2 ref={workspaceHeading} tabIndex={-1}>Edit product</h2>
                 {product.owner && <span className="muted">{product.owner.label || 'Untitled hotspot'}</span>}
               </div>
-              <button onClick={returnToHotspot}>Back to hotspot</button>
             </header>
             <div className="studio-workspace-body">
               {product.action ? (
@@ -670,7 +672,6 @@ export default function EditorWorkspace({ projectId, draft, authToken }) {
       {preview && (
         <section className="studio-preview" aria-label="Draft preview">
           <header className="editor-topbar studio-header">
-            <button onClick={exitPreview}>Back to editing</button>
             <div className="studio-preview-title"><strong>Draft preview</strong><span>{previewScene?.title || 'Untitled scene'}</span></div>
             <div className="studio-commands">
               <button onClick={() => setPreview((current) => ({ ...current, sceneId: current.initialSceneId, run: current.run + 1 }))}>Restart</button>
@@ -680,6 +681,7 @@ export default function EditorWorkspace({ projectId, draft, authToken }) {
               >Preview from start</button>
             </div>
           </header>
+          <BackRow className="studio-back-row" onClick={exitPreview}>Back to editing</BackRow>
           <div className="studio-preview-viewport">
             <Viewer
               key={preview.run}

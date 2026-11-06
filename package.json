@@ -20,6 +20,7 @@
     "accounts": "node scripts/accounts.mjs"
   },
   "dependencies": {
+    "@ip-location-db/dbip-country-mmdb": "2.3.2026060120",
     "@node-rs/argon2": "^2.2.2",
     "@react-three/fiber": "^9.3.0",
     "better-auth": "^1.7.18",
@@ -29,6 +30,7 @@
     "express": "^5.1.0",
     "express-rate-limit": "^8.7.3",
     "helmet": "^8.3.0",
+    "maxmind": "5.0.8",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "three": "^0.180.0",
