@@ -1,5 +1,6 @@
 node_modules/
 dist/
+.vite/
 .env
 storage/
 server/data/asset-thumbnails/
@@ -16,3 +17,4 @@ public/demo/*
 !.env.example
 server/data/
 backups/
+tests/
