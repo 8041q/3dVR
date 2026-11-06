@@ -5,6 +5,7 @@ import { revokeAccountSessions, scheduleAccountDeletion } from './accountLifecyc
 import { listOwnDevices, revokeOwnDevices } from './sessionDevices.js'
 import { prepareAccountExport, writeAccountExport } from './accountExport.js'
 import { accountProjects, survivingProjectOwners } from './projectOwnership.js'
+import { createAvatarRouter } from './avatars.js'
 
 const failure=(message,status=400)=>Object.assign(new Error(message),{status})
 export async function resetMemberPassword(userId,actor) {
@@ -34,6 +35,7 @@ export function createAccountManagementRouter(express,{ownerOnly}) {
     if(req.identity.user.role==='owner' && !req.identity.user.twoFactorEnabled) return res.status(403).json({error:'Finish owner account setup first.'})
     next()
   })
+  router.use('/me/avatar',createAvatarRouter(express))
   function target(req,{confirmation=false}={}) {
     const actor=req.identity.user, id=req.params.id
     if(actor.id!==id && !(actor.role==='owner' && actor.twoFactorEnabled)) throw failure('Access denied.',403)

@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react'
 import { useAuth, accountRequest } from '../contexts/AuthContext'
 import LoginModal from '../components/LoginModal'
 import AuthenticatorSetup from '../components/AuthenticatorSetup'
-import { CopyButton, Notice, PanelHeading, PasswordField } from '../components/accountUi'
+import { Avatar, CopyButton, Notice, PanelHeading, PasswordField } from '../components/accountUi'
+import AvatarSettings from '../components/AvatarSettings'
 import Select from '../components/ui/Select'
 import './account.css'
 import { activationToken, safeReturnPath } from '../accountFlow'
@@ -72,7 +73,15 @@ export default function AccountApp({ notice, returnTo }) {
     <header className="account-header">
       <a className="account-brand" href="/"><img src="/brand/3dvr-portal-v2.svg" width="30" height="30" alt="" /><span>Atria<span className="account-brand-divider">Studio</span></span></a>
       <span className="account-header-label">{auth.user ? owner && ['users','server'].includes(active) ? 'Server administration' : 'Your workspace' : 'Account'}</span>
-      {auth.user && <div className="account-header-user"><span title={auth.user.email}>{auth.user.name || 'User'}</span><span className="account-badge">{owner ? 'Owner' : 'Member'}</span><button className="account-signout" type="button" title="Sign out" aria-label="Sign out" disabled={busy} onClick={logout}>↗</button></div>}
+      {auth.user && <div className="account-header-user">
+        <button className="account-user" type="button" title={auth.user.email} aria-label={`${auth.user.name || 'Your account'}, open account settings`} onClick={() => showTab('security')}>
+          <Avatar name={auth.user.name || auth.user.email} src={auth.user.avatarUrl} />
+          <span className="account-user-text"><span className="account-user-name">{auth.user.name || 'User'}</span><span className="account-user-role">{owner ? 'Owner' : 'Member'}</span></span>
+        </button>
+        <button className="account-signout" type="button" title="Sign out" aria-label="Sign out" disabled={busy} onClick={logout}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></svg>
+        </button>
+      </div>}
     </header>
     {auth.checking ? <main className="account-loading" role="status">Checking your session…</main>
       : invite || !auth.user ? active==='about' ? <main className="account-content"><AboutAtria /></main> : <main className="account-auth-layout">
@@ -172,6 +181,7 @@ function AccountSecurity({onComplete}) {
   const [deleting,setDeleting]=useState(false),[deviceVersion,setDeviceVersion]=useState(0)
   async function run(work,notice){setBusy(true);setError('');setMessage('');try{await work();setMessage(notice)}catch(e){setError(e.message)}finally{setBusy(false)}}
   return <><div className="account-page-heading"><h1>Account security</h1><p>Manage your sign-in details and connected devices.</p></div><Notice error>{error}</Notice><Notice>{message}</Notice><section className="account-panel"><PanelHeading title="Your account" /><dl className="account-profile"><div><dt>Name</dt><dd>{auth.user.name}</dd></div><div><dt>Sign-in email</dt><dd>{auth.user.email}</dd></div><div><dt>Authenticator</dt><dd><span className="account-badge">{auth.user.twoFactorEnabled ? 'Connected' : 'Not connected'}</span></dd></div></dl></section>
+    <AvatarSettings onMessage={setMessage} />
     {!auth.user.twoFactorEnabled && <details className="account-panel"><summary>Add an authenticator (optional)</summary><AuthenticatorSetup onComplete={onComplete} /></details>}
     <section className="account-panel"><PanelHeading title="Change password" description="Other devices will be signed out after your password changes." /><form className="account-form account-form--compact" onSubmit={e=>{e.preventDefault();run(async()=>{await accountRequest('/api/auth/change-password',{currentPassword:current,newPassword:password,revokeOtherSessions:true});setCurrent('');setPassword('');setDeviceVersion(value=>value+1)},'Password changed. Other devices have been signed out.')}}><PasswordField id="current-password" label="Current password" value={current} onChange={e=>setCurrent(e.target.value)} /><PasswordField id="new-password" label="New password" autoComplete="new-password" minLength={15} value={password} onChange={e=>setPassword(e.target.value)} /><p className="account-help">Use at least 15 characters.</p><button className="account-primary" disabled={busy}>{busy ? 'Saving…' : 'Update password'}</button></form></section>
     <DeviceSessions key={deviceVersion} />

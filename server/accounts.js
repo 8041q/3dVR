@@ -14,6 +14,7 @@ import { identity } from './auth.js'
 import { createAccountManagementRouter, resetMemberPassword } from './accountManagement.js'
 import { accountControls, decorateAccount, cancelScheduledDeletion } from './accountState.js'
 import { revokeAccountSessions } from './accountLifecycle.js'
+import { avatarUrlFor } from './avatars.js'
 
 const require = createRequire(import.meta.url)
 const packageMetadata = require('../package.json')
@@ -258,10 +259,11 @@ export function createAccountsRouter(express) {
 
   r.use((_req, res, next) => { res.set('Cache-Control','no-store'); next() })
 
-  r.get('/me', (req,res) => {
+  r.get('/me', async (req,res) => {
     const state=req.identity && accountControls(securityDb(),req.identity.user.id)
     const canceled=state?.deletionCanceledAt && state.deletionCanceledAt>=new Date(req.identity.session.createdAt).getTime()-2000
-    res.json({user:req.identity?.user || null,installation:installationStatus(),...(canceled ? {notice:'Your scheduled account deletion was canceled because you signed in.'} : {})})
+    const user=req.identity?.user ? {...req.identity.user,avatarUrl:await avatarUrlFor(req.identity.user.id)} : null
+    res.json({user,installation:installationStatus(),...(canceled ? {notice:'Your scheduled account deletion was canceled because you signed in.'} : {})})
   })
 
   r.post('/accept', async (req,res) => {
@@ -410,4 +412,3 @@ export function createAccountsRouter(express) {
   return r
 
 }
-

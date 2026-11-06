@@ -23,6 +23,17 @@ export function PasswordField({ label, value, onChange, autoComplete = 'current-
   </div>
 }
 
+// Round profile picture. Falls back to the person's initial when there is no
+// photo or the photo fails to load.
+export function Avatar({ name = '', src = null, size = 32 }) {
+  const [failed, setFailed] = useState(false)
+  useEffect(() => setFailed(false), [src])
+  const initial = (Array.from(String(name).trim())[0] || 'U').toUpperCase()
+  return <span className="account-user-avatar" style={{ '--avatar-size': `${size}px` }} aria-hidden="true">
+    {src && !failed ? <img src={src} alt="" draggable={false} onError={() => setFailed(true)} /> : initial}
+  </span>
+}
+
 export function PanelHeading({ id, title, description, children }) {
   return <div className="account-panel-heading"><div><h2 id={id}>{title}</h2>{description && <p>{description}</p>}</div>{children}</div>
 }
