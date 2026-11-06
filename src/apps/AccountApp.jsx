@@ -11,20 +11,23 @@ import { PROJECT_METADATA_LIMITS } from '../projectMetadata'
 import DeviceSessions from '../components/DeviceSessions'
 import AccountDeletionDialog from '../components/AccountDeletionDialog'
 import { BackRow } from '../components/ui/BackLink'
+import AboutAtria from '../components/AboutAtria'
+import ServerConsole from '../components/ServerConsole'
 
 export default function AccountApp({ notice, returnTo }) {
   const auth = useAuth()
   const [invite, setInvite] = useState(() => new URLSearchParams(location.hash.slice(1)).get('invite'))
   const [message, setMessage] = useState(''), [error, setError] = useState(''), [busy, setBusy] = useState(false)
   const [tab, setTab] = useState(() => new URLSearchParams(location.search).get('tab'))
+  const [previousTab, setPreviousTab] = useState(null)
   const [initialSetup,setInitialSetup]=useState(null), [preparing,setPreparing]=useState(false)
   const [projectId, setProjectId] = useState(() => new URLSearchParams(location.search).get('project'))
   const owner = auth.user?.role === 'owner'
   const pending = owner && !auth.user.twoFactorEnabled
   const needsSetup = ['needs-initialization','needs-activation'].includes(auth.installation?.state)
   const destination=safeReturnPath(returnTo)
-  useEffect(() => {if(destination && auth.isEditor && !invite) location.replace(destination)},[destination,auth.user?.id,auth.isEditor,invite])
   const active = tab || (projectId ? 'sharing' : 'projects')
+  useEffect(() => {if(destination && auth.isEditor && !invite && active!=='about') location.replace(destination)},[destination,auth.user?.id,auth.isEditor,invite,active])
   useEffect(() => { if (invite) history.replaceState(null, '', location.pathname + location.search) }, [])
   async function finishActivation(signedIn,password) {
     setPreparing(true);setError('')
@@ -55,38 +58,40 @@ export default function AccountApp({ notice, returnTo }) {
     return ()=>window.removeEventListener('popstate',changed)
   },[])
   function showTab(value) {
+    if (value !== active) setPreviousTab(active)
     setTab(value);setError('');setMessage('')
     if(value!=='sharing')setProjectId(null)
     history.pushState(null,'',value==='projects'?'/':'/account'+(value==='sharing'?'?project='+encodeURIComponent(projectId):'?tab='+encodeURIComponent(value)))
   }
   function share(id) {setProjectId(id);setTab('sharing');setError('');setMessage('');history.pushState(null,'','/account?project='+encodeURIComponent(id)+'&from=projects')}
   const fromEditor=active==='sharing' && new URLSearchParams(location.search).get('from')==='editor'
-  function goBack(){if(fromEditor && projectId)location.href='/editor/'+encodeURIComponent(projectId);else showTab('projects')}
-  const tabs = owner ? [['projects','Projects'],['users','Users'],['server','Server'],['security','Security']] : [['projects','Projects'],['security','Security']]
+  function goBack(){if(fromEditor && projectId)location.href='/editor/'+encodeURIComponent(projectId);else if(previousTab){const back=previousTab;setPreviousTab(null);showTab(back)}else showTab('projects')}
+  const tabs = owner ? [['projects','Projects'],['users','Users'],['server','Server'],['security','Security'],['about','About']] : [['projects','Projects'],['security','Security'],['about','About']]
   if (projectId) tabs.splice(1,0,['sharing','Project access'])
   return <div className="account-ui account-shell">
     <header className="account-header">
       <a className="account-brand" href="/"><img src="/brand/3dvr-portal-v2.svg" width="30" height="30" alt="" /><span>Atria<span className="account-brand-divider">Studio</span></span></a>
       <span className="account-header-label">{auth.user ? owner && ['users','server'].includes(active) ? 'Server administration' : 'Your workspace' : 'Account'}</span>
-      {auth.user && <div className="account-header-user">{owner && !pending && ['users','server'].includes(active) && <button className="account-primary" onClick={()=>showTab('projects')}>Open studio</button>}<span title={auth.user.email}>{auth.user.name || auth.user.email}</span><span className="account-badge">{owner ? 'Owner' : 'Member'}</span><button disabled={busy} onClick={logout}>Sign out</button></div>}
+      {auth.user && <div className="account-header-user"><span title={auth.user.email}>{auth.user.name || 'User'}</span><span className="account-badge">{owner ? 'Owner' : 'Member'}</span><button className="account-signout" type="button" title="Sign out" aria-label="Sign out" disabled={busy} onClick={logout}>↗</button></div>}
     </header>
     {auth.checking ? <main className="account-loading" role="status">Checking your session…</main>
-      : invite || !auth.user ? <main className="account-auth-layout">
+      : invite || !auth.user ? active==='about' ? <main className="account-content"><AboutAtria /></main> : <main className="account-auth-layout">
         <aside className="account-welcome"><div className="account-eyebrow">YOUR SPACE TO CREATE</div><h2>Bring your<br />world into view.</h2><p>Build immersive tours. Shape your scenes.<br />Share the experience.</p><div className="account-welcome-art" aria-hidden="true"><div /><div /><div /><span>360°</span></div><span className="account-welcome-foot">Atria · Self-hosted, by you.</span></aside>
         <div className="account-auth-card"><div className="account-entry"><Notice error>{auth.sessionError}</Notice>{invite ? <Activation token={invite} onComplete={finishActivation} /> : needsSetup ? <ServerSetup state={auth.installation.state} onActivate={setInvite} /> : <LoginModal embedded notice={message || notice || (auth.installation?.state==='needs-authenticator' ? 'Sign in to finish your owner account setup.' : '')} />}</div></div>
       </main> : <>
         {!pending && <nav className="account-nav" aria-label="Account sections">{tabs.map(([value,label]) => <button key={value} aria-current={active === value ? 'page' : undefined} onClick={() => showTab(value)}>{label}</button>)}</nav>}
         <main className={`account-content${pending ? ' account-content--setup' : ''}`}>
-          {!pending && active!=='projects' && <BackRow onClick={goBack}>{fromEditor ? 'Back to editor' : 'Back to projects'}</BackRow>}
+          {!pending && active!=='projects' && <BackRow onClick={goBack}>{fromEditor ? 'Back to editor' : previousTab ? `Back to ${previousTab.charAt(0).toUpperCase() + previousTab.slice(1)}` : 'Back to projects'}</BackRow>}
           <Notice error>{error}</Notice><Notice>{message || auth.accountNotice}</Notice>
           {pending ? <><div className="account-page-heading"><SetupProgress step={2} /><div className="account-eyebrow">FINISH YOUR ACCOUNT</div><h1>One last step to get started.</h1><p>Connect an authenticator to protect your owner account.</p></div><>{preparing ? <section className="account-panel" role="status">Preparing your authenticator…</section> : <AuthenticatorSetup key={initialSetup ? 'prepared' : 'manual'} initialSetup={initialSetup} onComplete={text=>{setInitialSetup(null);setMessage(text)}} />}</></>
             : active === 'projects' ? <Projects onShare={share} />
             : active === 'sharing' ? <ProjectAccess id={projectId} />
             : active === 'security' ? <AccountSecurity onComplete={setMessage} />
-            : owner ? <OwnerWorkspace key={active} tab={active} /> : null}
+            : active === 'about' ? <AboutAtria signedIn />
+            : owner ? <OwnerWorkspace key={active} tab={active} onNavigate={showTab} /> : null}
         </main>
       </>}
-    <footer className="account-footer">Atria Studio<span>Hosted on your server</span></footer>
+    <footer className="account-footer"><span>Atria Studio <span>Hosted on your server</span></span><a href="/account?tab=about">About Atria 3DVR</a></footer>
   </div>
 }
 
@@ -141,7 +146,7 @@ function ProjectAccess({id}) {
   </>}</>
 }
 
-function OwnerWorkspace({tab}) {
+function OwnerWorkspace({tab,onNavigate}) {
   const [data,setData]=useState(null), [email,setEmail]=useState(''), [link,setLink]=useState(''), [error,setError]=useState(''), [message,setMessage]=useState(''), [busy,setBusy]=useState(false)
   const [temporary,setTemporary]=useState(null),[deleting,setDeleting]=useState(null)
   async function load(){setData(await accountRequest('/api/accounts/owner'))}
@@ -149,11 +154,12 @@ function OwnerWorkspace({tab}) {
   async function run(work){setBusy(true);setError('');setMessage('');try{await work()}catch(e){setError(e.message)}finally{setBusy(false)}}
   async function invite(){const result=await accountRequest('/api/accounts/owner/invitations',{email:email.trim()});setTemporary(null);setLink(new URL(result.url,location.origin).href);setMessage(`Invitation ready for ${email}.`)}
   async function reset(user){const result=await accountRequest('/api/accounts/owner/users/'+encodeURIComponent(user.id)+'/reset-password',{});setLink('');setTemporary({email:user.email,password:result.temporaryPassword,mfa:user.twoFactorEnabled});await load();setMessage('Temporary password generated. Share it privately with the account holder.')}
+  async function refreshServer(){setBusy(true);setError('');setMessage('');try{await load();setMessage('Server status refreshed.')}catch(e){setError(e.message)}finally{setBusy(false)}}
 
-  return <><div className="account-page-heading"><h1>{tab==='server' ? 'Your server' : 'People & access'}</h1><p>{tab==='server' ? 'A quick view of your installation’s health and activity.' : 'Invite people to create tours on this installation.'}</p></div><Notice error>{error}</Notice><Notice>{message}</Notice>{!data && !error && <p role="status">Loading…</p>}
+  return <><div className="account-page-heading"><h1>{tab==='server' ? 'Server console' : 'People & access'}</h1><p>{tab==='server' ? 'Monitor this self-hosted installation and jump to the controls that manage it.' : 'Invite people to create tours on this installation.'}</p></div><Notice error>{error}</Notice><Notice>{message}</Notice>{!data && !error && <p role="status">Loading…</p>}
     {temporary && <section className="account-panel account-panel--highlight"><PanelHeading title={'Temporary password for '+temporary.email} description="This password is shown only here. The user must choose a new password after signing in; that requirement does not expire." /><div className="account-copy-row"><input readOnly aria-label="Temporary password" autoComplete="off" value={temporary.password} /><CopyButton value={temporary.password} label="Copy password" /><button onClick={()=>setTemporary(null)}>Dismiss</button></div>{Boolean(temporary.mfa) && <p className="account-help">Their existing authenticator is still required at sign-in.</p>}</section>}
     {link && <section className="account-panel account-panel--highlight"><PanelHeading title="Your secure link is ready" description="Share it privately. It works once and expires in one hour; no email is sent." /><div className="account-copy-row"><input readOnly aria-label="Invitation or reset link" value={link} onFocus={e=>e.target.select()} /><CopyButton value={link} label="Copy link" /><button onClick={()=>setLink('')}>Dismiss</button></div></section>}
-    {data && (tab==='server' ? <><div className="account-stats">{[['Free disk',(data.hosting.freeBytes/1024**3).toFixed(1)+' GiB'],['Account storage limit',(data.hosting.userQuotaBytes/1024**3).toFixed(0)+' GiB'],['Active sessions',data.hosting.activeSessions]].map(([label,value])=><section className="account-panel" key={label}><span>{label}</span><strong>{value}</strong></section>)}</div><section className="account-panel"><PanelHeading title="Recent activity" description="Account and project access changes on this installation." /><div className="account-table-wrap"><table><thead><tr><th>When</th><th>Action</th><th>Account or project</th></tr></thead><tbody>{data.events.map(e=><tr key={e.id}><td>{new Date(e.at.replace(' ','T')+'Z').toLocaleString()}</td><td>{({'invite':'Invitation created','password-reset-link':'Reset link created','account-update':'Account updated','project-access':'Project access updated','project-create':'Project created','accept':'Invitation accepted','init':'Owner setup','recover':'Owner recovery','assign':'Project assigned'})[e.action] || e.action}</td><td>{e.target || '—'}</td></tr>)}</tbody></table></div>{!data.events.length && <p className="account-help">No activity yet.</p>}</section></> : <>
+    {data && (tab==='server' ? <ServerConsole data={data} onRefresh={refreshServer} onNavigate={onNavigate} refreshing={busy} /> : <>
       <section className="account-panel"><PanelHeading title="Invite someone" description="They choose their own password using the link you share." /><form className="account-inline-form" onSubmit={e=>{e.preventDefault();run(()=>invite())}}><label className="account-field">Account email<input type="email" required value={email} onChange={e=>setEmail(e.target.value)} placeholder="colleague@example.com" /></label><button className="account-primary" disabled={busy}>{busy ? 'Working…' : 'Create invitation'}</button></form></section>
       <section className="account-panel"><PanelHeading title="Accounts" description={`${data.users.length} accounts on this server. Suspending an account blocks sign-in and keeps its projects. Device details are private to each person.`} /><div className="account-member-list">{data.users.map(u=><div className="account-member" key={u.id}><span className="account-avatar" aria-hidden="true">{(u.name || u.email).slice(0,1).toUpperCase()}</span><div className="account-member-identity"><strong>{u.name || u.email}</strong><span className="account-help">{u.email}</span></div><span className="account-badge">{u.role==='owner' ? 'Owner' : u.banned ? 'Suspended' : 'Member'}</span>{Boolean(u.mustChangePassword) && <span className="account-badge">Password change required</span>}{Boolean(u.deleteAfter) && <span className="account-badge">Deletion: {new Date(u.deleteAfter).toLocaleDateString()}</span>}{u.role!=='owner' && <div className="account-actions"><button disabled={busy} onClick={()=>run(()=>reset(u))}>Reset password</button><button disabled={busy} onClick={()=>run(async()=>{await accountRequest('/api/accounts/owner/users/'+u.id,{suspended:!u.banned});await load();setMessage(u.banned ? 'Account reactivated.' : 'Account suspended.')})}>{u.banned ? 'Reactivate' : 'Suspend'}</button><button className="account-danger" disabled={busy || u.deletionPending} onClick={()=>setDeleting(u)}>Delete account</button></div>}</div>)}</div></section>
     </>)}

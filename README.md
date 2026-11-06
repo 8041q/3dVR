@@ -1,222 +1,177 @@
-# Atria 3DVR self-hosted viewer/editor
+<p align="center">
+  <img src="./public/brand/3dvr-portal-v2.svg" width="104" alt="Atria 3DVR spatial portal logo">
+</p>
 
-Self-hosted 360 panorama, WebXR, guided-tour and product-inspection platform intended for company presentations and exhibitions.
+<h1 align="center">Atria 3DVR</h1>
 
-## User guide
+<p align="center">
+  <strong>Self-hosted immersive tours, 360° spaces, WebXR experiences, and interactive 3D product stories.</strong>
+</p>
 
-For normal editor use, start with [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md). For preparing tracked-VR rooms from your existing Blender 360 scenes, use [`docs/BLENDER_SPATIAL_SCENES.md`](docs/BLENDER_SPATIAL_SCENES.md).
+<p align="center">
+  Build private or public experiences on infrastructure you control — with accounts, project ownership, offline-ready viewing, and no central Atria service.
+</p>
 
-## Current capabilities
+<p align="center">
+  <a href="#quick-start">Quick start</a> ·
+  <a href="docs/USER_GUIDE.md">User guide</a> ·
+  <a href="docs/SERVER_SECURITY.md">Server security</a> ·
+  <a href="SECURITY.md">Report a vulnerability</a>
+</p>
 
-- One URL viewer with capability-specific rendering for desktop, phone, phone-in-plastic-headset and WebXR headsets.
-- Blender spatial-room rendering for position-tracked WebXR: real leaning/crouching/small-step parallax with no panorama loaded for the tracked scene.
-- Panorama fallback for desktop, phone and rotation-only/emulated-position VR.
-- Shared Blender-authored hotspots with panorama yaw/pitch + spatial 3D positions.
-- Separate editor route sharing the same runtime.
-- PC / Phone / VR Preview controls.
-- Inverted horizontal and vertical desktop look controls.
-- Desktop mouse plus phone/headset gaze, XR controllers, keyboard and future remote input through one interaction layer. Phone selection uses a 2-second center-crosshair dwell.
-- Large 2:1 equirectangular panorama upload using resumable chunks.
-- FFmpeg multiresolution cubemap processing.
-- Bounded panorama GPU texture cache.
-- Explicit project download for offline/exhibition use, separate from ordinary browser cache.
-- Offline byte-range responses for downloaded audio/video media.
-- Hotspots with ordered reusable actions.
-- Scene navigation, information, external-link, model-inspection and start-guide actions.
-- First-class guided experiences with ordered steps, scene changes, focus cues, hotspot highlights, hotspot-driven completion and timed progression.
-- GLB product inspection with designer-friendly animation controls.
-- Finish presets targeting named GLB materials, with color, textures, roughness and metalness.
-- Selectable model annotations.
-- Scene groups, draggable scene ordering and a navigation Scene Map derived from hotspot connections.
-- Focused ordered action builder for multi-action hotspots.
-- Guide steps can open product hotspots and trigger product animations/material variants.
-- Generic streamed asset upload for models/media.
-- PWA/offline foundation.
-- Production client served directly by Express after `npm run build`.
-- Docker deployment with a separate managed panorama worker.
+* * *
 
-## Requirements
+## How it works
 
-- Node.js 22+
+1. The person running the installation initializes one local **owner** account on the server.
+2. Owners and invited members create immersive projects from panoramas, 3D models, hotspots, guides, media, and product interactions.
+3. Everyone granted access to a project is an equal project owner: they can edit, publish, and manage access.
+4. Published tours open in a normal browser, phone headset, or supported WebXR headset. Public visitors do not need an account.
+
+Every installation owns its data, identities, and authentication secret. There is no hosted account service, public registration endpoint, or SMTP requirement.
+
+## Feature highlights
+
+- **Immersive delivery** — one viewer adapts to desktop, phone, phone headset, and WebXR headset use.
+- **360° and spatial scenes** — equirectangular panoramas, tracked Blender spatial rooms, fallbacks for non-tracked devices, and fast multi-resolution panorama processing.
+- **Purpose-built authoring** — scenes, groups, hotspots, ordered actions, guided tours, scene map, VR preview, draft/published revisions, and review-before-publish.
+- **Interactive 3D products** — GLB inspection, animation controls, material/finish variants, annotations, and generated model thumbnails.
+- **Project portability** — import/export self-contained project ZIPs with media, history, published releases, and referenced local assets.
+- **Account-aware self-hosting** — local owner/member accounts, invitations, optional member MFA, owner-required MFA, session/device controls, suspension, local reset recovery, and staged account deletion.
+- **Equal project ownership** — anyone with access is an equal owner; projects survive an account deletion while another owner remains.
+- **Built for operations** — persistent storage outside Git, a separate panorama worker, bounded uploads/processes, Docker deployment, and server-side health/usage information.
+
+## Security and account model
+
+The server owner is an installation administrator, not a superior owner of everyone else's project. Project access is deliberately separate from server administration:
+
+- The owner has required authenticator-app MFA. Members can opt into MFA; a successful MFA check remembers that browser for two hours.
+- Accounts are created by the server owner. There are no default credentials, public sign-up, or mandatory SMTP configuration.
+- Password resets produce a one-time, manually delivered temporary password. The recipient must choose a new password before they can use the app.
+- Users can inspect and sign out their own devices. An owner can suspend accounts, but cannot inspect someone else’s device history.
+- A scheduled account deletion retains data for 30 days. Signing in cancels it. Shared projects remain available while another project owner exists.
+- Auth secrets, databases, media, thumbnails, panorama work, and project snapshots live in the installation’s private runtime storage — not in this repository.
+
+Read [the complete deployment, account, recovery, privacy, and migration guidance](docs/SERVER_SECURITY.md) before exposing an installation to the internet. This project is engineered with security controls, but it is not a substitute for testing your TLS proxy, host permissions, backups, updates, and recovery process.
+
+## Quick start
+
+### Requirements
+
+- Node.js 22.13 or newer
 - npm
-- FFmpeg with the `v360` filter
-- trusted HTTPS for real WebXR sessions
-
-## Initial setup
+- FFmpeg with the `v360` filter (for panorama processing)
+- Trusted HTTPS for real mobile-sensor and WebXR sessions
 
 ```bash
+git clone https://github.com/8041q/3dVR.git
+cd 3dVR
 cp .env.example .env
-npm install
-```
-
-Set `APP_ORIGIN` in `.env` (`http://localhost:5173` for local development, your HTTPS origin for production). Initialize the owner locally:
-
-```bash
+npm ci
 npm run accounts -- init owner@example.com
-```
-
-Open the single-use activation link printed by that command, choose a password, sign in at `/account`, and enroll an authenticator. After connecting your authenticator, open Projects to create or edit tours with the same account. Users and Server contain administration controls. There is no default password or public registration. See [server security and migration](docs/SERVER_SECURITY.md) before upgrading an existing installation.
-
-## Development - one command
-
-Normal browser development:
-
-```bash
 npm run dev
 ```
 
-That starts Vite, the Express API and the panorama worker together.
+The account command prints a single-use activation link. Open it in the same browser address you will use for the app, choose an owner password, enroll an authenticator app, and continue directly to the workspace.
 
-For headset/WebXR testing on the LAN:
+For HTTPS/LAN headset development:
 
 ```bash
 npm run dev:https
 ```
 
-The headset/browser must trust the development certificate.
+Set `APP_ORIGIN` in `.env` to the browser origin you will actually use. The app derives trusted current-machine addresses dynamically; it does **not** require a fixed LAN IP. HTTPS certificates and public DNS still need to match the hostname used by the browser.
 
-Viewer routes:
+## Production deployment
 
-```text
-/
-/v/default
-```
-
-Editor:
-
-```text
-/editor
-/editor/default
-```
-
-## Production - no open terminals required
-
-Build the browser application:
+Build the client, then start the integrated web/API process and panorama worker:
 
 ```bash
 npm run build
-```
-
-For a simple server installation:
-
-```bash
 npm start
 ```
 
-This one command supervises the web/API process and panorama worker.
-
-For the recommended managed deployment:
+For the managed container deployment:
 
 ```bash
 docker compose up -d --build
 ```
 
-Docker runs the web/API and panorama worker as separate restartable services with persistent storage. They remain separate services for reliability, but you do not manually run or watch two terminals.
+The included Compose configuration separates the web/API and panorama worker, mounts persistent runtime storage, drops Linux capabilities, uses non-root containers, and keeps the worker off the network. Put a trusted HTTPS reverse proxy in front of it; [`deploy/Caddyfile.example`](deploy/Caddyfile.example) is a minimal starting point.
 
-Expose the application through trusted HTTPS for WebXR. A minimal Caddy example is in `deploy/Caddyfile.example`.
+Useful configuration lives in [`.env.example`](.env.example):
 
-## Tests
+| Setting | Purpose |
+| --- | --- |
+| `APP_ORIGIN` | Canonical browser origin for production or local development. |
+| `APP_PUBLIC_HOSTS` | Additional hostnames configured on your reverse proxy. |
+| `APP_DYNAMIC_HOSTS` | Allow current machine addresses (`1`, the default) or restrict to configured names (`0`). |
+| `VR_STORAGE_ROOT` | Private persistent runtime-storage location. |
+| `AUTH_SECRET_FILE` | Optional read-only external location for the authentication secret. |
+| `GEOIP_DATABASE` | Optional local country/city MMDB for device-location labels; IPs are never sent to a lookup service. |
+
+## Everyday workflow
+
+### Create and publish a tour
+
+1. Sign in and create a project in **Projects**.
+2. Add scenes and panoramas, then place hotspots, interactions, guides, or GLB product experiences.
+3. Use **Preview** to test the draft on desktop, phone, or VR.
+4. Use **Review & publish** when the visitor experience is ready.
+
+Saving a draft never changes the live tour. The public viewer only reads the published snapshot.
+
+### Move or back up a project
+
+Open **Project settings → Export project** to download a `.3dvr.zip`. It contains the project’s drafts, metadata, viewer settings, releases/history, local media, processed panoramas, and referenced assets. Importing the ZIP creates a separate unpublished project; it does not overwrite an existing one.
+
+For command-line migration and validation, see [Project migration backups](docs/SERVER_SECURITY.md#upgrade-existing-data).
+
+## Project structure
+
+```text
+src/                 React application, viewer, editor, and account UI
+server/              Express API, local identity, project storage, worker services
+scripts/             Development, account, import/export, and maintenance commands
+public/brand/        Atria 3DVR portal logo and application brand assets
+deploy/              Reverse-proxy examples
+docs/                User, security, project metadata, and Blender guidance
+storage/             Runtime data created by an installation (ignored by Git)
+```
+
+## Documentation
+
+- [User guide](docs/USER_GUIDE.md) — authoring, previewing, publishing, and visitor controls.
+- [Server security](docs/SERVER_SECURITY.md) — installation, HTTPS, accounts, recovery, device privacy, deletion retention, backup, and migration.
+- [Blender spatial scenes](docs/BLENDER_SPATIAL_SCENES.md) — preparing position-tracked WebXR rooms.
+- [Project metadata](docs/PROJECT_METADATA.md) — title, author, description, and credits fields.
+- [Brand notes](docs/LOGO.md) — logo usage and asset generation.
+
+## Known limitations
+
+- Project owners are equal, but live collaborative editing is not implemented yet. Concurrent saved drafts use revision-conflict protection.
+- An authorized visitor can copy media already visible in their browser. Offline access is practical exhibition support, not DRM.
+- External media remains controlled by its external host; upload confidential content locally.
+- Self-hosting still requires normal server work: secure HTTPS, restrictive storage permissions, operating-system updates, backups, and recovery tests.
+- Device location labels are approximate and depend on the local MMDB/proxy/VPN path.
+
+## Development and tests
 
 ```bash
 npm test
+npm run build
 ```
 
-This runs the editor and project persistence tests. The persistence tests use a temporary project store. Run `npm run test:editor` to run just the editor tests.
+Use `npm run test:editor` for editor-focused tests. The persistence tests use temporary data and do not alter an installed server.
 
+## Contributing
 
-### Asset filenames and deletion
+Contributions are welcome. Please keep changes focused, preserve the existing project/data compatibility guarantees, add or update tests where practical, and document user-facing behavior. Never include production secrets, account databases, private projects, or uploaded assets in an issue or pull request.
 
-Uploaded assets keep a sanitized human-readable filename. If a name already exists, the server allocates predictable numeric variants such as `booth-room-2.glb`, `booth-room-3.glb`, and so on; UUID filenames are not used for upload collisions.
+## Security
 
-The Asset Library exposes **Delete** only for uploaded assets. Deletion is refused while the asset URL is still present in the current project state, saved draft, published snapshot, legacy project data, or a saved revision. Once references are removed and saved, deleting an asset removes both the file in `storage/public/uploads/` and its `storage/data/assets.json` registry entry. Demo assets are never deleted through this endpoint.
+Please do not post credentials, private project data, or working exploits in public issues. See [SECURITY.md](SECURITY.md) for responsible reporting guidance.
 
-## Project migration backups
+## License
 
-In the editor, choose **Project Settings → Export project**. Export downloads a `.3dvr.zip` containing the draft, metadata, viewer settings, published snapshot/history, local uploads, processed panorama tiles, and referenced demo/model dependencies. The current project's unsaved edits can be included without saving or publishing them. External URLs remain linked; they are not downloaded.
-
-In the workspace, choose **Import project** to restore a ZIP as a separate private **unpublished** project. The importer restores media using available filenames and fresh panorama IDs, rewrites references, and retains imported releases as version history. It never overwrites an existing project or automatically publishes a tour. ZIPs containing a version-1 `migration-manifest.json` bundle (including a zipped CLI export directory) are supported. Archives are validated for paths, checksums, missing media, and size limits before project creation; failed imports roll back newly created media.
-
-Imports default to a 10 GiB upload limit and a 20 GiB extracted limit. Override these with `MAX_PROJECT_IMPORT_BYTES` and `MAX_PROJECT_EXTRACT_BYTES`. Ensure the reverse proxy permits the same upload size and sufficient transfer time. ZIP media streams to disk; exports use the browser's native downloader rather than buffering the entire archive in browser memory.
-
-Uploads and generated panorama data are intentionally not committed to Git. Before moving an installation, export a project bundle:
-
-```bash
-npm run export:project -- default ./backups/default-project
-```
-
-The bundle includes the project data and every referenced local upload. Legacy UUID-named uploads are exported using their recorded original filename, so the existing room asset appears as `booth-room.glb`. To validate without copying large assets, add `--dry-run`.
-
-Restore the bundle into another checkout with:
-
-```bash
-npm run import:project -- ./backups/default-project
-```
-
-If the destination already contains that project id, explicitly add `--overwrite`. The importer restores files to the stored URLs expected by the project and restores the original-name metadata.
-
-## Guides
-
-Guides are first-class project data stored in `storage/data/` as project snapshots. Legacy global APIs are retired.
-
-A guide contains ordered steps. Each step can:
-
-- select a scene;
-- show an instruction;
-- guide the desktop camera toward yaw/pitch;
-- display an in-world look target for tracked devices;
-- highlight a hotspot;
-- advance when a specific hotspot is selected;
-- auto-open a hotspot on entry;
-- auto-advance after a configured delay;
-- trigger an animation or material variant on an already-open product inspection.
-
-The viewer also exposes a guide launcher. A hotspot can use the `start-guide` action, which is the preferred way to begin a guide from inside VR.
-
-## Product inspection
-
-The sample Room scene contains an `Inspect demo product` hotspot. It loads:
-
-```text
-public/demo/product-demo.glb
-```
-
-The demo shows:
-
-- a friendly `Open storage` control mapped to the GLB clip `Open drawer`;
-- two material color variants;
-- a selectable model annotation.
-
-The small demo GLB is included in the repository. Regenerate it with `node scripts/generate-demo-product.mjs` if needed.
-
-In the editor, use `Scan model` after uploading/entering a GLB URL to discover animation clips and material names. Technical clip names can then be mapped to customer-facing labels.
-
-## Project data
-
-Projects use separate draft and published snapshots under:
-
-```text
-storage/data/projects/<project-id>/
-  meta.json
-  draft.json
-  published.json
-  versions/
-```
-
-The public viewer only consumes the published snapshot. Saving a draft therefore cannot change the live exhibition presentation until **Publish** is used. The legacy scene/guide files are retained for automatic bootstrap of the `default` project.
-
-A later infrastructure phase can move these snapshots and asset metadata to PostgreSQL/object storage without changing the viewer action/guide schemas.
-
-## Current editor workflow
-
-The editor keeps a scene list, panorama canvas, and contextual inspector in one workspace. Select a scene to manage its panorama and hotspots, or open **Guides**, **Assets**, and **Project Settings** from the workspace bar. **Project Settings** holds metadata (including author and credits), rights, and starting scene settings; **Export project** downloads a backup of the current project. **← Projects** returns to your workspace for project creation, import and switching. See [project metadata](docs/PROJECT_METADATA.md) for the field model. **Preview** runs the current draft in the editor and returns to the same selection. **Review & publish** links unfinished items to their settings and publishes the reviewed revision. See [the editor guide](docs/USER_GUIDE.md) for the full workflow.
-
-See `PHASE10.md` for the scene/action/finish-authoring changes and `PHASE12.md` for the current product-inspection architecture.
-
-## Phase 12 highlights
-
-Product inspection now stays inside the current panorama on every device instead of replacing desktop/mobile with a fullscreen model workspace. Pointer/touch users can drag and zoom directly; gaze-only headsets, phone headsets and controller VR use the same in-world Motion / Finishes / Details / View controls. Recenter places the inspection back in front of the visitor without leaving the scene. Phase 11 lighting, loading, animation, compressed-GLB and animated-annotation improvements are retained in the in-scene renderer.
-
-
-## Phase 15
-
-The viewer offers Drag, Phone VR, and VR Headset. Phone VR starts motion directly and offers Single view or Split screen, with manual phone calibration and a 2-second gaze progress ring. VR Headset starts a WebXR session; its runtime supplies tracking and per-eye rendering. Headset fit and room setup use the headset system. See `docs/USER_GUIDE.md` for the current controls.
+This repository does not currently include a license file. Choose and add an appropriate open-source license before distributing or accepting external contributions under defined terms.

@@ -26,6 +26,7 @@ export function securityDb() {
     CREATE TABLE IF NOT EXISTS events (id INTEGER PRIMARY KEY, at TEXT DEFAULT CURRENT_TIMESTAMP, actor TEXT, action TEXT, target TEXT);
     CREATE TABLE IF NOT EXISTS account_controls (userId TEXT PRIMARY KEY, mustChangePassword INTEGER NOT NULL DEFAULT 0, resetVersion INTEGER NOT NULL DEFAULT 0, deletionRequestedAt INTEGER, deleteAfter INTEGER, deletionCanceledAt INTEGER, purging INTEGER NOT NULL DEFAULT 0);
     CREATE TABLE IF NOT EXISTS session_details (sessionId TEXT PRIMARY KEY, userId TEXT NOT NULL, lastSeenAt INTEGER NOT NULL, ip TEXT NOT NULL, location TEXT NOT NULL);
+  CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, updatedAt INTEGER NOT NULL DEFAULT CURRENT_TIMESTAMP);
   `)
   if (!database.prepare('PRAGMA table_info(resources)').all().some(c=>c.name==='bytes')) database.exec('ALTER TABLE resources ADD COLUMN bytes INTEGER NOT NULL DEFAULT 0')
   return database

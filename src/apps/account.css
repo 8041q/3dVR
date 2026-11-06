@@ -8,6 +8,10 @@
 .account-header-label { color: var(--ui-muted); font-size: 12px; }
 .account-header-user { display: flex; align-items: center; gap: 12px; margin-left: auto; min-width: 0; }
 .account-header-user > span:first-child { overflow: hidden; text-overflow: ellipsis; max-width: 200px; white-space: nowrap; }
+.account-signout { display: grid; place-content: center; width: 36px; height: 36px; min-height: 36px; padding: 0; border: 1px solid var(--ui-border); border-radius: var(--ui-radius); color: var(--ui-ink); background: var(--ui-surface); font-size: 16px; line-height: 1; cursor: pointer; text-decoration: none; }
+.account-signout:hover:not(:disabled) { background: var(--ui-subtle); border-color: #b3bfcc; }
+.account-signout:disabled { opacity: .5; cursor: default; }
+.account-signout:focus-visible { outline: 2px solid var(--ui-accent); outline-offset: 3px; }
 .account-ui :is(h1,h2,h3,p) { margin: 0; }
 .account-ui h1 { font-size: 28px; line-height: 1.2; letter-spacing: -.75px; font-weight: 650; }
 .account-ui h2 { font-size: 15px; font-weight: 650; letter-spacing: -.2px; }
@@ -17,7 +21,7 @@
 .account-ui :is(button,a,input,textarea,summary,select):focus-visible { outline: 2px solid var(--ui-accent); outline-offset: 3px; }
 .account-ui button:disabled { opacity: .5; cursor: default; }
 .account-ui button.account-primary, .account-ui .account-primary { color: var(--ui-on-accent); background: var(--ui-accent); border-color: var(--ui-accent); }
-.account-ui button.account-primary:hover:not(:disabled), .account-ui a.account-primary:hover { background: var(--ui-accent-hover); border-color: var(--ui-accent-hover); }
+.account-ui button.account-primary:hover:not(:disabled), .account-ui .account-primary:hover { background: var(--ui-accent-hover); border-color: var(--ui-accent-hover); }
 .account-ui input:not([type="radio"]), .account-ui select, .account-ui textarea { display: block; width: 100%; min-width: 0; margin: 0; min-height: 40px; padding: 9px 11px; border: 1px solid var(--ui-border); border-radius: var(--ui-radius); background: var(--ui-surface); color: var(--ui-ink); font: inherit; }
 .account-ui :is(input,textarea)::placeholder { color: #8a95a2; }
 .account-ui input[readonly] { background: var(--ui-subtle); }
@@ -213,3 +217,361 @@
 .account-deletion-impact > p + p { margin-top:6px; }
 .account-deletion-confirmation > span { font-weight:400; line-height:1.6; overflow-wrap:anywhere; }
 .account-deletion-confirmation strong { font-weight:650; }
+
+/* Server console — live installation overview. */
+.account-server-hero { display: flex; align-items: center; gap: 20px; padding: 20px 24px; border: 1px solid var(--ui-line); border-radius: 10px; background: var(--ui-surface); margin-bottom: 20px; }
+.account-server-hero__content { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 6px; }
+.account-server-hero__header { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+
+/* Hero title row: title, divider and status are three sibling flex items on one
+   centre line. The status ("dot + Online") is its own inline-flex group so the
+   dot and its label are centred against each other, not against the h2. */
+.account-server-hero__title-row { display: flex; align-items: center; gap: 10px; height: 24px; }
+.account-server-hero__title-row > * { flex: none; margin: 0; }
+.account-server-hero__header h2 { font-size: 20px; margin: 0; color: var(--ui-ink); font-weight: 600; line-height: 24px; white-space: nowrap; }
+.account-server-divider { display: block; color: var(--ui-muted); font-weight: 400; font-size: 20px; line-height: 24px; }
+.account-server-status { display: inline-flex; align-items: center; gap: 7px; height: 24px; color: var(--ui-ink); font-size: 13px; font-weight: 550; line-height: 1; }
+.account-server-status > span:last-child { display: block; line-height: 1; }
+.account-server-hero__content p { font-size: 12px; color: var(--ui-muted); margin: 0; }
+.account-server-hero__actions { flex: none; display: flex; flex-direction: column; justify-content: center; align-self: center; gap: 8px; }
+.account-server-status-dot { display: block; flex: none; box-sizing: border-box; width: 10px; height: 10px; margin: 0; padding: 0; border-radius: 50%; background: var(--ui-success); box-shadow: 0 0 0 2px rgba(0,0,0,0.06); font-size: 0; line-height: 0; }
+.account-server-status-dot--online { background: var(--ui-success); }
+
+.account-server-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-bottom: 24px; }
+.account-server-metric { margin: 0; padding: 18px 20px; border: 1px solid var(--ui-line); border-radius: 10px; background: var(--ui-surface); }
+.account-server-metric span { color: var(--ui-muted); font-size: 12px; display: block; margin-bottom: 4px; }
+.account-server-metric strong { font-size: 24px; font-weight: 600; letter-spacing: -.5px; color: var(--ui-ink); }
+.account-server-metric small { font-size: 11px; color: var(--ui-muted); display: block; margin-top: 4px; }
+
+.account-server-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; margin-bottom: 24px; align-items: start; }
+.account-server-columns .account-panel { margin-bottom: 0; }
+.account-capacity { display: flex; flex-direction: column; gap: 12px; }
+.account-capacity__labels { display: flex; justify-content: space-between; margin-bottom: 6px; }
+.account-capacity__labels strong { font-size: 14px; color: var(--ui-ink); }
+.account-capacity__labels span { font-size: 12px; color: var(--ui-muted); }
+.account-capacity__track { height: 8px; border-radius: 4px; background: var(--ui-subtle); overflow: hidden; border: 1px solid var(--ui-line); }
+.account-capacity__track span { display: block; height: 100%; background: var(--ui-accent); }
+
+.account-panel > .account-actions { margin-top: 20px; }
+
+/* --------------------------------------------------------------------------
+   Server console fixes
+   -------------------------------------------------------------------------- */
+
+/* Use a real, fixed-size SVG box instead of the platform-dependent ⚠ glyph.
+   This keeps both status symbols optically and mathematically centered. */
+.account-check-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 8px;
+}
+.account-check-item {
+  display: grid;
+  grid-template-columns: 18px minmax(0, max-content) minmax(0, 1fr);
+  align-items: center;
+  gap: 6px 10px;
+  min-width: 0;
+}
+.account-check-dot {
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  flex: none;
+  line-height: 0;
+}
+.account-check-dot svg {
+  display: block;
+  width: 16px;
+  height: 16px;
+  overflow: visible;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.account-check-dot--ok svg {
+  width: 13px;
+  height: 13px;
+  stroke-width: 2;
+}
+.account-check-dot--bad {
+  border: 0;
+  background: transparent;
+  color: var(--ui-danger);
+}
+.account-check-dot--bad svg circle {
+  fill: currentColor;
+  stroke: none;
+}
+.account-check-label {
+  min-width: 0;
+  font-weight: 550;
+}
+.account-check-detail {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* A self-contained, form-oriented dialog for editing installation limits. */
+.account-ui .account-limit-backdrop {
+  z-index: 120;
+  padding: 20px;
+  overflow-y: auto;
+}
+.account-ui .account-limit-dialog {
+  display: flex;
+  flex-direction: column;
+  width: min(560px, 100%);
+  max-width: 560px;
+  max-height: min(760px, calc(100dvh - 40px));
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--ui-line);
+  border-radius: 14px;
+  background: var(--ui-surface);
+  color: var(--ui-ink);
+  box-shadow: 0 24px 70px rgba(18, 35, 54, .22);
+}
+.account-limit-dialog__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 25px 28px 21px;
+  border-bottom: 1px solid var(--ui-line);
+}
+.account-limit-dialog__header > div {
+  min-width: 0;
+}
+.account-ui .account-limit-dialog__header h2 {
+  margin-top: 7px;
+  color: var(--ui-ink);
+  font-size: 21px;
+  line-height: 1.25;
+  font-weight: 650;
+  letter-spacing: -.45px;
+}
+.account-ui .account-limit-dialog__header p {
+  margin-top: 7px;
+  color: var(--ui-muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.account-ui button.account-limit-dialog__close {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+  min-height: 32px;
+  padding: 0 0 2px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--ui-muted);
+  font-size: 23px;
+  font-weight: 400;
+  line-height: 1;
+}
+.account-ui button.account-limit-dialog__close:hover:not(:disabled) {
+  border-color: var(--ui-line);
+  background: var(--ui-subtle);
+  color: var(--ui-ink);
+}
+.account-limit-form {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 22px 28px 24px;
+}
+.account-limit-form__intro {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.account-limit-form__intro strong {
+  color: var(--ui-ink);
+  font-size: 13px;
+  font-weight: 650;
+}
+.account-limit-form__intro span {
+  color: var(--ui-muted);
+  font-size: 11px;
+  text-align: right;
+}
+.account-limit-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px 16px;
+}
+.account-limit-field {
+  display: grid;
+  align-content: start;
+  gap: 7px;
+  min-width: 0;
+  color: var(--ui-ink);
+  font-size: 12px;
+  font-weight: 550;
+}
+.account-limit-field__label {
+  min-height: 18px;
+}
+.account-limit-input-wrap {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  min-height: 42px;
+  padding: 0 10px 0 0;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius);
+  background: var(--ui-surface);
+}
+.account-ui .account-limit-input-wrap input.account-limit-input {
+  display: block;
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: var(--ui-radius);
+  outline: 0;
+  background: transparent;
+  color: var(--ui-ink);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  box-shadow: none;
+}
+.account-ui .account-limit-input-wrap:focus-within {
+  border-color: var(--ui-accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--ui-accent) 16%, transparent);
+}
+.account-ui .account-limit-input-wrap input.account-limit-input:focus-visible {
+  outline: 0;
+}
+.account-limit-unit {
+  flex: none;
+  color: var(--ui-muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+.account-limit-field__help {
+  min-height: 30px;
+  color: var(--ui-muted);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.45;
+}
+.account-limit-error {
+  margin-top: 18px !important;
+  padding: 10px 12px;
+  border: 1px solid #efd3d3;
+  border-radius: var(--ui-radius);
+  background: var(--ui-danger-surface);
+  color: var(--ui-danger);
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.account-limit-dialog__footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 9px;
+  margin-top: 23px;
+  padding-top: 18px;
+  border-top: 1px solid var(--ui-line);
+}
+.account-ui .account-limit-dialog__footer button {
+  min-width: 94px;
+  min-height: 38px;
+}
+.account-save-feedback {
+  margin-top: 12px !important;
+  color: var(--ui-success);
+  font-size: 12px;
+}
+
+/* Label/value rows used across server console cards — consistent replacement for dl/dt/dd. */
+.account-stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid var(--ui-line);
+  padding: 10px 0;
+}
+.account-stat-row__label {
+  color: var(--ui-muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.account-stat-row__value {
+  text-align: right;
+  font-size: 13px;
+  color: var(--ui-ink);
+  overflow-wrap: anywhere;
+}
+.account-stat-row__value code {
+  font-family: var(--ui-font);
+  font-size: 12px;
+  background: var(--ui-subtle);
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--ui-line);
+  white-space: nowrap;
+}
+.account-stat-row:last-child {
+  border-bottom: 0;
+}
+
+/* Responsive behaviour for the server overview (hero, metrics, columns). */
+@media (max-width: 800px) {
+  .account-server-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .account-server-columns { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 560px) {
+  .account-server-hero { flex-wrap: wrap; align-items: flex-start; padding: 18px 16px; }
+  .account-server-hero__content { flex: 1 1 100%; }
+  .account-server-hero__actions { flex: 1 1 100%; flex-direction: row; flex-wrap: wrap; }
+  .account-server-metrics { gap: 12px; }
+  .account-check-item {
+    grid-template-columns: 18px minmax(0, 1fr);
+    align-items: start;
+  }
+  .account-check-detail {
+    grid-column: 2;
+    margin-top: -3px;
+  }
+  .account-limit-dialog__header {
+    padding: 21px 20px 18px;
+  }
+  .account-limit-form {
+    padding: 19px 20px 20px;
+  }
+  .account-limit-fields {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
+  .account-limit-field__help {
+    min-height: 0;
+  }
+  .account-limit-form__intro {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .account-limit-form__intro span {
+    text-align: left;
+  }
+}

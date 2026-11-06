@@ -1,4 +1,7 @@
 import fs from 'node:fs/promises'
+import path from 'node:path'
+import { existsSync, readFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import { applicationOrigin, trustedApplicationOrigins } from './origin.js'
 
 import { STORAGE_ROOT } from './storagePaths.js'
@@ -11,6 +14,175 @@ import { identity } from './auth.js'
 import { createAccountManagementRouter, resetMemberPassword } from './accountManagement.js'
 import { accountControls, decorateAccount, cancelScheduledDeletion } from './accountState.js'
 import { revokeAccountSessions } from './accountLifecycle.js'
+
+const require = createRequire(import.meta.url)
+const packageMetadata = require('../package.json')
+const APP_VERSION = typeof packageMetadata.version === 'string' ? packageMetadata.version : 'unknown'
+
+const DEFAULT_USER_QUOTA_BYTES = 50 * 1024 ** 3
+const DEFAULT_ASSET_UPLOAD_BYTES = 2 * 1024 ** 3
+const DEFAULT_PROJECT_SIZE_BYTES = 10 * 1024 ** 3
+const DEFAULT_MAX_PROJECTS_PER_ACCOUNT = 100
+
+const REQUIRED_NODE_MAJOR = 22
+const REQUIRED_NODE_MINOR = 13
+const REQUIRED_NODE_PATCH = 0
+
+function configuredLimit(name, fallback) {
+  const value = Number(process.env[name])
+  return Number.isSafeInteger(value) && value > 0 ? value : fallback
+}
+
+function finiteBytes(value) {
+  const bytes = Number(value)
+  return Number.isSafeInteger(bytes) && bytes >= 0 ? bytes : null
+}
+
+function parseNodeVersion(versionString) {
+  const match = String(versionString || '').match(/^v?(\d+)\.(\d+)\.(\d+)/)
+  if (!match) return null
+  return { major: Number(match[1]), minor: Number(match[2]), patch: Number(match[3]) }
+}
+
+function nodeVersionMeetsRequirement(versionString, requiredMajor, requiredMinor, requiredPatch = 0) {
+  const version = parseNodeVersion(versionString)
+  if (!version) return false
+  if (version.major > requiredMajor) return true
+  if (version.major < requiredMajor) return false
+  if (version.minor > requiredMinor) return true
+  if (version.minor < requiredMinor) return false
+  return version.patch >= requiredPatch
+}
+
+function authStorageValid() {
+  const secretFile = process.env.AUTH_SECRET_FILE || path.join(STORAGE_ROOT, 'security', 'auth.secret')
+  try {
+    return existsSync(secretFile) && readFileSync(secretFile, 'utf8').trim().length >= 43
+  } catch {
+    return false
+  }
+}
+
+function getSetting(db, key, fallback) {
+  const row = db.prepare('SELECT value FROM settings WHERE key=?').get(key)
+  if (!row) return fallback
+  try { return JSON.parse(row.value) } catch { return row.value }
+}
+
+function setSetting(db, key, value) {
+  const serialized = typeof value === 'string' ? value : JSON.stringify(value)
+  db.prepare('INSERT INTO settings(key,value,updatedAt) VALUES(?,?,CURRENT_TIMESTAMP) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updatedAt=CURRENT_TIMESTAMP').run(key, serialized)
+}
+
+async function diskUsage() {
+  try {
+    const disk = await fs.statfs(STORAGE_ROOT)
+    const blockSize = finiteBytes(disk.bsize)
+    const blocks = finiteBytes(disk.blocks)
+    const availableBlocks = finiteBytes(disk.bavail)
+    if (blockSize === null || blocks === null || availableBlocks === null) return { available:false, totalBytes:null, freeBytes:null, usedBytes:null }
+    const totalBytes = blockSize * blocks
+    const freeBytes = blockSize * availableBlocks
+    if (!Number.isSafeInteger(totalBytes) || !Number.isSafeInteger(freeBytes)) return { available:false, totalBytes:null, freeBytes:null, usedBytes:null }
+    return { available:true, totalBytes, freeBytes, usedBytes:Math.max(0,totalBytes-freeBytes) }
+  } catch {
+    // Status remains available on filesystems which do not provide statfs.
+    return { available:false, totalBytes:null, freeBytes:null, usedBytes:null }
+  }
+}
+
+async function installationOverview(db) {
+  const origin = applicationOrigin()
+  const users = db.prepare(`SELECT
+    COUNT(*) AS total,
+    COALESCE(SUM(CASE WHEN role='owner' THEN 1 ELSE 0 END),0) AS owners,
+    COALESCE(SUM(CASE WHEN banned=1 THEN 1 ELSE 0 END),0) AS suspended,
+    COALESCE(SUM(CASE WHEN controls.deleteAfter IS NOT NULL AND controls.deleteAfter>? THEN 1 ELSE 0 END),0) AS pendingDeletion
+    FROM user
+    LEFT JOIN account_controls AS controls ON controls.userId=user.id`).get(Date.now())
+  const projects = db.prepare(`SELECT
+    COUNT(*) AS total,
+    COALESCE(SUM(CASE WHEN visibility='public' THEN 1 ELSE 0 END),0) AS public
+    FROM grants`).get()
+  const resources = db.prepare('SELECT COUNT(*) AS count, COALESCE(SUM(bytes),0) AS bytes FROM resources').get()
+  const activeSessions = db.prepare('SELECT COUNT(*) AS count FROM session').get().count
+  const disk = await diskUsage()
+  const userQuotaBytes = configuredLimit('USER_STORAGE_QUOTA_BYTES', DEFAULT_USER_QUOTA_BYTES)
+  const trustedOrigins = trustedApplicationOrigins()
+  const accountTotal = Number(users.total)
+  const suspendedAccounts = Number(users.suspended)
+
+  const owner = db.prepare("SELECT id FROM user WHERE role='owner'").get()
+  let ownerMfaConfigured = false
+  try {
+    const ownerWithMfa = db.prepare("SELECT twoFactorEnabled FROM user WHERE role='owner'").get()
+    ownerMfaConfigured = Boolean(ownerWithMfa?.twoFactorEnabled)
+  } catch {
+    // twoFactorEnabled column may not exist on user table; check twoFactor table instead
+    try {
+      ownerMfaConfigured = Boolean(owner && db.prepare("SELECT 1 FROM twoFactor WHERE userId=?").get(owner.id))
+    } catch {}
+  }
+
+  const nodeVersionOk = nodeVersionMeetsRequirement(process.version, REQUIRED_NODE_MAJOR, REQUIRED_NODE_MINOR, REQUIRED_NODE_PATCH)
+  const production = process.env.NODE_ENV === 'production'
+
+  let databaseIntegrity = false
+  try {
+    const result = db.prepare('PRAGMA integrity_check').get()
+    databaseIntegrity = result && result.integrity_check === 'ok'
+  } catch {}
+
+  const storage = {
+    production,
+    nodeVersionOk,
+    httpsConfigured: Boolean(origin.startsWith('https:')),
+    ownerMfaConfigured,
+    registrationDisabled: true,
+    authStorageValid: authStorageValid(),
+    databaseIntegrity,
+    storageAvailable: Boolean(disk.available && disk.freeBytes > 0),
+  }
+
+  return {
+    generatedAt:new Date().toISOString(),
+    server:{
+      appVersion:APP_VERSION,
+      nodeVersion:process.version,
+      uptimeSeconds:Math.max(0,Math.floor(process.uptime())),
+      publicOrigin:origin,
+      https:origin.startsWith('https:'),
+      dynamicHosts:process.env.APP_DYNAMIC_HOSTS!=='0',
+      trustedOriginCount:trustedOrigins.length,
+      registration:'disabled',
+      ownerMfaRequired:true,
+      memberMfaOptional:true,
+      sessionHours:12,
+      mfaGraceHours:2
+    },
+    usage:{
+      accounts:accountTotal,
+      activeAccounts:Math.max(0,accountTotal-suspendedAccounts),
+      suspendedAccounts,
+      pendingDeletionAccounts:Number(users.pendingDeletion),
+      projects:Number(projects.total),
+      publicProjects:Number(projects.public),
+      resources:Number(resources.count),
+      storageBytes:Number(resources.bytes),
+      activeSessions:Number(activeSessions)
+    },
+    limits:{
+      userQuotaBytes:getSetting(db, 'USER_STORAGE_QUOTA_BYTES', userQuotaBytes),
+      assetUploadBytes:getSetting(db, 'MAX_ASSET_UPLOAD_BYTES', configuredLimit('MAX_ASSET_UPLOAD_BYTES', DEFAULT_ASSET_UPLOAD_BYTES)),
+      maxProjectsPerAccount:getSetting(db, 'MAX_PROJECTS_PER_ACCOUNT', DEFAULT_MAX_PROJECTS_PER_ACCOUNT),
+      projectSizeBytes:getSetting(db, 'MAX_PROJECT_SIZE_BYTES', configuredLimit('MAX_PROJECT_SIZE_BYTES', DEFAULT_PROJECT_SIZE_BYTES)),
+    },
+    security: storage,
+    // Keep the original object shape, while extending it with disk health and
+    // global tracked storage for existing clients.
+    hosting:{ ...disk, userQuotaBytes:getSetting(db, 'USER_STORAGE_QUOTA_BYTES', userQuotaBytes), activeSessions:Number(activeSessions), trackedBytes:Number(resources.bytes) }
+  }
+}
 
 
 
@@ -131,6 +303,10 @@ export function createAccountsRouter(express) {
 
         await getAuth().api.createUser({ body: { email: row.email, name: name.trim(), password, role: row.role } })
 
+        // Ensure the display name is persisted. better-auth may not include it in
+        // the session user object, so write it directly to the user table.
+        db.prepare("UPDATE user SET name=? WHERE email=?").run(name.trim(), row.email)
+
       }
 
       audit('invitation','accept',row.email)
@@ -156,10 +332,40 @@ export function createAccountsRouter(express) {
   r.get('/owner', ownerOnly, async (_req,res) => {
 
     const db = securityDb()
+    const overview = await installationOverview(db)
 
-    const disk=await fs.statfs(STORAGE_ROOT)
+    res.json({ ...overview, users: db.prepare('SELECT id,email,name,role,banned,twoFactorEnabled FROM user').all().map(user=>decorateAccount(db,user)), events: db.prepare('SELECT * FROM events ORDER BY id DESC LIMIT 100').all() })
 
-    res.json({ hosting:{ freeBytes:Number(disk.bavail)*Number(disk.bsize), userQuotaBytes:Number(process.env.USER_STORAGE_QUOTA_BYTES)||50*1024**3, activeSessions:db.prepare('SELECT COUNT(*) AS count FROM session').get().count }, users: db.prepare('SELECT id,email,name,role,banned,twoFactorEnabled FROM user').all().map(user=>decorateAccount(db,user)), events: db.prepare('SELECT * FROM events ORDER BY id DESC LIMIT 100').all() })
+  })
+
+  r.get('/owner/settings', ownerOnly, async (_req,res) => {
+
+    const db = securityDb()
+    const rows = db.prepare('SELECT key,value FROM settings').all()
+    const settings = {}
+    for (const row of rows) {
+      try { settings[row.key] = JSON.parse(row.value) } catch { settings[row.key] = row.value }
+    }
+    res.json(settings)
+
+  })
+
+  r.post('/owner/settings', ownerOnly, async (req,res) => {
+
+    const db = securityDb()
+    const { key, value } = req.body || {}
+    if (!key || typeof key !== 'string') return res.status(400).json({ error: 'Setting key is required.' })
+    if (value === undefined) return res.status(400).json({ error: 'Setting value is required.' })
+
+    const allowedKeys = ['USER_STORAGE_QUOTA_BYTES','MAX_ASSET_UPLOAD_BYTES','MAX_PROJECTS_PER_ACCOUNT','MAX_PROJECT_SIZE_BYTES']
+    if (!allowedKeys.includes(key)) return res.status(400).json({ error: 'This setting cannot be changed from the UI.' })
+
+    const numeric = Number(value)
+    if (!Number.isSafeInteger(numeric) || numeric < 0) return res.status(400).json({ error: 'Value must be a non-negative integer.' })
+
+    setSetting(db, key, numeric)
+    audit(req.identity.user.id,'setting-update',key)
+    res.json({ ok: true })
 
   })
 
