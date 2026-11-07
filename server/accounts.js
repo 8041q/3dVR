@@ -359,13 +359,17 @@ export function createAccountsRouter(express) {
     if (!key || typeof key !== 'string') return res.status(400).json({ error: 'Setting key is required.' })
     if (value === undefined) return res.status(400).json({ error: 'Setting value is required.' })
 
-    const allowedKeys = ['USER_STORAGE_QUOTA_BYTES','MAX_ASSET_UPLOAD_BYTES','MAX_PROJECTS_PER_ACCOUNT','MAX_PROJECT_SIZE_BYTES']
+    const allowedKeys = ['USER_STORAGE_QUOTA_BYTES','MAX_ASSET_UPLOAD_BYTES','MAX_PROJECTS_PER_ACCOUNT','MAX_PROJECT_SIZE_BYTES','accentColor']
     if (!allowedKeys.includes(key)) return res.status(400).json({ error: 'This setting cannot be changed from the UI.' })
 
-    const numeric = Number(value)
-    if (!Number.isSafeInteger(numeric) || numeric < 0) return res.status(400).json({ error: 'Value must be a non-negative integer.' })
-
-    setSetting(db, key, numeric)
+    if (key === 'accentColor') {
+      if (!/^#[0-9a-fA-F]{6}$/.test(String(value))) return res.status(400).json({ error: 'Value must be a hex color like #203e61.' })
+      setSetting(db, key, String(value))
+    } else {
+      const numeric = Number(value)
+      if (!Number.isSafeInteger(numeric) || numeric < 0) return res.status(400).json({ error: 'Value must be a non-negative integer.' })
+      setSetting(db, key, numeric)
+    }
     audit(req.identity.user.id,'setting-update',key)
     res.json({ ok: true })
 

@@ -14,6 +14,7 @@ import AccountDeletionDialog from '../components/AccountDeletionDialog'
 import { BackRow } from '../components/ui/BackLink'
 import AboutAtria from '../components/AboutAtria'
 import ServerConsole from '../components/ServerConsole'
+import { applyAccentColor } from '../utils/accent'
 
 export default function AccountApp({ notice, returnTo }) {
   const auth = useAuth()
@@ -58,6 +59,12 @@ export default function AccountApp({ notice, returnTo }) {
     window.addEventListener('popstate',changed)
     return ()=>window.removeEventListener('popstate',changed)
   },[])
+  useEffect(()=> {
+    if (!auth.user) return
+    accountRequest('/api/accounts/owner/settings').then(settings => {
+      if (settings && settings.accentColor) applyAccentColor(settings.accentColor)
+    }).catch(() => { /* non-owner or no settings yet; keep default */ })
+  }, [auth.user])
   function showTab(value) {
     if (value !== active) setPreviousTab(active)
     setTab(value);setError('');setMessage('')
@@ -179,7 +186,23 @@ function OwnerWorkspace({tab,onNavigate}) {
 function AccountSecurity({onComplete}) {
   const auth=useAuth(), [current,setCurrent]=useState(''), [password,setPassword]=useState(''), [message,setMessage]=useState(''), [error,setError]=useState(''), [busy,setBusy]=useState(false)
   const [deleting,setDeleting]=useState(false),[deviceVersion,setDeviceVersion]=useState(0)
+  const [accentColor,setAccentColor]=useState('#203e61')
   async function run(work,notice){setBusy(true);setError('');setMessage('');try{await work();setMessage(notice)}catch(e){setError(e.message)}finally{setBusy(false)}}
+  useEffect(()=>{
+    if (!auth.user || auth.user.role !== 'owner') return
+    accountRequest('/api/accounts/owner/settings').then(settings=>{
+      if (settings && settings.accentColor) setAccentColor(settings.accentColor)
+    }).catch(()=>{})
+  },[auth.user])
+  async function saveAccent(){
+    setBusy(true);setError('');setMessage('')
+    try{
+      await accountRequest('/api/accounts/owner/settings',{key:'accentColor',value:accentColor},'POST')
+      applyAccentColor(accentColor)
+      setMessage('Accent color saved.')
+    }catch(e){setError(e.message)}
+    finally{setBusy(false)}
+  }
   return <><div className="account-page-heading"><h1>Account security</h1><p>Manage your sign-in details and connected devices.</p></div><Notice error>{error}</Notice><Notice>{message}</Notice><section className="account-panel"><PanelHeading title="Your account" /><dl className="account-profile"><div><dt>Name</dt><dd>{auth.user.name}</dd></div><div><dt>Sign-in email</dt><dd>{auth.user.email}</dd></div><div><dt>Authenticator</dt><dd><span className="account-badge">{auth.user.twoFactorEnabled ? 'Connected' : 'Not connected'}</span></dd></div></dl></section>
     <AvatarSettings onMessage={setMessage} />
     {!auth.user.twoFactorEnabled && <details className="account-panel"><summary>Add an authenticator (optional)</summary><AuthenticatorSetup onComplete={onComplete} /></details>}
@@ -187,6 +210,8 @@ function AccountSecurity({onComplete}) {
     <DeviceSessions key={deviceVersion} />
     {auth.user.role==='user' && <section className="account-panel account-panel--danger"><PanelHeading title="Delete your account" description="Export your projects first. The server keeps your data for 30 days, and signing in during that time cancels deletion." /><button className="account-danger" onClick={()=>setDeleting(true)}>Delete my account</button></section>}
     {deleting && <AccountDeletionDialog user={auth.user} self onClose={()=>setDeleting(false)} onDeleted={async result=>{setDeleting(false);onComplete('Deletion is scheduled for '+new Date(result.deleteAfter).toLocaleString()+'. Sign in before that date to cancel it.');await auth.logout()}} />}
+
+    {auth.user.role === 'owner' && <section className="account-panel"><PanelHeading title="Appearance" description="Choose the accent color used across the app. The change takes effect everywhere immediately." /><form className="account-form account-form--compact" onSubmit={e=>{e.preventDefault();saveAccent()}}><label className="account-field">Accent color<input type="color" value={accentColor} onChange={e=>setAccentColor(e.target.value)} /></label><p className="account-help">Picked color is saved on the server and applied to all users of this installation.</p><button className="account-primary" disabled={busy}>{busy ? 'Saving…' : 'Save color'}</button></form></section>}
 
   </>
 }
