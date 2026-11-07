@@ -71,7 +71,7 @@ export default function AccountApp({ notice, returnTo }) {
   if (projectId) tabs.splice(1,0,['sharing','Project access'])
   return <div className="account-ui account-shell">
     <header className="account-header">
-      <a className="account-brand" href="/"><img src="/brand/3dvr-portal-v2.svg" width="30" height="30" alt="" /><span>Atria<span className="account-brand-divider">Studio</span></span></a>
+      <a className="account-brand" href="/"><img src="/brand/3dvr-portal-v2.svg" width="40" height="40" alt="" /><span>Atria<span className="account-brand-divider">Studio</span></span></a>
       <span className="account-header-label">{auth.user ? owner && ['users','server'].includes(active) ? 'Server administration' : 'Your workspace' : 'Account'}</span>
       {auth.user && <div className="account-header-user">
         <button className="account-user" type="button" title={auth.user.email} aria-label={`${auth.user.name || 'Your account'}, open account settings`} onClick={() => showTab('security')}>

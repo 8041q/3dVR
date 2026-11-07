@@ -1,13 +1,13 @@
 /* Account surfaces share the editor's palette, spacing and control language. */
 .account-ui { color-scheme: light; color: var(--ui-ink); font: 13px/1.5 var(--ui-font); -webkit-font-smoothing: antialiased; }
 .account-shell { height: 100%; overflow: auto; background: var(--ui-subtle); display: flex; flex-direction: column; }
-.account-header { min-height: 64px; display: flex; align-items: center; gap: 16px; padding: 12px 28px; background: var(--ui-surface); border-bottom: 1px solid var(--ui-line); flex: none; }
+.account-header { min-height: var(--ui-header-min-height); display: flex; align-items: center; gap: var(--ui-header-gap); padding: var(--ui-header-padding); background: var(--ui-surface); border-bottom: 1px solid var(--ui-line); flex: none; }
 /* Left: brand + section label share one centre line */
-.account-brand { display: inline-flex; align-items: center; gap: 10px; flex: none; color: var(--ui-ink); text-decoration: none; font-size: 19px; font-weight: 750; letter-spacing: -.6px; line-height: 1; }
+.account-brand { display: inline-flex; align-items: center; gap: 6px; flex: none; padding-right: var(--ui-space-3); border-right: 1px solid var(--ui-line); color: var(--ui-ink); text-decoration: none; white-space: nowrap; font-size: 16px; font-weight: 800; letter-spacing: -.035em; line-height: 1; }
 .account-brand img { display: block; flex: none; }
 .account-brand > span { display: inline-flex; align-items: center; line-height: 1; }
-.account-brand-divider { height: 16px; margin-left: 9px; padding-left: 9px; border-left: 1px solid var(--ui-border); color: var(--ui-muted); font-weight: 450; font-size: 14px; letter-spacing: 0; line-height: 1; display: inline-flex; align-items: center; }
-.account-header-label { display: inline-flex; align-items: center; height: 20px; margin-left: 4px; padding-left: 16px; border-left: 1px solid var(--ui-line); color: var(--ui-muted); font-size: 12px; line-height: 1; white-space: nowrap; }
+.account-brand-divider { margin-left: 2px; color: var(--ui-muted); font-weight: 450; font-size: 14px; letter-spacing: 0; line-height: 1; display: inline-flex; align-items: center; }
+.account-header-label { display: inline-flex; align-items: center; min-width: 0; color: var(--ui-ink); font-size: 14px; font-weight: 650; line-height: 1.5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* Right: user chip + icon-only sign out */
 .account-header-user { display: flex; align-items: center; gap: 10px; margin-left: auto; min-width: 0; }
 .account-user { display: flex; align-items: center; gap: 10px; min-width: 0; padding-right: 14px; border-right: 1px solid var(--ui-line); }
@@ -77,9 +77,10 @@
 .account-welcome-art span { position: absolute; inset: 0; display: grid; place-content: center; color: var(--ui-accent); font-size: 18px; letter-spacing: 2px; }
 .account-welcome-foot { margin-top: auto; color: #64798e; font-size: 11px; }
 .account-footer { flex: none; display: flex; justify-content: space-between; gap: 20px; padding: 18px 28px; color: var(--ui-muted); border-top: 1px solid var(--ui-line); font-size: 11px; }
-.account-nav { display: flex; gap: 6px; padding: 8px 28px; border-bottom: 1px solid var(--ui-line); background: var(--ui-surface); flex: none; overflow-x: auto; }
-.account-ui .account-nav button { background: transparent; color: var(--ui-muted); border-color: transparent; min-width: 90px; }
-.account-ui .account-nav button[aria-current="page"] { background: var(--ui-accent); color: var(--ui-on-accent); }
+.account-nav { display: flex; align-items: stretch; gap: var(--ui-nav-gap); padding: var(--ui-nav-padding); border-bottom: 1px solid var(--ui-line); background: var(--ui-surface); flex: none; overflow-x: auto; }
+.account-ui .account-nav button { min-height: var(--ui-nav-item-height); min-width: 0; padding: var(--ui-nav-item-padding); border: 0; background: transparent; color: var(--ui-muted); font-size: 13px; font-weight: 600; white-space: nowrap; }
+.account-ui .account-nav button:hover:not(:disabled) { background: var(--ui-subtle); }
+.account-ui .account-nav button[aria-current="page"], .account-ui .account-nav button[aria-current="page"]:hover:not(:disabled) { background: var(--ui-accent); color: var(--ui-on-accent); }
 .account-content { width: min(1040px,100%); margin: 0 auto; padding: 36px 28px 56px; flex: 1 0 auto; }
 .account-content--setup { max-width: 760px; }
 .account-page-heading { margin-bottom: 26px; }
@@ -153,11 +154,11 @@
   .account-auth-layout { grid-template-columns: minmax(0,1fr); max-width: 480px; margin: 28px auto; width: calc(100% - 32px); }
   .account-welcome { display: none; }
   .account-auth-card { padding: 32px; }
-  .account-header { padding: 12px 18px; gap: 14px; }
+  .account-header { padding: var(--ui-space-2); gap: var(--ui-space-1); }
   .account-header-label { display: none; }
   .account-header-user { gap: 8px; }
   .account-user-name { max-width: 130px; }
-  .account-nav { padding: 8px 16px; }
+  .account-nav { padding-inline: var(--ui-space-2); }
   .account-content { padding: 28px 18px 36px; }
   .account-member { flex-wrap: wrap; }
   .account-member > .account-actions { width: 100%; margin-left: 46px; }
