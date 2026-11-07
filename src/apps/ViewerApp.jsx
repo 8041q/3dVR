@@ -9,9 +9,24 @@ import { useProject } from '../hooks/useProject'
 import { resolveSceneId } from '../viewer/sceneSelection'
 import { projectViewerSettings } from '../projectSettings.js'
 
+const ERROR_COPY = {
+  403: {
+    title: 'This account can’t open this tour.',
+    description: 'Ask a project owner for access, or use an account that already has permission.',
+  },
+  404: {
+    title: 'This tour isn’t available.',
+    description: 'The tour may not be published yet. Your workspace is still available.',
+  },
+  default: {
+    title: 'We couldn’t open this tour.',
+    description: 'Check your connection and try again.',
+  },
+}
+
 export default function ViewerApp({ projectId = 'default' }) {
   const { project, loading, error, errorStatus, source, reload } = useProject(projectId)
-  const auth=useAuth()
+  const auth = useAuth()
   const [selectedSceneId, setSceneId] = useState(null)
   const scenes = project?.scenes || []
   const guides = project?.guides || []
@@ -19,10 +34,28 @@ export default function ViewerApp({ projectId = 'default' }) {
 
   const sceneId = resolveSceneId(scenes, selectedSceneId, project?.startSceneId)
 
-  if (loading) return <EntryState title="Opening your tour…" description="Loading the visitor experience." />
-  if (errorStatus===401) return <AccountApp notice="Sign in to view this private tour." returnTo={location.pathname} />
-  if (error) return <EntryState title={errorStatus===403 ? 'This account can’t open this tour.' : errorStatus===404 ? 'This tour isn’t available.' : 'We couldn’t open this tour.'} description={errorStatus===403 ? 'Ask a project owner for access, or use an account that already has permission.' : errorStatus===404 ? 'The tour may not be published yet. Your workspace is still available.' : 'Check your connection and try again.'}>{errorStatus===403 && auth.user && <button onClick={async()=>{await auth.logout();await reload()}}>Use another account</button>}{!errorStatus && <button onClick={reload}>Try again</button>}</EntryState>
-  if (!sceneId) return <EntryState title="This tour is still taking shape." description="There are no published scenes to view yet."></EntryState>
+  // Visitor-facing screens: no studio back-link, no studio label.
+  const entry = { backTo: auth.user ? '/' : null, eyebrow: 'Virtual tour' }
+
+  if (loading) return <EntryState {...entry} title="Opening your tour…" description="Loading the visitor experience." />
+
+  if (errorStatus === 401) {
+    return <AccountApp notice="Sign in to view this private tour." returnTo={location.pathname} />
+  }
+
+  if (error) {
+    const copy = ERROR_COPY[errorStatus] || ERROR_COPY.default
+    return (
+      <EntryState {...entry} title={copy.title} description={copy.description}>
+        {errorStatus === 403 && auth.user && (
+          <button onClick={async () => { await auth.logout(); await reload() }}>Use another account</button>
+        )}
+        {!errorStatus && <button onClick={reload}>Try again</button>}
+      </EntryState>
+    )
+  }
+
+  if (!sceneId) return <EntryState {...entry} title="This tour is still taking shape." description="There are no published scenes to view yet." />
 
   return (
     <div className="app">

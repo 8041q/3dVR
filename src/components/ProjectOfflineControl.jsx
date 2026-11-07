@@ -13,6 +13,8 @@ const formatBytes = (value = 0) => (
     : `${(value / 1024 ** 3).toFixed(2)} GB`
 )
 
+const STATUS_LABELS = { busy: 'Saving…', checking: 'Checking…', ready: 'Ready offline', update: 'Update available', retry: 'Save again', idle: 'Not saved' }
+
 export default function ProjectOfflineControl({ project, source }) {
   const [record, setRecord] = useState(null)
   const [busy, setBusy] = useState(false)
@@ -49,7 +51,8 @@ export default function ProjectOfflineControl({ project, source }) {
   const current = record?.revision === project.revision
   const ready = current && verified && !checking
   const needsUpdate = record && !current
-  const status = busy ? 'Saving…' : checking ? 'Checking…' : ready ? 'Ready offline' : needsUpdate ? 'Update available' : record ? 'Save again' : 'Not saved'
+  const state = busy ? 'busy' : checking ? 'checking' : ready ? 'ready' : needsUpdate ? 'update' : record ? 'retry' : 'idle'
+  const viewingOffline = source === 'offline' && ready
 
   async function save() {
     setBusy(true)
@@ -98,8 +101,9 @@ export default function ProjectOfflineControl({ project, source }) {
       </summary>
       <div className="offline-control__panel" aria-busy={busy}>
         <strong className="offline-control__title">{project.title || 'Tour'}</strong>
+        <p className="offline-control__hint">Save this tour to this device to view it without a connection.</p>
         <dl className="offline-control__metadata">
-          <div><dt>Status</dt><dd role="status">{source === 'offline' && ready ? 'Viewing offline' : status}</dd></div>
+          <div><dt>Status</dt><dd role="status" className="offline-control__state" data-state={state}>{viewingOffline ? 'Viewing offline' : STATUS_LABELS[state]}</dd></div>
           <div><dt>Scenes</dt><dd>{project.scenes?.length || 0}</dd></div>
           {record && <div><dt>Saved size</dt><dd>{formatBytes(record.bytes)} · {record.assetCount} files</dd></div>}
           {record?.downloadedAt && <div><dt>Saved</dt><dd>{new Date(record.downloadedAt).toLocaleDateString()}</dd></div>}
@@ -116,7 +120,7 @@ export default function ProjectOfflineControl({ project, source }) {
           {!ready && <button className="primary" disabled={!supported || busy || checking} onClick={save}>
             {busy ? 'Saving…' : needsUpdate ? 'Update saved tour' : record ? 'Save again' : 'Save for offline'}
           </button>}
-          {record && <button disabled={busy || checking} onClick={remove}>Remove saved tour</button>}
+          {record && <button className="danger" disabled={busy || checking} onClick={remove}>Remove saved tour</button>}
         </div>
       </div>
     </details>
