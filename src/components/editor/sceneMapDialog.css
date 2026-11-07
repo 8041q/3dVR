@@ -1,5 +1,17 @@
 .studio-scene-map.map-v2[open] { display:grid; grid-template-rows:auto auto minmax(0,1fr) auto; width:100%; height:100dvh; overflow:hidden; }
 .studio-scene-map.map-v2 .scene-map-dialog__header { display:flex; align-items:center; justify-content:space-between; gap:24px; padding:20px 24px; border-bottom:1px solid var(--studio-line); }
+.studio-scene-map.map-v2 .scene-map-dialog__header .scene-map-dialog__actions { display:flex; align-items:center; gap:16px; }
+.studio-scene-map.map-v2 .scene-map-dialog__header .scene-map-dialog__back {
+  display:inline-flex; align-items:center; gap:6px;
+  margin:0; padding:0; border:0; border-radius:0; background:none;
+  color:var(--studio-accent); font:550 12px var(--ui-font); cursor:pointer;
+  text-decoration:none; outline:none;
+}
+.studio-scene-map.map-v2 .scene-map-dialog__header .scene-map-dialog__back:hover,
+.studio-scene-map.map-v2 .scene-map-dialog__header .scene-map-dialog__back:focus-visible,
+.studio-scene-map.map-v2 .scene-map-dialog__header .scene-map-dialog__back:active {
+  color:var(--studio-accent); text-decoration:none; outline:none; box-shadow:none;
+}
 .map-v2 h2 { margin:6px 0; font-size:20px; }
 .map-v2 .scene-map-dialog__header p { margin:0; font-size:12px; }
 .scene-map-toolbar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:12px 24px; border-bottom:1px solid var(--studio-line); }

@@ -1,6 +1,6 @@
 import { useModelThumbnails } from '../../contexts/ModelThumbnailContext'
 import Select from '../ui/Select'
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import './assetLibrary.css'
 import AssetPreview from './AssetPreview'
 import { assetUsage, containsAsset, filterAssets, uploadAssetBatch } from '../../editor/assetLibrary'
@@ -33,6 +33,69 @@ function AssetThumbnail({ asset, thumbnailState }) {
     <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" aria-hidden="true"><path d="m12 2 9 5v10l-9 5-9-5V7Zm0 10 9-5M12 12 3 7m9 5v10" /></svg>
     <small>{failed ? 'Open preview to refresh thumbnail' : thumbnailState === 'error' ? 'Thumbnail unavailable' : 'Generating thumbnail…'}</small>
   </> : ({ image: 'Image preview unavailable', audio: 'Audio', video: 'Video' })[asset.type] || asset.extension}</span>
+}
+
+function AssetMenu({ asset, mutating, onCopy, onDelete, deleting, used }) {
+  const [open, setOpen] = useState(false)
+  const [position, setPosition] = useState({})
+  const anchor = useRef(null)
+  const menu = useRef(null)
+
+  const placeMenu = useCallback(() => {
+    if (!open || !anchor.current || !menu.current) return
+    const box = anchor.current.getBoundingClientRect()
+    const size = menu.current.getBoundingClientRect()
+    const viewportHeight = window.innerHeight
+    const viewportWidth = window.innerWidth
+    const gap = 8
+    const fitsBelow = viewportHeight - box.bottom - size.height >= gap
+    const fitsAbove = box.top - size.height >= gap
+    const fitsRight = viewportWidth - box.right - size.width >= gap
+    const fitsLeft = box.left - size.width >= gap
+    const style = { position: 'fixed', top: 'auto', bottom: 'auto', left: 'auto', right: 'auto' }
+    if (!fitsBelow && fitsAbove) style.bottom = viewportHeight - box.top + gap
+    else style.top = box.bottom + gap
+    if (!fitsRight && fitsLeft) style.left = box.left
+    else style.right = viewportWidth - box.right
+    setPosition(style)
+  }, [open])
+
+  useLayoutEffect(() => {
+    if (!open) { setPosition({}); return }
+    placeMenu()
+    const onResize = () => placeMenu()
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [open, placeMenu])
+
+  useEffect(() => {
+    if (!open) return
+    const onEscape = (event) => { if (event.key === 'Escape') setOpen(false) }
+    const onClickAway = (event) => {
+      if (anchor.current && !anchor.current.contains(event.target) && (!menu.current || !menu.current.contains(event.target))) setOpen(false)
+    }
+    document.addEventListener('keydown', onEscape)
+    document.addEventListener('mousedown', onClickAway)
+    return () => {
+      document.removeEventListener('keydown', onEscape)
+      document.removeEventListener('mousedown', onClickAway)
+    }
+  }, [open])
+
+  return (
+    <div className="studio-asset-menu-anchor" ref={anchor} onClick={(event) => { event.stopPropagation(); setOpen((wasOpen) => !wasOpen) }}>
+      <button type="button" aria-haspopup="true" aria-expanded={open} aria-label={`Manage ${asset.name}`}>More</button>
+      {open && (
+        <div ref={menu} className="studio-asset-menu" role="menu" style={{ ...position }} onClick={(event) => event.stopPropagation()}>
+          <button type="button" onClick={() => { setOpen(false); onCopy() }}>Copy link</button>
+          <button type="button" onClick={() => { setOpen(false); const a = document.createElement('a'); a.href = asset.url; a.download = asset.name; a.click(); }}>Download</button>
+          {asset.source === 'upload' && (
+            <button type="button" className="danger" onClick={() => { setOpen(false); onDelete() }} disabled={mutating || used} title={used ? 'Remove this file from the project before deleting it.' : undefined}>{deleting ? 'Deleting…' : 'Delete file'}</button>
+          )}
+        </div>
+      )}
+    </div>
+  )
 }
 
 export default function AssetLibrary({
@@ -211,7 +274,7 @@ export default function AssetLibrary({
             <span className={usageByUrl.get(asset.url)?.length ? 'studio-asset-used' : ''}>{usageByUrl.get(asset.url)?.length ? `Used in ${usageByUrl.get(asset.url).length} ${usageByUrl.get(asset.url).length === 1 ? 'place' : 'places'} in this project` : 'Not used in this project'}</span></div>
           <div className="studio-asset-controls">
             {((asset.type === 'image' && onUseImage) || (asset.type === 'model' && onUseModel)) ? <button type="button" className="primary" aria-label={`Use ${asset.type} ${asset.name}`} disabled={mutating} onClick={() => useAsset(asset)}>Use {asset.type}</button> : <button type="button" onClick={() => setPreview(asset)}>Preview</button>}
-            <details data-menu><summary aria-label={`Manage ${asset.name}`}>More</summary><div className="studio-asset-menu"><button type="button" onClick={() => copyUrl(asset.url)}>Copy link</button><a className="button-link" href={asset.url} download={asset.name}>Download</a>{asset.source === 'upload' && <button type="button" className="danger" onClick={() => deleteAsset(asset)} disabled={mutating || loading || Boolean(usageByUrl.get(asset.url)?.length)} title={usageByUrl.get(asset.url)?.length ? 'Remove this file from the project before deleting it.' : undefined}>{deletingUrl === asset.url ? 'Deleting…' : 'Delete file'}</button>}</div></details>
+            <AssetMenu asset={asset} mutating={mutating || loading} onCopy={() => copyUrl(asset.url)} onDelete={() => deleteAsset(asset)} deleting={deletingUrl === asset.url} used={Boolean(usageByUrl.get(asset.url)?.length)} />
           </div>
         </li>)}
       </ul>

@@ -67,7 +67,7 @@ export default function AccountApp({ notice, returnTo }) {
   function share(id) {setProjectId(id);setTab('sharing');setError('');setMessage('');history.pushState(null,'','/account?project='+encodeURIComponent(id)+'&from=projects')}
   const fromEditor=active==='sharing' && new URLSearchParams(location.search).get('from')==='editor'
   function goBack(){if(fromEditor && projectId)location.href='/editor/'+encodeURIComponent(projectId);else if(previousTab){const back=previousTab;setPreviousTab(null);showTab(back)}else showTab('projects')}
-  const tabs = owner ? [['projects','Projects'],['users','Users'],['server','Server'],['security','Security'],['about','About']] : [['projects','Projects'],['security','Security'],['about','About']]
+  const tabs = owner ? [['projects','Projects'],['users','Users'],['server','Server'],['security','Account'],['about','About']] : [['projects','Projects'],['security','Account'],['about','About']]
   if (projectId) tabs.splice(1,0,['sharing','Project access'])
   return <div className="account-ui account-shell">
     <header className="account-header">
