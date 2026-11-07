@@ -331,6 +331,14 @@ export function createAccountsRouter(express) {
 
   })
 
+  r.get('/appearance', async (_req,res) => {
+
+    const db = securityDb()
+    const accentColor = getSetting(db, 'accentColor', null)
+    res.json({ accentColor: accentColor || null })
+
+  })
+
   r.get('/owner', ownerOnly, async (_req,res) => {
 
     const db = securityDb()

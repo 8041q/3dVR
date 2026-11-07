@@ -10,7 +10,8 @@ export function applicationOrigin(env = process.env) {
   return url.origin
 }
 
-// Development hosts come from current OS interfaces, not a saved IP list.
+// Trusted hosts reachable on this machine's interfaces, using the configured
+// frontend origin's scheme and port (the address browsers actually connect to).
 export function machineOrigins(base, interfaces = networkInterfaces()) {
   const origins=new Set()
   const addresses=Object.values(interfaces).flat().filter(Boolean).map(item=>item.address)

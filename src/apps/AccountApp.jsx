@@ -198,7 +198,7 @@ function AccountSecurity({onComplete}) {
     setBusy(true);setError('');setMessage('')
     try{
       await accountRequest('/api/accounts/owner/settings',{key:'accentColor',value:accentColor},'POST')
-      applyAccentColor(accentColor)
+      applyAccentColor(accentColor, { remember: true })
       setMessage('Accent color saved.')
     }catch(e){setError(e.message)}
     finally{setBusy(false)}

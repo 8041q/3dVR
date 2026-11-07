@@ -102,8 +102,9 @@ setInterval(()=>purgeDeletedAccounts().catch(error=>console.error('[account-clea
 purgeOrphanAvatars().catch(error=>console.error('[avatar-cleanup]',error))
 setInterval(()=>purgeOrphanAvatars().catch(error=>console.error('[avatar-cleanup]',error)),3600000).unref()
 const PORT = Number(process.env.PORT || 3001)
-const server = app.listen(PORT, process.env.HOST || '127.0.0.1', () => {
-  console.log(`[server] http://localhost:${PORT}`)
+const HOST = process.env.HOST || '0.0.0.0'
+const server = app.listen(PORT, HOST, () => {
+  console.log(`[server] http://${HOST === '0.0.0.0' ? '0.0.0.0' : 'localhost'}:${PORT}`)
   if (fs.existsSync(path.join(distRoot, 'index.html'))) {
     console.log('[server] serving production client from ./dist')
   } else {
