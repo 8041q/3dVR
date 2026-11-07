@@ -226,6 +226,7 @@
 }
 .studio-workspace-body > * { width: 100%; min-width: 0; }
 .studio-project-tab { margin-inline-start: auto; }
+.studio-workspace-nav .ui-back-row { margin-bottom: 0; }
 
 .studio-asset-picker {
   width: min(680px, calc(100vw - 32px));

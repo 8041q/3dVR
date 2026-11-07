@@ -450,15 +450,27 @@ export default function EditorWorkspace({ projectId, draft, authToken }) {
           </div>
         </header>
         <nav className="studio-workspace-nav" aria-label="Project workspaces" inert={draft.publishing ? true : undefined}>
-          {WORKSPACES.map(({ kind, label }) => (
-            <button key={kind} type="button" className={kind === 'project' ? 'studio-project-tab' : undefined}
-              aria-current={workspace.kind === kind || (kind === 'project' && workspace.kind === 'export') ? 'page' : undefined}
-              onClick={() => openWorkspace({ kind })}>{label}</button>
-          ))}
+          {WORKSPACES.map(({ kind, label }) => {
+            const isProject = kind === 'project';
+            const active = workspace.kind === kind || (kind === 'project' && workspace.kind === 'export');
+            const tab = (
+              <button type="button"
+                aria-current={active ? 'page' : undefined}
+                onClick={() => openWorkspace({ kind })}>{label}</button>
+            );
+            if (!isProject) return <React.Fragment key={kind}>{tab}</React.Fragment>;
+            return (
+              <React.Fragment key={kind}>
+                <div style={{ marginInlineStart: 'auto', display: 'inline-flex', alignItems: 'center', gap: 'var(--ui-nav-gap)' }}>
+                  {workspace.kind === 'product'
+                    ? <BackRow className="studio-nav-back" onClick={returnToHotspot} disabled={busy}>Back to hotspot</BackRow>
+                    : <BackRow className="studio-nav-back" href="/" disabled={busy}>Back to projects</BackRow>}
+                  {tab}
+                </div>
+              </React.Fragment>
+            );
+          })}
         </nav>
-        {workspace.kind==='product'
-          ? <BackRow className="studio-back-row" onClick={returnToHotspot} disabled={busy}>Back to hotspot</BackRow>
-          : <BackRow className="studio-back-row" href="/" disabled={busy}>Back to projects</BackRow>}
         {error && !reviewOpen && (
           <div className="studio-error" role="alert">
             {error}<button aria-label="Dismiss message" onClick={() => setError('')}>×</button>
