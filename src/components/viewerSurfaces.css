@@ -218,7 +218,7 @@
 .viewer-controls .mode-bar { display: flex; align-items: center; gap: 2px; padding: 0; border: 0; border-radius: 9px; box-shadow: none; background: #ffffff09; backdrop-filter: none; }
 .viewer-controls .mode-bar button, .viewer-controls__bar > button, .viewer-controls__display > button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; height: 38px; min-height: 38px; margin: 0; padding: 0 12px; border: 1px solid transparent; border-radius: 8px; color: #cbd5e3; background: transparent; font: 500 12px/1 var(--ui-font); white-space: nowrap; cursor: pointer; }
 .viewer-controls .mode-bar button:hover:not(:disabled), .viewer-controls__bar > button:hover, .viewer-controls__display > button:hover { color: #fff; background: #ffffff12; }
-.viewer-controls .mode-bar button[aria-pressed="true"], .viewer-controls .mode-bar button[aria-pressed="true"]:hover { background: #fff; color: var(--ui-accent); box-shadow: 0 1px 3px #0002; }
+.viewer-controls .mode-bar button[aria-pressed="true"], .viewer-controls .mode-bar button[aria-pressed="true"]:hover { background: var(--ui-accent); color: var(--ui-on-accent); box-shadow: 0 1px 3px #0002; }
 .viewer-controls__display { display: flex; align-items: center; gap: 3px; padding-left: 8px; border-left: 1px solid #ffffff21; }
 .viewer-controls .viewer-controls__display select { width: 136px; min-width: 0; height: 38px; min-height: 38px; margin: 0; padding: 0 8px; border: 1px solid #ffffff20; border-radius: 8px; background: #2c394b; color: #f1f5fa; color-scheme: dark; font: 500 12px var(--ui-font); cursor: pointer; }
 .viewer-controls__display > .viewer-controls__icon { width: 36px; padding: 0; }
